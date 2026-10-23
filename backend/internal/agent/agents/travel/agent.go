@@ -18,13 +18,14 @@ type KernelConfig struct {
 	Tools         []tool.BaseTool
 	MaxIterations int
 	Handlers      []adk.ChatModelAgentMiddleware
+	OnState       func(context.Context, State) error
 }
 
 func NewKernel(ctx context.Context, cfg KernelConfig) (adk.ResumableAgent, error) {
 	if cfg.Model == nil || cfg.MaxIterations <= 0 {
 		return nil, errors.New("invalid travel kernel configuration")
 	}
-	h := &phaseHandler{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}, limit: cfg.MaxIterations}
+	h := &phaseHandler{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}, limit: cfg.MaxIterations, onState: cfg.OnState}
 	for _, t := range cfg.Tools {
 		info, err := t.Info(ctx)
 		if err != nil {
@@ -37,7 +38,7 @@ func NewKernel(ctx context.Context, cfg KernelConfig) (adk.ResumableAgent, error
 	}
 	return adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name: "travel", Description: "差旅行程规划", Model: cfg.Model, MaxIterations: cfg.MaxIterations,
-		Instruction: "你是差旅规划助手。使用工具提供的真实证据和保存结果，不虚构车次、酒店价格、合规结论或已完成的操作。",
+		Instruction: instruction,
 		ToolsConfig: adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{Tools: cfg.Tools}},
 		Handlers:    append([]adk.ChatModelAgentMiddleware{h}, cfg.Handlers...),
 		GenModelInput: func(ctx context.Context, instruction string, input *adk.AgentInput) ([]*schema.Message, error) {
@@ -54,9 +55,10 @@ func NewKernel(ctx context.Context, cfg KernelConfig) (adk.ResumableAgent, error
 
 type phaseHandler struct {
 	*adk.BaseChatModelAgentMiddleware
-	mu    sync.Mutex
-	limit int
-	tools []*schema.ToolInfo
+	mu      sync.Mutex
+	limit   int
+	tools   []*schema.ToolInfo
+	onState func(context.Context, State) error
 }
 
 func (h *phaseHandler) BeforeModelRewriteState(ctx context.Context, state *adk.ChatModelAgentState, _ *adk.ModelContext) (context.Context, *adk.ChatModelAgentState, error) {
@@ -68,6 +70,11 @@ func (h *phaseHandler) BeforeModelRewriteState(ctx context.Context, state *adk.C
 	}
 	if s.ModelCalls >= h.limit {
 		return ctx, state, adk.ErrExceedMaxIterations
+	}
+	if h.onState != nil {
+		if err = h.onState(ctx, s); err != nil {
+			return ctx, state, err
+		}
 	}
 	state.ToolInfos = nil
 	for _, info := range h.tools {
@@ -119,6 +126,16 @@ func (h *phaseHandler) WrapInvokableToolCall(_ context.Context, next adk.Invokab
 		}
 		switch t.Name {
 		case "write_trip":
+			var observation struct {
+				Trip struct {
+					Plan struct {
+						ID string `json:"id"`
+					} `json:"plan"`
+				} `json:"trip"`
+			}
+			if json.Unmarshal([]byte(result), &observation) == nil && observation.Trip.Plan.ID != "" {
+				s.PlanID = observation.Trip.Plan.ID
+			}
 			if command.Operation == "propose" {
 				s.Phase = PhaseQuerying
 			} else {

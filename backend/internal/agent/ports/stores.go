@@ -24,3 +24,8 @@ type TravelDecisionStore interface {
 	FindTravelDecision(context.Context, model.TravelExecution, string) (model.TravelDecision, bool, error)
 	AcceptTravelDecision(context.Context, model.TravelExecution, model.TravelDecision) (model.TravelDecision, error)
 }
+
+type TravelActionStore interface {
+	FindTravelToolResult(context.Context, model.TravelExecution, string) (string, bool, error)
+	SaveTravelToolResult(context.Context, model.TravelExecution, string, string) error
+}

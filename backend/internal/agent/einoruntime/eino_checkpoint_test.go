@@ -21,6 +21,30 @@ type diskStore struct {
 	fail bool
 }
 
+func TestNonStreamingEscalationNotResumable(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	m := &probeModel{second: make(chan struct{}), release: make(chan struct{})}
+	s := &diskStore{dir: t.TempDir()}
+	r, err := NewRunner(ctx, RunnerConfig{Agent: makeAgent(t, m, &atomic.Int32{}, &atomic.Int32{}), Store: s, RunID: "forced", Fingerprint: "v1", PauseTimeout: 30 * time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- r.Run(ctx, []*schema.Message{schema.UserMessage("force stop")}, nil) }()
+	select {
+	case <-m.second:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	if !r.RequestPause() {
+		t.Fatal("pause not acknowledged")
+	}
+	if err = <-done; err == nil || r.Result().Resumable {
+		t.Fatalf("forced stop falsely resumable: %+v %v", r.Result(), err)
+	}
+}
+
 func TestResumeMissingCheckpoint(t *testing.T) {
 	_, err := NewRunner(context.Background(), RunnerConfig{Agent: makeAgent(t, &probeModel{}, &atomic.Int32{}, &atomic.Int32{}), Store: &diskStore{dir: t.TempDir()}, RunID: "missing", Fingerprint: "v1", Resume: true})
 	if !errors.Is(err, ErrCheckpointMissing) {

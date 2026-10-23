@@ -129,6 +129,9 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 				}
 				if event.Err != nil {
 					var ce *adk.CancelError
+					if errors.As(event.Err, &ce) && ce.Info != nil && ce.Info.Escalated {
+						r.store.unsafe.Store(true)
+					}
 					if !errors.As(event.Err, &ce) {
 						var streamCancel *adk.StreamCanceledError
 						if errors.As(event.Err, &streamCancel) {
@@ -190,6 +193,9 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 		return fmt.Errorf("checkpoint save failed: %w", exit.CheckpointErr)
 	}
 	if paused {
+		if r.store.unsafe.Load() {
+			return errors.New("forced stop did not reach a verified safe point")
+		}
 		if exit.ExitReason != nil {
 			var cancelErr *adk.CancelError
 			if !errors.As(exit.ExitReason, &cancelErr) {

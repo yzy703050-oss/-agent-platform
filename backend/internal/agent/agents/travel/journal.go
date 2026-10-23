@@ -1,0 +1,143 @@
+package travel
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+
+	"agent-platform/backend/internal/agent/ports"
+	traveltools "agent-platform/backend/internal/agenttools/travel"
+	pm "agent-platform/backend/internal/model"
+	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/schema"
+)
+
+type journalStore interface {
+	ports.TravelDecisionStore
+	ports.TravelActionStore
+}
+type journal struct {
+	*adk.BaseChatModelAgentMiddleware
+	store journalStore
+	ref   pm.TravelExecution
+}
+
+func decisionKey(n int) string { return fmt.Sprintf("model-%06d", n) }
+func (h *journal) WrapModel(_ context.Context, m model.BaseChatModel, mc *adk.ModelContext) (model.BaseChatModel, error) {
+	return &journalModel{inner: m, h: h, tools: mc.Tools}, nil
+}
+
+type journalModel struct {
+	inner model.BaseChatModel
+	h     *journal
+	tools []*schema.ToolInfo
+}
+
+func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.Message, error) {
+	s, err := readState(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Ignore ephemeral Eino message IDs. Only semantic input and visible tools
+	// define this accepted decision's request identity.
+	normal := make([]pm.Message, 0, len(input))
+	for _, v := range input {
+		normal = append(normal, fromEino(v))
+	}
+	b, err := json.Marshal(struct {
+		Messages []pm.Message
+		Tools    []*schema.ToolInfo
+	}{normal, m.tools})
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(b)
+	hash := hex.EncodeToString(sum[:])
+	key := decisionKey(s.ModelCalls)
+	d, ok, err := m.h.store.FindTravelDecision(ctx, m.h.ref, key)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		if d.RequestHash != hash {
+			return nil, pm.ErrIdempotencyConflict
+		}
+		return toEino(d.Response), nil
+	}
+	response, err := m.inner.Generate(ctx, input, opts...)
+	if err != nil {
+		return nil, err
+	}
+	if response == nil {
+		return nil, pm.ErrInvalidInput
+	}
+	d, err = m.h.store.AcceptTravelDecision(ctx, m.h.ref, pm.TravelDecision{RunID: m.h.ref.RunID, DecisionKey: key, Stage: string(s.Phase), RequestHash: hash, Response: fromEino(response)})
+	if err != nil {
+		return nil, err
+	}
+	return toEino(d.Response), nil
+}
+func (m *journalModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
+	v, err := m.Generate(ctx, input, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return schema.StreamReaderFromArray([]*schema.Message{v}), nil
+}
+func (h *journal) WrapInvokableToolCall(_ context.Context, next adk.InvokableToolCallEndpoint, t *adk.ToolContext) (adk.InvokableToolCallEndpoint, error) {
+	return func(ctx context.Context, args string, opts ...tool.Option) (string, error) {
+		s, err := readState(ctx)
+		if err != nil {
+			return "", err
+		}
+		d, ok, err := h.store.FindTravelDecision(ctx, h.ref, decisionKey(s.ModelCalls-1))
+		if err != nil {
+			return "", err
+		}
+		if !ok {
+			return "", pm.ErrConflict
+		}
+		id := d.OperationIDs[t.CallID]
+		if id == "" {
+			return "", pm.ErrConflict
+		}
+		matched := false
+		for _, call := range d.Response.ToolCalls {
+			if call.ID == t.CallID && call.Name == t.Name && call.Arguments == args {
+				matched = true
+			}
+		}
+		if !matched {
+			return "", pm.ErrIdempotencyConflict
+		}
+		if out, ok, err := h.store.FindTravelToolResult(ctx, h.ref, id); err != nil || ok {
+			return out, err
+		}
+		out, err := next(traveltools.WithOperationID(ctx, id), args, opts...)
+		if err != nil {
+			return out, err
+		}
+		if err = h.store.SaveTravelToolResult(ctx, h.ref, id, out); err != nil {
+			return "", err
+		}
+		return out, nil
+	}, nil
+}
+func fromEino(v *schema.Message) pm.Message {
+	m := pm.Message{Role: string(v.Role), Content: v.Content, ToolCallID: v.ToolCallID}
+	for _, c := range v.ToolCalls {
+		m.ToolCalls = append(m.ToolCalls, pm.ToolCall{ID: c.ID, Name: c.Function.Name, Arguments: c.Function.Arguments})
+	}
+	return m
+}
+func toEino(m pm.Message) *schema.Message {
+	v := &schema.Message{Role: schema.RoleType(m.Role), Content: m.Content, ToolCallID: m.ToolCallID}
+	for _, c := range m.ToolCalls {
+		v.ToolCalls = append(v.ToolCalls, schema.ToolCall{ID: c.ID, Type: "function", Function: schema.FunctionCall{Name: c.Name, Arguments: c.Arguments}})
+	}
+	return v
+}

@@ -13,6 +13,12 @@ import (
 
 // All business writes use the platform's conversation -> run -> resource lock order.
 func lockTravelExecution(ctx context.Context, tx pgx.Tx, ref model.TravelExecution) error {
+	return lockTravelExecutionState(ctx, tx, ref, false)
+}
+
+// During safe-point stopping only the already in-flight model's decision may
+// be recorded. Business mutations still require strictly running status.
+func lockTravelExecutionState(ctx context.Context, tx pgx.Tx, ref model.TravelExecution, journal bool) error {
 	if ref.Scope.UserID == "" || ref.Scope.SessionID == "" || ref.RunID == "" || ref.ConversationID == "" {
 		return model.ErrInvalidInput
 	}
@@ -20,7 +26,7 @@ func lockTravelExecution(ctx context.Context, tx pgx.Tx, ref model.TravelExecuti
 	if err != nil {
 		return err
 	}
-	if run.ConversationID != ref.ConversationID || run.Attempt != ref.Attempt || run.Status != "running" {
+	if run.ConversationID != ref.ConversationID || run.Attempt != ref.Attempt || (run.Status != "running" && !(journal && run.Status == "pausing")) {
 		return model.ErrConflict
 	}
 	var authorized bool
@@ -119,7 +125,7 @@ func (r *Repository) AcceptTravelDecision(ctx context.Context, ref model.TravelE
 		return model.TravelDecision{}, err
 	}
 	defer tx.Rollback(ctx)
-	if err = lockTravelExecution(ctx, tx, ref); err != nil {
+	if err = lockTravelExecutionState(ctx, tx, ref, true); err != nil {
 		return model.TravelDecision{}, err
 	}
 	old, ok, err := loadTravelDecision(ctx, tx, ref, d.DecisionKey)

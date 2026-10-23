@@ -55,3 +55,11 @@
 真实 PostgreSQL 的 TestTravelMemoryIsolation 通过：偏好修订幂等、被替代来源排除、更早有效值回退、混合摘要全部来源检查、明确撤回和推断冲突保护。TestTravelContextBudget 先失败后通过，超长可选摘要让位于当前 Run，历史按整个 Run 保留，不拆分工具配对。相关 memory/preference/repository vet 通过。
 
 低频自动偏好分析及自动摘要生成尚未接入，不将 Task 5 或 OpenSpec 7.3 整体勾选完成。当前摘要可安全保存与读取；预算不足明确返回限制。代码不访问 Python 数据库。
+
+### Task 6 — 统一 Execution 与持久化工作流
+
+新增 Travel contracts.Agent 适配与四个业务工具，复用共享 Eino Runner、平台 CheckpointStore、身份和 Run。完整模型决策先写日志，工具绑定可信执行范围和稳定 operation ID；完整工具观察与业务回执分开保存。规划自动触发查询，真实候选通过 Service 选择；行程最终文字从 Repository 快照生成，不复述模型虚构的付款/预订结论。
+
+真实 PostgreSQL 的 TestTravelWorkflow、TestTravelWorkflowRecovery 通过，包含有效旧断点重放、跨新实例手动恢复、迭代预算连续性、初始化零模型/查询调用和修订不重复。TestTravelTransactions 增加 unknown 操作拒绝。共享 Runner 拒绝强制升级停止的可恢复状态；普通聊天、共享运行时及差旅受影响检查通过（.cache/reports/travel-task6-all.log、travel-task6-old-checkpoint.log）。
+
+恢复诊断发现非流式强制取消可能丢失内核历史，已修订 design D7/D8 并补回归。安全停止时可记录在途模型决策，pausing 业务写入仍拒绝。政策工具、平台入口注册和前端仍待后续任务，开发服务未切换到新代码。

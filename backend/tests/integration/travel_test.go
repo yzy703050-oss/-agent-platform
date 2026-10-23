@@ -249,6 +249,12 @@ func TestTravelTransactions(t *testing.T) {
 		if err != nil || !ok || restored.OperationIDs["call-1"] != saved.OperationIDs["call-1"] {
 			t.Fatalf("operation identity changed across attempts: %+v %v", restored, err)
 		}
+		if _, err = f.pool.Exec(ctx, "UPDATE travel_actions SET status='unknown' WHERE operation_id=$1", saved.OperationIDs["call-1"]); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = service.Apply(ctx, ref, saved.OperationIDs["call-1"], travelCommand()); !errors.Is(err, model.ErrConflict) {
+			t.Fatalf("unknown write replayed: %v", err)
+		}
 		if _, err = f.pool.Exec(ctx, `CREATE FUNCTION reject_travel_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected receipt failure'; END $$;
 CREATE TRIGGER reject_travel_receipt BEFORE INSERT ON travel_operation_receipts FOR EACH ROW EXECUTE FUNCTION reject_travel_receipt();`); err != nil {
 			t.Fatal(err)

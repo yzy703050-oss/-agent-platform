@@ -20,9 +20,10 @@ const (
 
 // State is serialized in the Eino session, independently of live Go objects.
 type State struct {
-	Version    int   `json:"version"`
-	Phase      Phase `json:"phase"`
-	ModelCalls int   `json:"model_calls"`
+	Version    int    `json:"version"`
+	Phase      Phase  `json:"phase"`
+	ModelCalls int    `json:"model_calls"`
+	PlanID     string `json:"plan_id,omitempty"`
 }
 
 func readState(ctx context.Context) (State, error) {
