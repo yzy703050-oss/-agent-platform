@@ -1,6 +1,6 @@
 # Go Agent Platform
 
-Go + React Agent 平台，当前 MVP 进度 3/8：Eino 恢复底座、PostgreSQL 存储、认证与会话 API 已实现；聊天接线、恢复 API、SSE 和 React 尚未完成。
+Go + React Agent 平台，当前 MVP 进度 4/8：Eino 执行、PostgreSQL 存储、认证与会话、聊天执行链路已实现；页面恢复 API、SSE 和 React 尚未完成。真实模型网络冒烟待本地配置。
 
 ## 正式文档
 

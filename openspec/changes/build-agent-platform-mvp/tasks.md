@@ -12,7 +12,7 @@
 
 ## 4. 普通聊天与上下文闭环
 
-- [ ] 4.1 实现 Application、Manager、Eino GeneralAgent、只读设置工具和 ContextBuilder；验证幂等提交、同会话互斥、真实 Eino 工具调用、预算、完成事务，以及被替代任务的展示/上下文隔离和迟到写入拒绝。
+- [x] 4.1 实现 Application、Manager、Eino GeneralAgent、只读设置工具和 ContextBuilder；验证幂等提交、同会话互斥、真实 Eino 工具调用、预算、完成事务，以及被替代任务的展示/上下文隔离和迟到写入拒绝。证据：新增 9 项测试通过；全套 42 项测试（含真实 PostgreSQL）、vet 通过。真实模型网络冒烟在 8.1 单列，当前未配置。
 
 ## 5. 页面归属与持久化恢复
 

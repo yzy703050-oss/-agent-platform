@@ -1,6 +1,7 @@
 package handler
 
 import (
+	chatapp "agent-platform/backend/internal/application/chat"
 	"agent-platform/backend/internal/middleware"
 	"agent-platform/backend/internal/model"
 	authsvc "agent-platform/backend/internal/service/auth"
@@ -14,6 +15,7 @@ import (
 )
 
 type API struct {
+	Chat          *chatapp.Application
 	Users         *usersvc.Service
 	Auth          *authsvc.Service
 	Conversations *convsvc.Service
@@ -32,6 +34,14 @@ func failure(c *gin.Context, err error) {
 		status, code = 404, "not_found"
 	case errors.Is(err, model.ErrConflict):
 		status, code = 409, "conflict"
+	case errors.Is(err, model.ErrIdempotencyConflict):
+		status, code = 409, "idempotency_conflict"
+	case errors.Is(err, model.ErrQuota):
+		status, code = 429, "run_quota_exceeded"
+	case errors.Is(err, model.ErrModelUnavailable):
+		status, code = 503, "model_unavailable"
+	case errors.Is(err, model.ErrAgentUnavailable):
+		status, code = 503, "agent_unavailable"
 	}
 	middleware.Reject(c, status, code)
 }
@@ -198,8 +208,28 @@ func (a *API) SubmitRun(c *gin.Context) {
 		middleware.Reject(c, 503, "agent_unavailable")
 		return
 	}
-	middleware.Reject(c, 503, "model_unavailable")
+	if a.Chat == nil || !a.Chat.Available() {
+		middleware.Reject(c, 503, "model_unavailable")
+		return
+	}
+	var in chatapp.SubmitInput
+	if !bind(c, &in) {
+		return
+	}
+	in.ConversationID = conv.ID
+	in.IdempotencyKey = c.GetHeader("Idempotency-Key")
+	run, err := a.Chat.Submit(c.Request.Context(), middleware.Scope(c), in)
+	if err != nil {
+		failure(c, err)
+		return
+	}
+	c.JSON(202, run)
 }
 func (a *API) Agents(c *gin.Context) {
-	c.JSON(200, gin.H{"items": []gin.H{{"id": "general", "available": false, "reason": "model_not_connected"}, {"id": "travel", "available": false, "reason": "not_connected"}}})
+	available := a.Chat != nil && a.Chat.Available()
+	reason := ""
+	if !available {
+		reason = "model_not_connected"
+	}
+	c.JSON(200, gin.H{"items": []gin.H{{"id": "general", "available": available, "reason": reason}, {"id": "travel", "available": false, "reason": "not_connected"}}})
 }

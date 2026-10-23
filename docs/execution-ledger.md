@@ -25,4 +25,10 @@ Task 3: complete；全部现有 33 项测试、vet 和构建通过；实际启�
 Task 3 RED: auth/conversation/settings 构造器、router.New 未实现；资料仅返回 ID、生产 Cookie 不安全、第 11 次登录未限流均有失败测试，修复后通过。
 Task 3 Ruling: Gin v1.12.0、x/crypto v0.58.0 将模块最低 Go 提高至 1.26.0；本机 1.27.2 满足。
 Task 3 Ruling: 注册/登录共用每 IP 每分钟 10 次限流，内存有界，关闭默认代理信任。
-Task 4–8: not started；接下来聊天接线与恢复 API，真实模型尚未验证。
+Task 4: complete；新增 9 项测试通过，全套 42 项（含真实 PostgreSQL）通过，go vet 通过。
+Task 4 RED: manager/memory、NewSettingsTool、NewAgent 未实现，目标测试编译失败；实现后并发幂等、配额、完成事务失败、上下文排除和迟到写入测试通过。
+Task 4 Ruling: 首版唯一工具通过 Eino ToolsNode 注册并执行；身份固定在每次执行创建的工具实例，不增加第二套工具调度器，未来多工具授权时再扩展 registry。
+Task 4 Ruling: 上下文按完整 Run 裁剪，32KB UTF-8 预算；当前任务本身超预算直接失败，不截断工具配对或静默丢弃本次问题。
+Task 4 model smoke: .env 中三个 LLM 配置项尚未齐备；用户将自行填写，未请求或输出秘密；网络冒烟留在 8.1，不能据单元模型夹具宣称实际模型已验证。
+Task 5: in progress；页面租约、生命周期与重启对账。
+Task 6–8: not started。

@@ -1,9 +1,17 @@
 package bootstrap
 
 import (
+	"agent-platform/backend/internal/agent/agents/general"
+	"agent-platform/backend/internal/agent/contracts"
+	"agent-platform/backend/internal/agent/manager"
+	"agent-platform/backend/internal/agent/memory"
+	chatapp "agent-platform/backend/internal/application/chat"
+	"agent-platform/backend/internal/client/llm"
 	"context"
 	"errors"
+	"github.com/cloudwego/eino/adk"
 	"net/http"
+	"time"
 
 	"agent-platform/backend/internal/config"
 	"agent-platform/backend/internal/repository/postgres"
@@ -51,6 +59,17 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		return nil, errors.New("database migration failed")
 	}
 	repo := postgres.New(pool)
-	h := router.New(router.Dependencies{Auth: authsvc.New(repo), Users: usersvc.New(repo), Conversations: convsvc.New(repo), Settings: settingssvc.New(repo), SecureCookies: cfg.CookieSecure, AllowedOrigin: cfg.PublicOrigin, Ready: pool.Ping})
-	return &App{Handler: h, close: closeApp}, nil
+	settings := settingssvc.New(repo)
+	conversations := convsvc.New(repo)
+	registry := manager.NewRegistry()
+	if modelClient, err := llm.New(ctx, cfg.ModelBaseURL, cfg.ModelID, cfg.ModelAPIKey); err == nil {
+		var a *general.Agent
+		a = general.NewAgent(modelClient, settings, func(in contracts.RunInput) adk.CheckPointStore {
+			return &general.RepositoryStore{Store: repo, Input: in, Fingerprint: a.Fingerprint()}
+		}, cfg.ModelBaseURL+"/"+cfg.ModelID, time.Duration(cfg.PauseSeconds)*time.Second)
+		registry.Register("general", a)
+	}
+	m := manager.New(repo, memory.New(repo, 32000), registry, contracts.Limits{Iterations: cfg.MaxIterations, ExecutionTimeout: time.Duration(cfg.RunSeconds) * time.Second, ToolTimeout: time.Duration(cfg.ToolSeconds) * time.Second})
+	h := router.New(router.Dependencies{Chat: chatapp.New(conversations, m), Auth: authsvc.New(repo), Users: usersvc.New(repo), Conversations: conversations, Settings: settings, SecureCookies: cfg.CookieSecure, AllowedOrigin: cfg.PublicOrigin, Ready: pool.Ping})
+	return &App{Handler: h, close: func() { m.Close(); closeApp() }}, nil
 }

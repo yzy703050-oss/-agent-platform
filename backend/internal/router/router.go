@@ -1,6 +1,7 @@
 package router
 
 import (
+	chatapp "agent-platform/backend/internal/application/chat"
 	"agent-platform/backend/internal/handler"
 	"agent-platform/backend/internal/middleware"
 	authsvc "agent-platform/backend/internal/service/auth"
@@ -14,6 +15,7 @@ import (
 )
 
 type Dependencies struct {
+	Chat          *chatapp.Application
 	Users         *usersvc.Service
 	Auth          *authsvc.Service
 	Conversations *convsvc.Service
@@ -27,7 +29,7 @@ func New(d Dependencies) http.Handler {
 	r := gin.New()
 	_ = r.SetTrustedProxies(nil)
 	r.Use(middleware.RequestContext(), middleware.Origin(d.AllowedOrigin))
-	api := &handler.API{Auth: d.Auth, Users: d.Users, Conversations: d.Conversations, Settings: d.Settings, SecureCookies: d.SecureCookies}
+	api := &handler.API{Chat: d.Chat, Auth: d.Auth, Users: d.Users, Conversations: d.Conversations, Settings: d.Settings, SecureCookies: d.SecureCookies}
 	r.GET("/health/live", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })
 	r.GET("/health/ready", func(c *gin.Context) {
 		if d.Ready == nil || d.Ready(c.Request.Context()) != nil {
