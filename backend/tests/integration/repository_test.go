@@ -73,6 +73,10 @@ func TestMigrationIdempotent(t *testing.T) {
 }
 
 func setup(t *testing.T) *fixture {
+	return setupMigrations(t, pg.Migrate)
+}
+
+func setupMigrations(t *testing.T, migrate func(context.Context, *pgxpool.Pool) error) *fixture {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
@@ -106,7 +110,7 @@ func setup(t *testing.T) *fixture {
 		admin.Exec(context.Background(), "DROP SCHEMA "+schema+" CASCADE")
 		admin.Close()
 	})
-	if e = pg.Migrate(ctx, pool); e != nil {
+	if e = migrate(ctx, pool); e != nil {
 		t.Fatal(e)
 	}
 	f := &fixture{pool: pool, repo: pg.New(pool), scope: model.Scope{UserID: "user-a", SessionID: "session-a", PageID: "page-a"}, conversation: "conversation-a"}

@@ -21,7 +21,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, e = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS schema_migrations(version text PRIMARY KEY)"); e != nil {
 		return e
 	}
-	for _, migration := range []struct{ version, file string }{{"001", "001_platform.up.sql"}, {"002", "002_message_delivery.up.sql"}, {"003", "003_run_output.up.sql"}} {
+	for _, migration := range []struct{ version, file string }{{"001", "001_platform.up.sql"}, {"002", "002_message_delivery.up.sql"}, {"003", "003_run_output.up.sql"}, {"004", "004_travel.up.sql"}} {
 		tag, e := tx.Exec(ctx, "INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT DO NOTHING", migration.version)
 		if e != nil {
 			return e

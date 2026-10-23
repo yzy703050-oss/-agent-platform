@@ -19,3 +19,8 @@ type CheckpointStore interface {
 	SaveCheckpoint(context.Context, model.CheckpointWrite) error
 	InvalidateCheckpoint(context.Context, model.Scope, string, int64) error
 }
+
+type TravelDecisionStore interface {
+	FindTravelDecision(context.Context, model.TravelExecution, string) (model.TravelDecision, bool, error)
+	AcceptTravelDecision(context.Context, model.TravelExecution, model.TravelDecision) (model.TravelDecision, error)
+}

@@ -19,9 +19,9 @@
 
 ## 4. PostgreSQL 增量迁移和事务
 
-- [ ] 4.1 从 003 之后追加行程、修订、证据、决策、操作、回执和记忆所需迁移，不修改既有迁移；完成条件：测试 schema 从现有版本升级、重复运行及失败回滚通过，既有平台数据与约束保持。
-- [ ] 4.2 实现带身份与修订检查的行程 Repository 和 Service；完成条件：真实 PostgreSQL 并发修改最多一次成功、跨用户拒绝、无部分修订，锁顺序与设计一致。
-- [ ] 4.3 实现决策日志、操作回执、请求摘要冲突和 attempt 围栏；完成条件：同键同参数读原结果、异参数冲突、旧 attempt/非 running 写入被拒绝，修订与回执事务原子性测试通过。
+- [x] 4.1 从 003 之后追加行程、修订、证据、决策、操作、回执和记忆所需迁移，不修改既有迁移；完成条件：测试 schema 从现有版本升级、重复运行及失败回滚通过，既有平台数据与约束保持。证据：004_travel、TestTravelTransactions/upgrade_and_rollback；仅在测试 schema 应用，开发库未变更。
+- [x] 4.2 实现带身份与修订检查的行程 Repository 和 Service；完成条件：真实 PostgreSQL 并发修改最多一次成功、跨用户拒绝、无部分修订，锁顺序与设计一致。证据：TestTravelTransactions/revision_idempotency_and_fencing，跨用户读写和并发修订拒绝通过。
+- [x] 4.3 实现决策日志、操作回执、请求摘要冲突和 attempt 围栏；完成条件：同键同参数读原结果、异参数冲突、旧 attempt/非 running 写入被拒绝，修订与回执事务原子性测试通过。证据：TestTravelTransactions 全组通过；稳定操作标识跨 attempt 保持，回执失败时无部分行程/修订。
 
 ## 5. 查询与现有 RAG MCP 接入
 

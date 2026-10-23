@@ -85,11 +85,11 @@
 
 **Interfaces:** Repository 实现 `GetTrip(ctx,scope,id)`、`CommitTrip(ctx, in model.TripCommit) (model.TripResult,error)`、`FindTravelDecision(ctx,ref,key) (model.TravelDecision,bool,error)`、`AcceptTravelDecision(ctx,ref,decision) (model.TravelDecision,error)`。TripCommit 包含可信执行、稳定操作标识/摘要、预期修订及已验证候选；写入事务仍必须重新检查绑定和 Run 围栏。
 
-- [ ] 在现有集成测试 fixture 中写 `TestTravelTransactions` 综合场景：从 003 升级、重复迁移、旧平台数据保留；两个同修订更新最多一次成功；同操作重放返回原修订，参数变化冲突；其他用户/旧 attempt/pausing 写入拒绝；注入约束失败时修订与回执都不提交。
-- [ ] 加载测试库配置后运行 `go test ./tests/integration -run TestTravelTransactions -count=1`。Expected: 缺少差旅表/Repository 行为失败；缺 TEST_DATABASE_URL 必须失败，不能 skip 冒充通过。
-- [ ] 实现 design D7 逻辑表与复合归属约束。按会话→Run→业务资源加锁；外部 IO 不进入事务；决策/回执唯一键不含变化 attempt，写入却必须验证当前 attempt/status。
-- [ ] 重跑该用例，并运行现有迁移/请求幂等/事务回滚相关测试。Expected: PASS，测试只写随机 schema，003 前表和索引保持。
-- [ ] 自审并提交 `feat: persist travel revisions decisions and operation receipts`；不得因此对开发库擅自 down/清空。
+- [x] 在现有集成测试 fixture 中写 `TestTravelTransactions` 综合场景：从 003 升级、重复迁移、旧平台数据保留；两个同修订更新最多一次成功；同操作重放返回原修订，参数变化冲突；其他用户/旧 attempt/pausing 写入拒绝；注入约束失败时修订与回执都不提交。
+- [x] 加载测试库配置后运行 `go test ./tests/integration -run TestTravelTransactions -count=1`。Expected: 缺少差旅表/Repository 行为失败；缺 TEST_DATABASE_URL 必须失败，不能 skip 冒充通过。
+- [x] 实现 design D7 逻辑表与复合归属约束。按会话→Run→业务资源加锁；外部 IO 不进入事务；决策/回执唯一键不含变化 attempt，写入却必须验证当前 attempt/status。
+- [x] 重跑该用例，并运行现有迁移/请求幂等/事务回滚相关测试。Expected: PASS，测试只写随机 schema，003 前表和索引保持。
+- [x] 自审并提交 `feat: persist travel revisions decisions and operation receipts`；不得因此对开发库擅自 down/清空。
 
 ### Task 4: 查询证据与外部 Client
 

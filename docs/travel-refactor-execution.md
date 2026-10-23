@@ -27,3 +27,12 @@
 - 一个聚合规则测试含 11 个关键子场景；没有复制原 Python 的测试套件。全局和分段预算冲突先出现失败，再修复为不会被 partial 状态覆盖。
 - 验证：`go test ./internal/service/trip ./internal/agent/agents/general ./internal/agent/einoruntime ./internal/agent/agents/travel -count=1` 及 `go vet ./internal/service/trip ./internal/model` 均通过；日志 .cache/reports/travel-task2.log。
 - 这是业务规则层完成，尚未开放差旅入口；数据库事务、工具编排、政策检索和真实服务仍继续实施。
+
+## Task 3：PostgreSQL 事务、决策和回执
+
+- 新增 004 增量迁移和行程、证据、决策、操作、回执及记忆表，001–003 保持不变；开发库未应用新迁移。
+- 行程与偏好执行共用可信身份/会话、Run、attempt 和 running 状态围栏；事务按会话→Run→资源加锁，行程修订和回执原子提交。
+- 模型决策保存原响应及稳定逻辑操作标识；标识不含变化的 attempt。相同请求回读原结果，不同请求摘要冲突。
+- 一个数据库测试组的三个子场景验证：003 升级及迁移失败回滚、并发行程修订/重放/隔离/围栏、决策跨 attempt 保持及回执故障整笔回滚。
+- 验证：真实 PostgreSQL 下 `go test ./tests/integration -run 'TestTravelTransactions|TestMigrationIdempotent|TestConcurrentIdempotentAdmission|TestCompleteTransactionRollback' -count=1 -timeout 120s` 及 Repository/Trip 的 vet 均通过；日志 .cache/reports/travel-task3.log。
+- 不将数据库层幂等通过等同于完整 Eino 故障恢复；OpenSpec 2.2 的端到端提交后断点前场景继续由 Task 6 验证。
