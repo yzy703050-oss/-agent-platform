@@ -106,6 +106,9 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 	if errors.Is(err, adk.ErrExceedMaxIterations) {
 		code = "iteration_limit"
 	}
+	if errors.Is(err, agenttools.ErrToolTimeout) {
+		code = "tool_timeout"
+	}
 	return contracts.ExecutionResult{FinalText: e.runner.Result().FinalText, ErrorCode: code}, err
 }
 func (e *execution) Pause(ctx context.Context) (contracts.PauseResult, error) {

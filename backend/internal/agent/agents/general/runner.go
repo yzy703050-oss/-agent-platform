@@ -34,6 +34,9 @@ type Runner struct {
 	loop                              *adk.TurnLoop[string, *schema.Message]
 	started, finished, pauseRequested bool
 	result                            RunResult
+	turnReady, done                   chan struct{}
+	stopAcknowledged                  <-chan struct{}
+	readyOnce                         sync.Once
 }
 
 func NewRunner(ctx context.Context, cfg RunnerConfig) (*Runner, error) {
@@ -53,18 +56,45 @@ func NewRunner(ctx context.Context, cfg RunnerConfig) (*Runner, error) {
 			return nil, ErrCheckpointMissing
 		}
 	}
-	return &Runner{cfg: cfg, store: s}, nil
+	return &Runner{cfg: cfg, store: s, turnReady: make(chan struct{}), done: make(chan struct{})}, nil
 }
 func (r *Runner) Result() RunResult { r.mu.Lock(); defer r.mu.Unlock(); return r.result }
 func (r *Runner) RequestPause() bool {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	if r.loop == nil || r.finished {
+		r.mu.Unlock()
 		return false
 	}
 	r.pauseRequested = true
 	r.loop.Stop(adk.WithGracefulTimeout(r.cfg.PauseTimeout))
-	return true
+	r.mu.Unlock()
+	// Stop only queues a request. TurnContext.Stopped closes after Eino has
+	// actually applied cancellation to the active turn; do not confuse the two.
+	timer := time.NewTimer(r.cfg.PauseTimeout)
+	defer timer.Stop()
+	select {
+	case <-r.turnReady:
+	case <-r.done:
+		return false
+	case <-timer.C:
+		return false
+	}
+	r.mu.Lock()
+	ack := r.stopAcknowledged
+	r.mu.Unlock()
+	select {
+	case <-ack:
+		return true
+	case <-r.done:
+		select {
+		case <-ack:
+			return true
+		default:
+			return false
+		}
+	case <-timer.C:
+		return false
+	}
 }
 
 // Run is single-use. Resume reads the original checkpoint and never fabricates a new user question.
@@ -75,6 +105,7 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 		return errors.New("runner already started")
 	}
 	r.started = true
+	defer close(r.done)
 	cfg := adk.TurnLoopConfig[string, *schema.Message]{
 		Store: r.store, CheckpointID: r.cfg.RunID,
 		GenInput: func(_ context.Context, _ *adk.TurnLoop[string, *schema.Message], items []string) (*adk.GenInputResult[string, *schema.Message], error) {
@@ -87,6 +118,10 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 			return r.cfg.Agent, nil
 		},
 		OnAgentEvents: func(_ context.Context, tc *adk.TurnContext[string, *schema.Message], events *adk.AsyncIterator[*adk.AgentEvent]) error {
+			r.mu.Lock()
+			r.stopAcknowledged = tc.Stopped
+			r.readyOnce.Do(func() { close(r.turnReady) })
+			r.mu.Unlock()
 			for {
 				event, ok := events.Next()
 				if !ok {
@@ -95,6 +130,11 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 				if event.Err != nil {
 					var ce *adk.CancelError
 					if !errors.As(event.Err, &ce) {
+						var streamCancel *adk.StreamCanceledError
+						if errors.As(event.Err, &streamCancel) {
+							r.store.unsafe.Store(true)
+							continue
+						}
 						return event.Err
 					}
 					continue
@@ -104,6 +144,11 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 				}
 				msg, e := r.readMessage(event.Output.MessageOutput)
 				if e != nil {
+					var streamCancel *adk.StreamCanceledError
+					if errors.As(e, &streamCancel) {
+						r.store.unsafe.Store(true)
+						continue
+					}
 					return e
 				}
 				if msg == nil {
@@ -145,6 +190,20 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 		return fmt.Errorf("checkpoint save failed: %w", exit.CheckpointErr)
 	}
 	if paused {
+		if exit.ExitReason != nil {
+			var cancelErr *adk.CancelError
+			if !errors.As(exit.ExitReason, &cancelErr) {
+				return exit.ExitReason
+			}
+		}
+		r.mu.Lock()
+		ack := r.stopAcknowledged
+		r.mu.Unlock()
+		select {
+		case <-ack:
+		default:
+			return errors.New("pause cancellation was not acknowledged")
+		}
 		if !exit.CheckpointAttempted {
 			return errors.New("pause ended without checkpoint")
 		}
@@ -181,9 +240,9 @@ func (r *Runner) readMessage(out *adk.MessageVariant) (*schema.Message, error) {
 		if chunk == nil {
 			continue
 		}
-		size += len(chunk.Content)
+		size += 32 + len(chunk.Content) + len(chunk.ToolCallID)
 		for _, call := range chunk.ToolCalls {
-			size += len(call.Function.Arguments)
+			size += len(call.Function.Arguments) + len(call.Function.Name) + len(call.ID)
 		}
 		if size > 256000 {
 			return nil, errors.New("model output limit exceeded")

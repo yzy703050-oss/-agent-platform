@@ -3,6 +3,7 @@ package middleware
 import (
 	"agent-platform/backend/internal/model"
 	"context"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"log/slog"
@@ -58,13 +59,21 @@ func RequireAuth(auth Authenticator) gin.HandlerFunc {
 		}
 		scope, err := auth.Authenticate(c.Request.Context(), token)
 		if err != nil {
-			Reject(c, 401, "unauthenticated")
+			if errors.Is(err, model.ErrUnauthenticated) {
+				Reject(c, 401, "unauthenticated")
+			} else {
+				Reject(c, 503, "auth_unavailable")
+			}
 			return
 		}
 		c.Set("scope", scope)
 		if c.Request.Method != "GET" && c.Request.Method != "HEAD" && c.Request.Method != "OPTIONS" {
-			if auth.CheckCSRF(c.Request.Context(), token, c.GetHeader("X-CSRF-Token")) != nil {
-				Reject(c, 403, "csrf_rejected")
+			if csrfErr := auth.CheckCSRF(c.Request.Context(), token, c.GetHeader("X-CSRF-Token")); csrfErr != nil {
+				if errors.Is(csrfErr, model.ErrUnauthenticated) {
+					Reject(c, 403, "csrf_rejected")
+				} else {
+					Reject(c, 503, "auth_unavailable")
+				}
 				return
 			}
 		}

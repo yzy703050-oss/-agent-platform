@@ -1,6 +1,6 @@
 ## Context
 
-参见 proposal.md 与 specs/。2026-10-22 检查时项目仅有目录骨架；Go 1.27.2、Node 24.20.0、OpenSpec 1.12.0 可用，无 PostgreSQL、Docker 和 Git 仓库。用户已授权先写文档再推进 MVP；实施方式尚待选择，产品代码尚未开始。
+参见 proposal.md 与 specs/。2026-10-22 检查时项目仅有目录骨架。2026-10-23 用户选择单代理执行，并后续授权安装注册本机 PostgreSQL；现有 Go 1.27.2、Node 24.20.0、PostgreSQL 17.11、OpenSpec 1.12.0，代码保存在 feat/agent-platform-mvp 分支。任务 1–7 已落地，任务 8 的真实模型验收仍待本地配置。Docker 未安装，部署文件提供为可选路径。
 
 选定参考：[chatwitheino](https://github.com/cloudwego/eino-examples/tree/main/quickstart/chatwitheino)。读取的 go.mod 使用 Eino v0.9.0-beta.1、Go 1.24.9；agent.go 构建 DeepAgent，server/server.go 使用 TurnLoop，main.go 的 CheckpointStore 是内存实现，mem/store.go 使用 JSONL。这些不能作为平台持久化方案直接保留。
 
@@ -44,7 +44,7 @@ Agent 主链为 Manager → 实现层 → 内核 → 能力 → 接口与访问�
 
 保留当前 backend/internal 下 bootstrap、config、router、middleware、handler、application/chat、service/{auth,user,conversation,settings}、agent/{contracts,manager,agents/general,agents/travel,tools,memory,ports}、agenttools、repository/postgres、client/llm、model。
 
-首版新增 general/{agent,runner,adapter,checkpoint_store}.go、manager/{manager,registry,run_manager,lease_manager}.go、ports/{run_store,message_store,event_store,checkpoint_store}.go。无业务需求前不新增独立 runtime 包；前端使用 React + Vite + TypeScript。
+首版 general 下使用 agent.go、runner.go、checkpoint_store.go、repository_store.go；manager 下使用 manager.go、registry.go、lifecycle.go、lease_manager.go、events.go、metrics.go。Store 契约先合并在 ports/stores.go，具体接口按消费者定义。无业务需求前不新增独立 runtime 包；前端使用 React + Vite + TypeScript。
 
 沿用 example 的 Agent 构建、TurnLoop、事件回调和 Checkpoint/Resume 架构；由于用户选择分阶段启用能力，首版采用 Eino ChatModelAgent + TurnLoop，不构造附带本地 Backend 的完整 DeepAgent，不开放文件与 shell。采用 example 中标准 schema.Message 路径，避免同时维护两种消息模型。不直接依赖 example 的 package main 或 ../.. replace；参考代码迁移时保留许可证说明。
 
@@ -110,6 +110,8 @@ general/checkpoint_store.go 实现 Eino CheckPointStore 的 Get/Set，以及可�
 
 暂停调用该版本 TurnLoop 的安全停止并设置 15 秒上限；读取实际退出结果和 Checkpoint 写入结果。只有 loop 已退出、恢复所需 payload 可读且本次 attempt 匹配时，FinalizePause 才能提交 paused。超时降级停止后仍须检查真实结果；若无法证明断点可用则 interrupted，不沿用更早且可能重复操作的旧断点。
 
+实施探针确认 Stop 是非阻塞提交：平台先等待 TurnContext.Stopped 确认取消已施加，再等待实际退出。流式取消事件仍须完整消费，不能在框架完成中断处理前退出回调。强制截流的探针曾观察到已完成工具重放，因此此类停止拒绝持久化 checkpoint，按 interrupted 处理；安全工具边界恢复已验证不重放完成工具。恢复输出模式由框架保存状态决定，不伪造 Token 级续传。
+
 示例 GenResume 只接收 ApprovalResult，不能原样用于页面关闭恢复。平台适配为独立的 continue 指令：保留 TurnLoop 需要的已消费与待处理项，由 Eino 恢复 checkpoint；审批 Targets 只在未来审批功能中使用。不借助普通新用户消息伪装成恢复。
 
 恢复先 CAS paused→resuming，检查用户、会话、版本、有效断点和模型配置指纹，再创建新的 Execution；恢复尝试递增 attempt，使用围栏保护存储。读取旧 checkpoint 只能由成功获得恢复权的尝试进行，保存新 checkpoint 时绑定新 attempt。恢复不创建第二条用户问题。
@@ -164,7 +166,7 @@ paused Run 被新问题替代时置 context_eligible=false；排除其用户消�
 
 ### D11. 交付与验证
 
-提供 Compose 启动 PostgreSQL 与应用的路径，同时支持用户自行安装 PostgreSQL；本轮不安装 Docker/数据库，不使用 SQLite/内存作为正式替代。环境变量 DB_DSN、LLM_BASE_URL、LLM_MODEL、LLM_API_KEY、HTTP_ADDR、PUBLIC_ORIGIN、COOKIE_SECURE、运行预算有示例但不含真实秘密。
+提供 Compose 启动 PostgreSQL 与应用的路径，同时支持本机 PostgreSQL；按用户后续授权已安装并注册本机数据库，本轮不安装 Docker。不使用 SQLite/内存作为正式替代。环境变量 DB_DSN、LLM_BASE_URL、LLM_MODEL、LLM_API_KEY、HTTP_ADDR、PUBLIC_ORIGIN、COOKIE_SECURE、运行预算有示例但不含真实秘密。页面租约返回 heartbeat_ms，前端使用服务器配置的心跳间隔，默认 5 秒。
 
 单元测试注入模型与 Store，Eino 兼容性测试使用真实框架、可控模型和可控工具；PostgreSQL 集成测试使用真实数据库及独立 schema。测试报告分为单元、真实数据库、真实模型三类；无 TEST_DATABASE_URL 时集成测试显式 skip，最终报告必须标“未验证”，独立发布验收入口要求缺少数据库时失败。
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync/atomic"
 
 	"github.com/cloudwego/eino/adk"
 )
@@ -22,6 +23,7 @@ type checkpointStore struct {
 	requirePresent     bool
 	inner              adk.CheckPointStore
 	runID, fingerprint string
+	unsafe             atomic.Bool
 }
 
 func (s *checkpointStore) Get(ctx context.Context, id string) ([]byte, bool, error) {
@@ -42,6 +44,9 @@ func (s *checkpointStore) Get(ctx context.Context, id string) ([]byte, bool, err
 	return v.Payload, true, nil
 }
 func (s *checkpointStore) Set(ctx context.Context, id string, payload []byte) error {
+	if s.unsafe.Load() {
+		return errors.New("checkpoint unsafe after forced streaming stop")
+	}
 	if id != s.runID {
 		return ErrCheckpointIncompatible
 	}

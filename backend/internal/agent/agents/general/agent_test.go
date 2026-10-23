@@ -107,9 +107,12 @@ func testAgentLimit(t *testing.T, name string, wantTools bool) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	_, e = exec.Start(context.Background(), nil)
+	result, e := exec.Start(context.Background(), nil)
 	if e == nil {
 		t.Fatal("expected bounded rejection")
+	}
+	if wantTools && result.ErrorCode != "iteration_limit" {
+		t.Fatalf("limit reason missing: %q %v", result.ErrorCode, e)
 	}
 	if m.calls.Load() > 2 {
 		t.Fatalf("iterations unbounded: %d", m.calls.Load())

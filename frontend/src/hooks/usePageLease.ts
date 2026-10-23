@@ -14,6 +14,7 @@ export function usePageLease(
     let alive = true;
     let current: PageLease | null = null;
     let renewing = false;
+    let heartbeat: ReturnType<typeof setInterval> | undefined;
     const register = async () => {
       if (renewing) return;
       renewing = true;
@@ -25,21 +26,28 @@ export function usePageLease(
         }
         current = p;
         setPage(p);
+        clearInterval(heartbeat);
+        heartbeat = setInterval(beat, p.heartbeat_ms || 5000);
       } catch (e) {
         if (alive) onError(e);
       } finally {
         renewing = false;
       }
     };
-    void register();
-    const heartbeat = setInterval(() => {
-      if (!current) return;
+    const beat = () => {
+      if (!current) {
+        void register();
+        return;
+      }
       void client.heartbeat(current).catch(() => {
+        if (!alive) return;
         current = null;
         setPage(null);
         void register();
       });
-    }, 5000);
+    };
+    heartbeat = setInterval(beat, 5000);
+    void register();
     const leave = () => {
       if (current) void client.leave(current).catch(() => {});
     };

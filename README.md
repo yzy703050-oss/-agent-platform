@@ -1,6 +1,6 @@
 # Go Agent Platform
 
-Go + React Agent 平台，当前 MVP 进度 7/8：前后端使用闭环已实现；正在完成交付与最终审核。真实模型网络冒烟待本地配置，尚不宣称完整验收完成。
+Go + React Agent 平台，当前 MVP 进度 7/8：前后端与交付脚本已实现，84 项后端和 13 项前端测试通过；真实模型及完整浏览器恢复验收待本地配置，尚未归档。
 
 ## 正式文档
 
@@ -12,6 +12,21 @@ Go + React Agent 平台，当前 MVP 进度 7/8：前后端使用闭环已实现
 - [详细实施计划](docs/superpowers/plans/2026-10-22-agent-platform-mvp.md)
 
 README 只负责导航与当前状态，不另行定义产品行为。用户已选择单代理执行；进度与证据见 [执行记录](docs/execution-ledger.md) 和 [验证记录](docs/verification.md)。
+
+## 启动与验收
+
+完整步骤见 [运行手册](docs/runbook.md)。本机已有 PostgreSQL，保留已有 `.env` 数据库配置，只补齐本地模型配置并重启后端。
+
+```powershell
+# 终端一：后端
+pwsh -NoProfile -File .\scripts\dev-server.ps1
+# 终端二：前端（首次在 frontend 执行 npm ci）
+pwsh -NoProfile -File .\scripts\dev-frontend.ps1
+# 自动化验证（要求真实测试库）
+pwsh -NoProfile -File .\scripts\verify.ps1
+```
+
+浏览器：http://127.0.0.1:5173 。模型未配置时聊天明确不可用；差旅入口保持未接入。不要将 API Key 放到前端或聊天中。
 
 ## 已确认方向
 

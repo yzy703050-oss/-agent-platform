@@ -65,6 +65,17 @@ func TestHTTPPageLeaseAndManualRecovery(t *testing.T) {
 	var run model.Run
 	json.Unmarshal(w.Body.Bytes(), &run)
 	<-a.inputs
+	conflictRequest := httptest.NewRequest("POST", path, strings.NewReader(body))
+	conflictRequest.AddCookie(cookie)
+	conflictRequest.Header.Set("Content-Type", "application/json")
+	conflictRequest.Header.Set("X-CSRF-Token", csrf)
+	conflictRequest.Header.Set("X-Page-Token", page.Token)
+	conflictRequest.Header.Set("Idempotency-Key", "different-request")
+	conflictResponse := httptest.NewRecorder()
+	h.ServeHTTP(conflictResponse, conflictRequest)
+	if conflictResponse.Code != 409 || !strings.Contains(conflictResponse.Body.String(), `"run_conflict"`) {
+		t.Fatalf("run conflict code: %d %s", conflictResponse.Code, conflictResponse.Body.String())
+	}
 	path = "/api/v1/runs/" + run.ID
 	if w = call(path+"/pause", "{}", ""); w.Code != 200 {
 		t.Fatal(w.Body.String())

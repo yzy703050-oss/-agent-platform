@@ -99,6 +99,9 @@ func (m *Manager) Submit(ctx context.Context, in model.AdmitRunInput, agent stri
 	}
 	count := 0
 	for _, x := range m.active {
+		if x.run.ConversationID == in.ConversationID {
+			return model.Run{}, model.ErrRunConflict
+		}
 		if x.run.UserID == in.Scope.UserID {
 			count++
 		}
@@ -108,6 +111,9 @@ func (m *Manager) Submit(ctx context.Context, in model.AdmitRunInput, agent stri
 	}
 	run, e := m.store.SupersedePausedRun(ctx, in)
 	if e != nil {
+		if errors.Is(e, model.ErrConflict) {
+			return model.Run{}, model.ErrRunConflict
+		}
 		return model.Run{}, e
 	}
 	messages, e := m.memory.Build(ctx, in.Scope, run.ConversationID, run.ID)
@@ -209,8 +215,8 @@ func (m *Manager) launch(run model.Run, s model.Scope, exec contracts.Execution)
 		}
 		if err != nil {
 			code := "execution_failed"
-			if result.ErrorCode == "iteration_limit" {
-				code = "iteration_limit"
+			if result.ErrorCode == "iteration_limit" || result.ErrorCode == "tool_timeout" {
+				code = result.ErrorCode
 			}
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				code = "execution_timeout"
@@ -237,5 +243,7 @@ func (m *Manager) fail(run model.Run, s model.Scope, code string) {
 	if code == "execution_timeout" {
 		status = "timed_out"
 	}
-	_, _ = m.transitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: run.ID, Attempt: run.Attempt, From: run.Status, To: status, ErrorCode: code})
+	if _, err := m.transitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: run.ID, Attempt: run.Attempt, From: run.Status, To: status, ErrorCode: code}); err != nil && !errors.Is(err, model.ErrConflict) {
+		slog.Error("run_state_persist_failed", "run_id", run.ID, "attempt", run.Attempt, "error_code", "storage_unavailable")
+	}
 }

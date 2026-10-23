@@ -21,15 +21,14 @@ export function useRunEvents(
         if (controller.signal.aborted) return;
         await onReconnect();
         await new Promise<void>((resolve) => {
-          timer = setTimeout(resolve, 1500);
-          controller.signal.addEventListener(
-            "abort",
-            () => {
-              clearTimeout(timer);
-              resolve();
-            },
-            { once: true },
-          );
+          const finish = () => {
+            clearTimeout(timer);
+            controller.signal.removeEventListener("abort", finish);
+            resolve();
+          };
+          timer = setTimeout(finish, 1500);
+          controller.signal.addEventListener("abort", finish, { once: true });
+          if (controller.signal.aborted) finish();
         });
       }
     })();

@@ -46,3 +46,13 @@ Task 7 RED: App 缺失导致测试失败；可访问名称不完整、已有 par
 Task 7 Ruling: 浏览器仅保存 CSRF token 与按用户区分的上次会话 ID；Session 保持 HttpOnly Cookie，页面身份每个文档重新注册，不保存模型 Key、消息或断点。重开上次会话仅 GET 状态，仍须手动继续。
 Task 7 Ruling: 本地浏览器使用单独的合成验收账户与测试会话；未配置真实模型时明确显示不可用，没有注入演示回答。模型相关浏览器端到端验收在 8.1 单列。
 Task 8: in progress；交付脚本、最终自审与规格证据映射。
+
+Task 8 implementation/verification: 本机交付与代码审核完成；scripts/verify.ps1 通过，84 项后端测试无跳过、13 项前端测试、go vet、Go 构建、TypeScript 与前端构建、npm ci 全部通过。Windows 原生文件锁导致首次 npm ci 失败，停止本任务 Vite 后干净安装通过，已记录操作说明。
+Task 8 RED→GREEN: 认证/CSRF 存储故障、Origin 尾斜杠、run_conflict 错误代码、工具调用组 ID 碰撞、工具时限、跨用户恢复、前端账号切换、旧 attempt 增量、心跳间隔配置均有失败证据并修复。
+Task 8 recovery audit: 完整验收发现非阻塞 Stop 的竞态，专门 100 轮未复现，源代码证实异步提交；改为等待 TurnContext.Stopped，再等待退出与保存。相关原有 6 项探针重复 100 轮通过；最终包含流式测试的 8 项恢复探针重复 50 轮通过。
+Task 8 Ruling: 流式超时强制停止曾产生已完成工具重放；此类流取消完整消费框架事件，但禁止保存 checkpoint，明确 interrupted。安全流式工具边界的新实例恢复通过，工具调用 ID 证据确认已完成工具不重放。这落实 design D6 的“不能证明安全则中断”。
+Task 8 Ruling: 纠正 Task 6 关于恢复一定非流式的推断。实测 Eino 恢复可能继承保存状态调用 Stream；平台消费实际事件并以持久化终态输出为准，不承诺逐 Token 续传。
+Task 8 Ruling: 详细计划中的部分模块文件按实际职责合并，不增加空的运行管理/工具调度实现。唯一正式行为规格未改变；路径更新至 design D2。
+Task 8 final review: 作者整体自审（用户选定单代理方式，未派独立评审）；发现及修复见 docs/code-review.md。App 协调/渲染文件偏长作为小项留待后续 UI 变更。
+Task 8 spec audit: docs/spec-verification.md 对应全部 36 个 Scenario；openspec validate build-agent-platform-mvp --strict 通过。CLI 无 verify 子命令，项目无额外 verify 工作流，采用人工逐项核对，不冒称运行 verify。
+Task 8 pending: .env 三个 LLM 配置项仍为空；model-smoke.ps1 按预期拒绝运行，未调用真实模型。真实模型与完整浏览器恢复验收待配置；Linux race 和 Docker/镜像尚无运行证据。8.1 保持未完成，不归档、不合并、不推送。

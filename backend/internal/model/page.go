@@ -7,9 +7,10 @@ type Page struct {
 	ExpiresAt                        time.Time
 }
 type PageLease struct {
-	PageID    string    `json:"page_id"`
-	Token     string    `json:"page_token"`
-	ExpiresAt time.Time `json:"expires_at"`
+	PageID      string    `json:"page_id"`
+	Token       string    `json:"page_token"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	HeartbeatMS int64     `json:"heartbeat_ms"`
 }
 type ScopedRun struct {
 	Run   Run

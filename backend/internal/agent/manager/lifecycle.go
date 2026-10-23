@@ -53,7 +53,14 @@ func (m *Manager) Pause(ctx context.Context, s model.Scope, id string) (model.Ru
 func (m *Manager) Resume(ctx context.Context, s model.Scope, id string) (model.Run, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.closed || m.active[id] != nil {
+	if m.closed {
+		return model.Run{}, model.ErrConflict
+	}
+	old, e := m.store.GetRun(ctx, s, id)
+	if e != nil {
+		return model.Run{}, e
+	}
+	if m.active[id] != nil {
 		return model.Run{}, model.ErrConflict
 	}
 	count := 0
@@ -64,10 +71,6 @@ func (m *Manager) Resume(ctx context.Context, s model.Scope, id string) (model.R
 	}
 	if count >= 3 || len(m.active) >= 8 {
 		return model.Run{}, model.ErrQuota
-	}
-	old, e := m.store.GetRun(ctx, s, id)
-	if e != nil {
-		return old, e
 	}
 	conv, e := m.store.FindConversation(ctx, s, old.ConversationID)
 	if e != nil {

@@ -88,6 +88,23 @@ func TestIntermediateMessagesIdempotent(t *testing.T) {
 		t.Fatalf("duplicate tool result: %d", n)
 	}
 }
+func TestDistinctToolCallGroupsDoNotCollide(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	r := f.admit(t)
+	f.pool.Exec(ctx, "UPDATE agent_runs SET status='running' WHERE id=$1", r.ID)
+	for _, ids := range [][2]string{{"a/b", "c"}, {"a", "b/c"}} {
+		m := model.Message{Role: "assistant", ToolCalls: []model.ToolCall{{ID: ids[0], Name: "get_my_settings", Arguments: "{}"}, {ID: ids[1], Name: "get_my_settings", Arguments: "{}"}}}
+		if e := f.repo.AppendRunMessage(ctx, f.scope, r.ID, 1, m); e != nil {
+			t.Fatal(e)
+		}
+	}
+	var n int
+	f.pool.QueryRow(ctx, "SELECT count(*) FROM messages WHERE run_id=$1 AND role='assistant'", r.ID).Scan(&n)
+	if n != 2 {
+		t.Fatalf("distinct call groups collided: %d", n)
+	}
+}
 func recoveryFixture(t *testing.T) (*fixture, *manager.Manager, *manager.LeaseManager, *pausableAgent, *time.Time) {
 	f := setup(t)
 	a := &pausableAgent{f: f, inputs: make(chan contracts.RunInput, 10)}
@@ -177,6 +194,14 @@ func TestNewDocumentGetsDistinctPageIdentity(t *testing.T) {
 		t.Fatal("reused document identity")
 	}
 }
+func TestPageLeaseReturnsConfiguredHeartbeat(t *testing.T) {
+	f, m, _, _, now := recoveryFixture(t)
+	lease := manager.NewLeaseManager(f.repo, m, func() time.Time { return *now }, 20*time.Second, 2*time.Second)
+	p, e := lease.Register(context.Background(), f.scope)
+	if e != nil || p.HeartbeatMS != 2000 {
+		t.Fatalf("heartbeat config ignored: %+v %v", p, e)
+	}
+}
 func TestPauseCheckpointFailureInterrupted(t *testing.T) {
 	f, m, _, a, _ := recoveryFixture(t)
 	a.fail = true
@@ -232,6 +257,16 @@ func TestResumeTransfersPageOwner(t *testing.T) {
 	got, e := m.Resume(ctx, s, r.ID)
 	if e != nil || got.PageID != p.PageID {
 		t.Fatalf("owner transfer: %+v %v", got, e)
+	}
+}
+func TestCrossUserLifecycleDenied(t *testing.T) {
+	f, m, _, a, _ := recoveryFixture(t)
+	r := recoveryRun(t, f, m, a)
+	other := model.Scope{UserID: "user-b"}
+	for name, action := range map[string]func(context.Context, model.Scope, string) (model.Run, error){"pause": m.Pause, "resume": m.Resume, "cancel": m.Cancel} {
+		if _, e := action(context.Background(), other, r.ID); !errors.Is(e, model.ErrNotFound) {
+			t.Fatalf("%s leaked task state: %v", name, e)
+		}
 	}
 }
 func TestLogoutPausesOwnedTasks(t *testing.T) {

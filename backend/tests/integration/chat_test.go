@@ -210,3 +210,43 @@ func TestLateOldRunCannotPolluteNew(t *testing.T) {
 		}
 	}
 }
+func TestCompletionCancelRaceHasOneTerminalOutcome(t *testing.T) {
+	f, m, app, a := chatFixture(t)
+	ctx := context.Background()
+	r, e := submit(t, f, app, "race")
+	if e != nil {
+		t.Fatal(e)
+	}
+	takeInput(t, a)
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	go func() {
+		<-start
+		results <- f.repo.CompleteRun(ctx, model.FinishRunInput{Scope: f.scope, RunID: r.ID, Attempt: 1, FinalText: "committed answer"})
+	}()
+	go func() { <-start; _, e := m.Cancel(ctx, f.scope, r.ID); results <- e }()
+	close(start)
+	for i := 0; i < 2; i++ {
+		if e := <-results; e != nil && !errors.Is(e, model.ErrConflict) {
+			t.Fatal(e)
+		}
+	}
+	got, e := f.repo.GetRun(ctx, f.scope, r.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var messages, completed int
+	f.pool.QueryRow(ctx, "SELECT count(*) FROM messages WHERE run_id=$1 AND role='assistant'", r.ID).Scan(&messages)
+	f.pool.QueryRow(ctx, "SELECT count(*) FROM run_events WHERE run_id=$1 AND type='run.completed'", r.ID).Scan(&completed)
+	if got.Status == "succeeded" {
+		if messages != 1 || completed != 1 {
+			t.Fatal("incomplete success transaction")
+		}
+	} else if got.Status == "cancelled" {
+		if messages != 0 || completed != 0 {
+			t.Fatal("late success polluted cancellation")
+		}
+	} else {
+		t.Fatalf("nonterminal race outcome: %+v", got)
+	}
+}

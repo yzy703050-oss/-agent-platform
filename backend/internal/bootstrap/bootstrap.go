@@ -75,7 +75,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		closeApp()
 		return nil, errors.New("run recovery reconciliation failed")
 	}
-	pages := manager.NewLeaseManager(repo, m, time.Now, time.Duration(cfg.LeaseSeconds)*time.Second)
+	pages := manager.NewLeaseManager(repo, m, time.Now, time.Duration(cfg.LeaseSeconds)*time.Second, time.Duration(cfg.HeartbeatSeconds)*time.Second)
 	leaseCtx, stopLeases := context.WithCancel(context.Background())
 	leaseDone := make(chan struct{})
 	go func() { defer close(leaseDone); pages.Run(leaseCtx) }()

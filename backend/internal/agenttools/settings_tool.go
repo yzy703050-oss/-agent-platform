@@ -15,6 +15,9 @@ import (
 type SettingsReader interface {
 	Get(context.Context, model.Scope) (model.UserSettings, error)
 }
+
+var ErrToolTimeout = errors.New("tool timeout")
+
 type SettingsTool struct {
 	reader  SettingsReader
 	scope   model.Scope
@@ -50,6 +53,9 @@ func (t *SettingsTool) InvokableRun(ctx context.Context, args string, _ ...tool.
 	bounded, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
 	s, e := t.reader.Get(bounded, t.scope)
+	if bounded.Err() != nil {
+		return "", ErrToolTimeout
+	}
 	if e != nil {
 		return "", errors.New("settings unavailable")
 	}

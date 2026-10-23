@@ -56,3 +56,17 @@ func TestInvalidLimitRejected(t *testing.T) {
 		t.Fatal("invalid budget accepted")
 	}
 }
+func TestOriginTrailingSlashNormalized(t *testing.T) {
+	c, e := Load(func(k string) string {
+		if k == "DB_DSN" {
+			return "postgres://local/database"
+		}
+		if k == "PUBLIC_ORIGIN" {
+			return "http://127.0.0.1:5173/"
+		}
+		return ""
+	})
+	if e != nil || c.PublicOrigin != "http://127.0.0.1:5173" {
+		t.Fatalf("origin: %q %v", c.PublicOrigin, e)
+	}
+}

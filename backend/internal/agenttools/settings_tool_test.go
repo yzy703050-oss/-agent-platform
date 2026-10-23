@@ -31,3 +31,16 @@ func TestGetMySettingsIgnoresForgedUserID(t *testing.T) {
 		t.Fatalf("scoped tool: %s %v", out, e)
 	}
 }
+
+type deadlineReader struct{}
+
+func (deadlineReader) Get(ctx context.Context, _ model.Scope) (model.UserSettings, error) {
+	<-ctx.Done()
+	return model.UserSettings{Theme: "dark"}, nil
+}
+func TestToolDeadlineDoesNotReportSuccess(t *testing.T) {
+	tool := NewSettingsTool(deadlineReader{}, model.Scope{UserID: "trusted"}, 10*time.Millisecond)
+	if _, e := tool.InvokableRun(context.Background(), `{}`); e == nil {
+		t.Fatal("expired tool reported success")
+	}
+}

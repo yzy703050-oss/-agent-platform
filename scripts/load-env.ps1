@@ -1,0 +1,16 @@
+$ErrorActionPreference='Stop'
+$projectRoot=Split-Path -Parent $PSScriptRoot
+$localEnvPath=Join-Path $projectRoot '.env'
+$allowed=@('DB_DSN','TEST_DATABASE_URL','HTTP_ADDR','PUBLIC_ORIGIN','COOKIE_SECURE','LLM_BASE_URL','LLM_MODEL','LLM_API_KEY','MAX_ITERATIONS','RUN_SECONDS','TOOL_SECONDS','HEARTBEAT_SECONDS','LEASE_SECONDS','PAUSE_SECONDS')
+if(Test-Path -LiteralPath $localEnvPath){
+ foreach($line in Get-Content -LiteralPath $localEnvPath){
+  if($line -match '^([A-Z_]+)=(.*)$' -and $allowed -contains $Matches[1]){
+   $value=$Matches[2].Trim()
+   if($value.Length -ge 2 -and (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'")))){$value=$value.Substring(1,$value.Length-2)}
+   [Environment]::SetEnvironmentVariable($Matches[1],$value,'Process')
+  }
+ }
+}
+$env:GOMODCACHE=Join-Path $projectRoot '.cache/go-mod'
+$env:GOCACHE=Join-Path $projectRoot '.cache/go-build'
+$env:GIN_MODE='release'

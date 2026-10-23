@@ -38,6 +38,7 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
     [selected, setSelected] = useState<Conversation | null>(null),
     [messages, setMessages] = useState<Message[]>([]),
     [run, setRun] = useState<Run | null>(null);
+  const [workspaceOwner, setWorkspaceOwner] = useState<string | null>(null);
   const [agents, setAgents] = useState<AgentInfo[]>([]),
     [settings, setSettings] = useState<Settings>({
       theme: "system",
@@ -93,6 +94,13 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
     }
     let alive = true;
     setError("");
+    setWorkspaceOwner(user.id);
+    setSelected(null);
+    setHistory([]);
+    setMessages([]);
+    setRun(null);
+    setLive("");
+    setToolState("");
     void Promise.all([
       allConversations(client),
       client.agents(),
@@ -134,12 +142,12 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
     document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
   useEffect(() => {
-    if (user && selected)
+    if (user && workspaceOwner === user.id && selected)
       localStorage.setItem(
         "agent-platform.last-conversation." + user.id,
         selected.id,
       );
-  }, [user?.id, selected?.id]);
+  }, [user?.id, selected?.id, workspaceOwner]);
   useEffect(() => {
     if (!selected) {
       setMessages([]);
@@ -196,7 +204,11 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
   }, [client, fail]);
   const onEvent = useCallback(
     (event: RunEvent) => {
-      if (event.run_id !== runRef.current?.id) return;
+      if (
+        event.run_id !== runRef.current?.id ||
+        event.attempt !== runRef.current?.attempt
+      )
+        return;
       if (event.type === "message.delta")
         setLive((old) => (old + (event.payload.text || "")).slice(0, 256000));
       else if (event.type.startsWith("tool."))
@@ -331,7 +343,7 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
       fail(e);
     }
   }
-  if (booting)
+  if (booting || (user && workspaceOwner !== user.id))
     return (
       <main className="boot" role="status">
         正在打开工作台…

@@ -76,6 +76,9 @@ func setup(t *testing.T) *fixture {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
+		if os.Getenv("REQUIRE_DATABASE_TESTS") == "1" {
+			t.Fatal("TEST_DATABASE_URL is required for release verification")
+		}
 		t.Skip("real PostgreSQL required: set TEST_DATABASE_URL")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)

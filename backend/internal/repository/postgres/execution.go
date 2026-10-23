@@ -84,9 +84,12 @@ func (r *Repository) AppendRunMessage(ctx context.Context, s model.Scope, id str
 	}
 	identity := m.ToolCallID
 	if m.Role == "assistant" {
+		ids := make([]string, 0, len(calls))
 		for _, call := range calls {
-			identity += "/" + call.ID
+			ids = append(ids, call.ID)
 		}
+		encoded, _ := json.Marshal(ids)
+		identity = string(encoded)
 	}
 	if identity == "" {
 		return model.ErrInvalidInput

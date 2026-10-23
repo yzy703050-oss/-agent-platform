@@ -38,6 +38,7 @@ export interface Run {
   partial_output: string;
 }
 export interface PageLease {
+  heartbeat_ms?: number;
   page_id: string;
   page_token: string;
   expires_at: string;
@@ -220,6 +221,8 @@ export const api: PlatformAPI = {
 };
 export function errorText(error: unknown): string {
   const labels: Record<string, string> = {
+    run_conflict: "当前会话已有执行中的任务，请先暂停或结束它。",
+    auth_unavailable: "登录服务暂时不可用，请稍后重试。",
     unauthenticated: "登录已失效，请重新登录。",
     invalid_input: "请检查输入内容。",
     conflict: "当前任务状态已变化，请刷新查看。",

@@ -11,6 +11,7 @@ import (
 	usersvc "agent-platform/backend/internal/service/user"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"log/slog"
 	"net/http"
 	"strconv"
 )
@@ -35,6 +36,8 @@ func failure(c *gin.Context, err error) {
 		status, code = 401, "unauthenticated"
 	case errors.Is(err, model.ErrNotFound):
 		status, code = 404, "not_found"
+	case errors.Is(err, model.ErrRunConflict):
+		status, code = 409, "run_conflict"
 	case errors.Is(err, model.ErrConflict):
 		status, code = 409, "conflict"
 	case errors.Is(err, model.ErrIdempotencyConflict):
@@ -243,6 +246,7 @@ func (a *API) SubmitRun(c *gin.Context) {
 		return
 	}
 	c.JSON(202, run)
+	slog.Info("run_submitted", "request_id", c.GetString("request_id"), "run_id", run.ID, "attempt", run.Attempt)
 }
 func (a *API) Agents(c *gin.Context) {
 	available := a.Chat != nil && a.Chat.Available()

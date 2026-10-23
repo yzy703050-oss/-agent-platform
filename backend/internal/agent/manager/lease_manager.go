@@ -20,14 +20,22 @@ type PageStore interface {
 	ListExpiredPageRuns(context.Context, time.Time) ([]model.ScopedRun, error)
 }
 type LeaseManager struct {
-	store   PageStore
-	manager *Manager
-	now     func() time.Time
-	ttl     time.Duration
+	store     PageStore
+	manager   *Manager
+	now       func() time.Time
+	ttl       time.Duration
+	heartbeat time.Duration
 }
 
-func NewLeaseManager(s PageStore, m *Manager, now func() time.Time, ttl time.Duration) *LeaseManager {
-	return &LeaseManager{s, m, now, ttl}
+func NewLeaseManager(s PageStore, m *Manager, now func() time.Time, ttl time.Duration, interval ...time.Duration) *LeaseManager {
+	heartbeat := 5 * time.Second
+	if len(interval) > 0 && interval[0] > 0 {
+		heartbeat = interval[0]
+	}
+	if heartbeat >= ttl {
+		heartbeat = ttl / 4
+	}
+	return &LeaseManager{s, m, now, ttl, heartbeat}
 }
 func tokenHash(s string) string { sum := sha256.Sum256([]byte(s)); return hex.EncodeToString(sum[:]) }
 func (l *LeaseManager) Register(ctx context.Context, s model.Scope) (model.PageLease, error) {
@@ -35,7 +43,7 @@ func (l *LeaseManager) Register(ctx context.Context, s model.Scope) (model.PageL
 	if _, e := rand.Read(raw); e != nil {
 		return model.PageLease{}, e
 	}
-	p := model.PageLease{PageID: uuid.NewString(), Token: hex.EncodeToString(raw), ExpiresAt: l.now().Add(l.ttl)}
+	p := model.PageLease{PageID: uuid.NewString(), Token: hex.EncodeToString(raw), ExpiresAt: l.now().Add(l.ttl), HeartbeatMS: l.heartbeat.Milliseconds()}
 	e := l.store.CreatePage(ctx, s, model.Page{ID: p.PageID, TokenHash: tokenHash(p.Token), ExpiresAt: p.ExpiresAt})
 	return p, e
 }

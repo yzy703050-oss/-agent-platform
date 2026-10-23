@@ -1,11 +1,15 @@
 package model
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var ErrNotFound = errors.New("resource not found")
 var ErrUnauthenticated = errors.New("unauthenticated")
 var ErrInvalidInput = errors.New("invalid input")
 var ErrConflict = errors.New("state conflict")
+var ErrRunConflict = fmt.Errorf("run conflict: %w", ErrConflict)
 var ErrIdempotencyConflict = errors.New("idempotency conflict")
 var ErrQuota = errors.New("run quota exceeded")
 var ErrModelUnavailable = errors.New("model unavailable")

@@ -102,6 +102,68 @@ async function openPaused(client: PlatformAPI) {
   await screen.findByRole("button", { name: "继续任务" });
 }
 describe("平台交互", () => {
+  it("usesServerHeartbeatInterval", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const { client } = fixture();
+    vi.mocked(client.registerPage).mockResolvedValue({
+      page_id: "document",
+      page_token: "token",
+      expires_at: "",
+      heartbeat_ms: 2000,
+    });
+    render(<App client={client} />);
+    await waitFor(() => expect(client.registerPage).toHaveBeenCalledTimes(1));
+    await screen.findByRole("button", { name: "通用聊天" });
+    await act(async () => vi.advanceTimersByTime(2001));
+    expect(client.heartbeat).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+  it("ignoresDeltasFromPreviousAttempt", async () => {
+    const { client, paused } = fixture();
+    paused.status = "running";
+    paused.attempt = 2;
+    render(<App client={client} />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "暂停的对话" }),
+    );
+    await waitFor(() => expect(client.subscribe).toHaveBeenCalled());
+    const listener = vi.mocked(client.subscribe).mock.calls[0][1];
+    act(() =>
+      listener({
+        run_id: "run-old",
+        attempt: 1,
+        seq: 0,
+        type: "message.delta",
+        payload: { text: "late-attempt-secret" },
+      }),
+    );
+    expect(screen.queryByText(/late-attempt-secret/)).not.toBeInTheDocument();
+  });
+  it("switchingAccountClearsPreviousWorkspace", async () => {
+    const { client } = fixture();
+    await openPaused(client);
+    expect(screen.getByText("已保存的输出")).toBeInTheDocument();
+    vi.mocked(client.me).mockResolvedValue({
+      id: "second-user",
+      username: "second-account",
+    });
+    vi.mocked(client.conversations).mockResolvedValue({
+      items: [],
+      next_cursor: "",
+    });
+    act(() =>
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "agent-platform.csrf" }),
+      ),
+    );
+    await screen.findByText("second-account");
+    await waitFor(() =>
+      expect(screen.queryByText("已保存的输出")).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole("button", { name: "继续任务" }),
+    ).not.toBeInTheDocument();
+  });
   it("reopensLastConversationWithoutStartingTask", async () => {
     localStorage.setItem("agent-platform.last-conversation.user", "old");
     const { client } = fixture();

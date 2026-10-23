@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: platform_owner
+      POSTGRES_DB: agent_platform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in local .env}
+      APP_DATABASE_PASSWORD: ${APP_DATABASE_PASSWORD:?Set APP_DATABASE_PASSWORD in local .env}
+    volumes:
+      - platform_pg:/var/lib/postgresql/data
+      - ./deploy/postgres/init-app.sh:/docker-entrypoint-initdb.d/10-app.sh:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U platform_owner -d agent_platform",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  backend:
+    build: ./backend
+    environment:
+      DB_DSN: postgres://agent_platform:${APP_DATABASE_PASSWORD}@db:5432/agent_platform?sslmode=disable
+      HTTP_ADDR: 0.0.0.0:8080
+      PUBLIC_ORIGIN: http://127.0.0.1:8088
+      COOKIE_SECURE: "false"
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    init: true
+    stop_grace_period: 30s
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:8088:80"
+    depends_on:
+      - backend
+volumes:
+  platform_pg:

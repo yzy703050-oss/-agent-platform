@@ -168,6 +168,14 @@ func testCheckpointResume(t *testing.T) {
 	if !r.RequestPause() {
 		t.Fatal("pause not accepted")
 	}
+	r.mu.Lock()
+	ack := r.stopAcknowledged
+	r.mu.Unlock()
+	select {
+	case <-ack:
+	default:
+		t.Fatal("pause returned before Eino acknowledged cancellation")
+	}
 	close(m.release)
 	await(t, done)
 	if runErr != nil {

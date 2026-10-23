@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -30,6 +31,7 @@ func Load(get func(string) string) (Config, error) {
 	if err != nil || origin.Host == "" || origin.User != nil || (origin.Path != "" && origin.Path != "/") || origin.RawQuery != "" || origin.Fragment != "" || (origin.Scheme != "http" && origin.Scheme != "https") {
 		return c, errors.New("invalid PUBLIC_ORIGIN")
 	}
+	c.PublicOrigin = strings.TrimSuffix(c.PublicOrigin, "/")
 	c.CookieSecure = origin.Scheme == "https"
 	if raw := get("COOKIE_SECURE"); raw != "" {
 		c.CookieSecure, err = strconv.ParseBool(raw)
