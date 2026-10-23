@@ -41,5 +41,8 @@ Task 6 evidence: 真实 Eino Stream 分块、真实 Eino + PostgreSQL 两次工�
 Task 6 Ruling: EventHub 仅推送临时 delta 或已提交变更通知；SSE 先订阅后读 PostgreSQL 持久事件，依靠 seq 去重，并每 2 秒核对持久事件与 Session，避免遗漏通知。缓冲每订阅 64 条、每 Run 8 个、进程 128 个。
 Task 6 Ruling: 聚合文本上限 256KB，每 250ms 或 4KB 保存并在停止时刷新；partial 以历史消息保存，完成事务替换为最终消息。暂停 finalize 等待执行回调落库结束。
 Task 6 Ruling: 该版本 TurnLoop 恢复分支 Runner 默认非流式，沿用框架恢复语义；初次执行提供真实流式增量，恢复成功后通过终态事件与 GET 取得完整输出，不伪造 Token 增量。
-Task 7: in progress；React 依赖已固定，7 项交互测试先因 App 缺失而失败。
-Task 8: not started。
+Task 7: complete；10 项组件测试、TypeScript 检查和生产构建通过；浏览器连接真实 API 验证登录、独立入口创建与历史回到原 Agent。
+Task 7 RED: App 缺失导致测试失败；可访问名称不完整、已有 partial 隐藏后续增量、重开不显示上次会话、关闭设置应用未保存主题均由失败测试确认，修复后通过。
+Task 7 Ruling: 浏览器仅保存 CSRF token 与按用户区分的上次会话 ID；Session 保持 HttpOnly Cookie，页面身份每个文档重新注册，不保存模型 Key、消息或断点。重开上次会话仅 GET 状态，仍须手动继续。
+Task 7 Ruling: 本地浏览器使用单独的合成验收账户与测试会话；未配置真实模型时明确显示不可用，没有注入演示回答。模型相关浏览器端到端验收在 8.1 单列。
+Task 8: in progress；交付脚本、最终自审与规格证据映射。
