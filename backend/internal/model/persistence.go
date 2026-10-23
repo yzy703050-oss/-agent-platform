@@ -3,6 +3,8 @@ package model
 import "errors"
 
 var ErrNotFound = errors.New("resource not found")
+var ErrUnauthenticated = errors.New("unauthenticated")
+var ErrInvalidInput = errors.New("invalid input")
 var ErrConflict = errors.New("state conflict")
 var ErrIdempotencyConflict = errors.New("idempotency conflict")
 

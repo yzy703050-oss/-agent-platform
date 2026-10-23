@@ -1,6 +1,6 @@
 # Go Agent Platform
 
-Go + React Agent 平台，当前 MVP 进度 2/8：已验证 Eino 断点恢复与 PostgreSQL 事务存储，完整 HTTP 服务与 React 界面尚未实现。
+Go + React Agent 平台，当前 MVP 进度 3/8：Eino 恢复底座、PostgreSQL 存储、认证与会话 API 已实现；聊天接线、恢复 API、SSE 和 React 尚未完成。
 
 ## 正式文档
 
@@ -61,9 +61,17 @@ docs/superpowers/plans/          实施计划
 
 - 已发现 Go 1.27.2、Node 24.20.0、OpenSpec 1.12.0。
 - 已按用户要求安装并注册 PostgreSQL 17.11；服务和开发/测试库均已验证，见 [数据库说明](docs/local-postgres.md)。未安装 Docker。
-- backend/go.mod 已建立，Eino 恢复底座的 6 项测试及 go vet 通过；前端与数据库尚未实现，当前不能启动应用。
+- 后端现有 33 项测试、go vet 和构建通过，真实 PostgreSQL 与 HTTP 冒烟通过；前端尚未实现。
 - 已有本地 Git 分支 feat/agent-platform-mvp；没有远程推送或 PR。
-- 数据库集成与真实模型冒烟尚未运行；race 测试因本机工具链启动失败而未通过，详见验证记录。
+- 真实模型冒烟尚未运行；race 因本机工具链启动失败未通过，详见验证记录。
+
+启动当前基础 API（读取本地 .env，不打印凭据）：
+
+```powershell
+pwsh -File scripts/dev-server.ps1
+```
+
+默认 http://127.0.0.1:8080，健康检查 /health/live、/health/ready。普通聊天目前返回 model_unavailable，差旅返回 agent_unavailable，不生成模拟回答。
 
 运行已有测试（PowerShell，在项目根目录）：
 

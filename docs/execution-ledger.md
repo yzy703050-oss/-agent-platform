@@ -21,5 +21,8 @@ Task 2 RED: Repository/Migrate/存储输入类型未实现而编译失败；配�
 Task 2 Ruling: 用户要求“安装并注册”，安装本机 PostgreSQL Windows 服务，仅本机监听，分离开发/测试角色，凭据不提交。
 Task 2 Ruling: pgx 固定 v5.11.0，模块最低 Go 版本提高至 1.25.0，本机 1.27.2 满足要求。
 Task 2 Ruling: CheckpointStore 使用 GetCheckpoint/SaveCheckpoint/InvalidateCheckpoint，避免其他仓储 Get/Save 重名；Eino 桥接仍使用 Get/Set/Delete。
-Task 3: in progress；下一步认证、设置、会话与 HTTP。
-Task 4–8: not started；真实模型尚未验证。
+Task 3: complete；全部现有 33 项测试、vet 和构建通过；实际启动 API，健康/就绪检查正常，未登录 /me 返回 401。
+Task 3 RED: auth/conversation/settings 构造器、router.New 未实现；资料仅返回 ID、生产 Cookie 不安全、第 11 次登录未限流均有失败测试，修复后通过。
+Task 3 Ruling: Gin v1.12.0、x/crypto v0.58.0 将模块最低 Go 提高至 1.26.0；本机 1.27.2 满足。
+Task 3 Ruling: 注册/登录共用每 IP 每分钟 10 次限流，内存有界，关闭默认代理信任。
+Task 4–8: not started；接下来聊天接线与恢复 API，真实模型尚未验证。

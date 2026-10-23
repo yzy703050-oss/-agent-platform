@@ -11,6 +11,23 @@ func TestDatabaseRequired(t *testing.T) {
 		t.Fatal("must require real database")
 	}
 }
+
+func TestProductionCookieCannotBeInsecure(t *testing.T) {
+	_, err := Load(func(k string) string {
+		switch k {
+		case "DB_DSN":
+			return "postgres://local/database"
+		case "PUBLIC_ORIGIN":
+			return "https://example.test"
+		case "COOKIE_SECURE":
+			return "false"
+		}
+		return ""
+	})
+	if err == nil {
+		t.Fatal("production insecure cookie accepted")
+	}
+}
 func TestDefaultLimits(t *testing.T) {
 	c, e := Load(func(k string) string {
 		if k == "DB_DSN" {
