@@ -57,11 +57,11 @@
 
 **Interfaces:** 共享 `NewRunner(ctx context.Context, cfg RunnerConfig) (*Runner,error)`、Run/RequestPause/Result 与当前 General 一致；Travel 的 `NewKernel(ctx context.Context, cfg KernelConfig) (adk.ResumableAgent,error)` 接收 Model、Tools、固定执行身份、Handlers/状态存储依赖。阶段状态从 Eino SessionValues 读写，带工作流版本与累计模型计数，不依赖存活的 Go 对象。
 
-- [ ] 先写 `TestTravelCheckpointResume`：脚本模型完成阶段一工具后阻塞下一步，请求暂停，重建模型/Agent/Runner，仅从持久化 bytes 恢复；断言阶段和计数保留、已完成工具不重跑。子场景覆盖不兼容断点和保存失败，复用测试 fixture，不复制三套框架。
-- [ ] 运行 `go test ./internal/agent/agents/travel -run TestTravelCheckpointResume -count=1`。Expected: 新内核/阶段恢复缺失导致失败；记录实际失败原因。
-- [ ] 最小提取现有 TurnLoop，不改变其停止确认规则；实现 ChatModelAgent Handlers 阶段注入、动态工具可见性与执行授权、完整决策边界。先使用非流式决策；不调用真实供应方。
-- [ ] 重跑新用例及 `go test ./internal/agent/agents/general ./internal/agent/einoruntime ./internal/agent/agents/travel -count=1`。Expected: PASS，无数据库或真实模型前置条件。探针如不能成立，停止相关内核实现并更新设计，其他纯业务任务仍可推进。
-- [ ] 自审并提交 `refactor: share Eino runtime and verify travel recovery boundaries`，记录证据。此任务不单独证明真实业务幂等，2.2 在任务 3/6 补齐前保持未完成。
+- [x] 先写 `TestTravelCheckpointResume`：脚本模型完成阶段一工具后阻塞下一步，请求暂停，重建模型/Agent/Runner，仅从持久化 bytes 恢复；断言阶段和计数保留、已完成工具不重跑。子场景覆盖不兼容断点和保存失败，复用测试 fixture，不复制三套框架。
+- [x] 运行 `go test ./internal/agent/agents/travel -run TestTravelCheckpointResume -count=1`。Expected: 新内核/阶段恢复缺失导致失败；记录实际失败原因。
+- [x] 最小提取现有 TurnLoop，不改变其停止确认规则；实现 ChatModelAgent Handlers 阶段注入、动态工具可见性与执行授权、完整决策边界。先使用非流式决策；不调用真实供应方。
+- [x] 重跑新用例及 `go test ./internal/agent/agents/general ./internal/agent/einoruntime ./internal/agent/agents/travel -count=1`。Expected: PASS，无数据库或真实模型前置条件。探针如不能成立，停止相关内核实现并更新设计，其他纯业务任务仍可推进。
+- [x] 自审并提交 `refactor: share Eino runtime and verify travel recovery boundaries`，记录证据。此任务不单独证明真实业务幂等，2.2 在任务 3/6 补齐前保持未完成。
 
 ### Task 2: 行程类型、规则与修改语义
 
@@ -71,11 +71,11 @@
 
 **Interfaces:** `trip.Preview(previous *model.TripPlan, cmd model.TripCommand, evidence []model.TravelEvidence, now time.Time) (model.TripResult,error)` 为无 IO 规则入口；`Service.Apply(ctx, ref model.TravelExecution, operationID string, cmd model.TripCommand) (model.TripResult,error)` 通过 Store 提交；`Service.Read(ctx, scope model.Scope, planID string) (model.TripPlan,error)` 受归属检查。Store 提供 GetTrip、CommitTrip，完整字段在 Task 3 实现。
 
-- [ ] 先写一个表驱动 `TestTripRules`，覆盖有效多段/返程、缺必要条件、日期冲突、硬约束不能降级、活动修改保留未影响选择、日期变化使相关选择失效、伪造/过期候选和未知价格；断言结果与查询需求，不镜像内部函数。
-- [ ] 运行 `go test ./internal/service/trip -run TestTripRules -count=1`。Expected: 缺失规则而失败，随后实际规则断言能捕获违规输入。
-- [ ] 按当前 Python contracts/validation/dependencies 的行为重写 Go 规则；日期按 Asia/Shanghai 解释，业务 ID 由服务端生成；严格校验模型字段和来源，不把模型输出直接视为持久化结果。
-- [ ] 运行 `go test ./internal/service/trip -count=1`。Expected: PASS；无 Eino import，无 PostgreSQL 或网络依赖。
-- [ ] 自审并提交 `feat: implement travel planning rules and incremental changes`，更新 3.1–3.3 的实际完成范围。
+- [x] 先写一个表驱动 `TestTripRules`，覆盖有效多段/返程、缺必要条件、日期冲突、硬约束不能降级、活动修改保留未影响选择、日期变化使相关选择失效、伪造/过期候选和未知价格；断言结果与查询需求，不镜像内部函数。
+- [x] 运行 `go test ./internal/service/trip -run TestTripRules -count=1`。Expected: 缺失规则而失败，随后实际规则断言能捕获违规输入。
+- [x] 按当前 Python contracts/validation/dependencies 的行为重写 Go 规则；日期按 Asia/Shanghai 解释，业务 ID 由服务端生成；严格校验模型字段和来源，不把模型输出直接视为持久化结果。
+- [x] 运行 `go test ./internal/service/trip -count=1`。Expected: PASS；无 Eino import，无 PostgreSQL 或网络依赖。
+- [x] 自审并提交 `feat: implement travel planning rules and incremental changes`，更新 3.1–3.3 的实际完成范围。
 
 ### Task 3: 差旅迁移、业务事务与决策回执
 

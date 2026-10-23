@@ -1,0 +1,91 @@
+package trip
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"agent-platform/backend/internal/model"
+	"github.com/google/uuid"
+)
+
+type Service struct {
+	store Store
+	now   func() time.Time
+}
+
+func New(store Store, now func() time.Time) *Service {
+	if now == nil {
+		now = time.Now
+	}
+	return &Service{store: store, now: now}
+}
+func (s *Service) Read(ctx context.Context, scope model.Scope, id string) (model.TripPlan, error) {
+	if scope.UserID == "" || id == "" {
+		return model.TripPlan{}, model.ErrInvalidInput
+	}
+	return s.store.GetTrip(ctx, scope, id)
+}
+func (s *Service) Apply(ctx context.Context, ref model.TravelExecution, operationID string, cmd model.TripCommand) (model.TripResult, error) {
+	if ref.Scope.UserID == "" || ref.Scope.SessionID == "" || ref.ConversationID == "" || ref.RunID == "" || ref.Attempt <= 0 || strings.TrimSpace(operationID) == "" {
+		return model.TripResult{}, model.ErrInvalidInput
+	}
+	b, err := json.Marshal(cmd)
+	if err != nil {
+		return model.TripResult{}, err
+	}
+	hash := sha256.Sum256(b)
+	requestHash := hex.EncodeToString(hash[:])
+	if result, ok, err := s.store.FindTripReceipt(ctx, ref, operationID, requestHash); err != nil || ok {
+		return result, err
+	}
+	var previous *model.TripPlan
+	if cmd.Operation != "propose" {
+		p, err := s.store.GetTrip(ctx, ref.Scope, cmd.PlanID)
+		if err != nil {
+			return model.TripResult{}, err
+		}
+		if p.ConversationID != ref.ConversationID {
+			return model.TripResult{}, model.ErrNotFound
+		}
+		previous = &p
+	}
+	refs := make([]model.TravelCandidateRef, 0, len(cmd.Selections))
+	for _, sel := range cmd.Selections {
+		refs = append(refs, sel.Ref)
+	}
+	evidence, err := s.store.LoadTravelEvidence(ctx, ref, refs)
+	if err != nil {
+		return model.TripResult{}, err
+	}
+	result, err := Preview(previous, cmd, evidence, s.now())
+	if err != nil {
+		return model.TripResult{}, err
+	}
+	if previous == nil {
+		result.Plan.ID = uuid.NewString()
+		result.Plan.UserID = ref.Scope.UserID
+		result.Plan.ConversationID = ref.ConversationID
+	}
+	result.Plan.SourceRunID = ref.RunID
+	for i := range result.Queries {
+		result.Queries[i].PlanID = result.Plan.ID
+		result.Queries[i].PlanRevision = result.Plan.Revision
+	}
+	return s.store.CommitTrip(ctx, model.TripCommit{Execution: ref, OperationID: operationID, RequestHash: requestHash, ExpectedRevision: cmd.ExpectedRevision, Result: result, Evidence: evidence, Now: s.now()})
+}
+
+func clone[T any](in T) (T, error) {
+	var out T
+	b, err := json.Marshal(in)
+	if err != nil {
+		return out, err
+	}
+	err = json.Unmarshal(b, &out)
+	return out, err
+}
+func invalid(detail string) error { return fmt.Errorf("%s: %w", detail, model.ErrInvalidInput) }

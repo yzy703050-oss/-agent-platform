@@ -18,3 +18,12 @@
 - Ruling：共享运行适配的测试引用私有停止确认字段，应随被测实现迁移，不能用模型 context.Err 替代停止确认；SDK 的安全点取消允许当前模型调用完成。原停止确认断言完整保留。
 
 尚未证明真实业务修订的幂等、完整 Travel Execution 或真实供应方/RAG 接入，这些继续在后续任务实施，不能将此探针描述为差旅功能完成。
+
+## Task 2：行程业务规则
+
+- 新增不依赖 Eino 的行程、分段、活动、约束、查询证据和候选引用类型；金额使用整数分，空价格保持未知。
+- Trip Service 分离纯预览规则和消费者侧 Store；实际行程写入经 Service 到事务接口，后续由 PostgreSQL 实现。
+- 支持多段/返程、缺失条件、日期/住宿关系、硬软约束、显式局部补丁、关联选择失效、候选归属/时效/条件校验。
+- 一个聚合规则测试含 11 个关键子场景；没有复制原 Python 的测试套件。全局和分段预算冲突先出现失败，再修复为不会被 partial 状态覆盖。
+- 验证：`go test ./internal/service/trip ./internal/agent/agents/general ./internal/agent/einoruntime ./internal/agent/agents/travel -count=1` 及 `go vet ./internal/service/trip ./internal/model` 均通过；日志 .cache/reports/travel-task2.log。
+- 这是业务规则层完成，尚未开放差旅入口；数据库事务、工具编排、政策检索和真实服务仍继续实施。
