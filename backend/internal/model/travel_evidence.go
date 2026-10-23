@@ -22,18 +22,27 @@ type TravelSource struct {
 	FetchedAt time.Time `json:"fetched_at"`
 }
 type TravelCandidate struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	Origin      string     `json:"origin,omitempty"`
-	Destination string     `json:"destination,omitempty"`
-	DepartureAt *time.Time `json:"departure_at,omitempty"`
-	ArrivalAt   *time.Time `json:"arrival_at,omitempty"`
-	PriceFen    *int64     `json:"price_fen"`
-	TrainKind   string     `json:"train_kind,omitempty"`
-	SeatClass   string     `json:"seat_class,omitempty"`
-	City        string     `json:"city,omitempty"`
-	Address     string     `json:"address,omitempty"`
-	URL         string     `json:"url,omitempty"`
+	ID           string     `json:"id"`
+	Name         string     `json:"name"`
+	Origin       string     `json:"origin,omitempty"`
+	Destination  string     `json:"destination,omitempty"`
+	DepartureAt  *time.Time `json:"departure_at,omitempty"`
+	ArrivalAt    *time.Time `json:"arrival_at,omitempty"`
+	PriceFen     *int64     `json:"price_fen"`
+	TrainKind    string     `json:"train_kind,omitempty"`
+	SeatClass    string     `json:"seat_class,omitempty"`
+	City         string     `json:"city,omitempty"`
+	Address      string     `json:"address,omitempty"`
+	URL          string     `json:"url,omitempty"`
+	Availability string     `json:"availability,omitempty"`
+	Remaining    *int64     `json:"remaining,omitempty"`
+}
+type TravelWeather struct {
+	Date            string   `json:"date,omitempty"`
+	Description     string   `json:"description"`
+	TemperatureC    *float64 `json:"temperature_c,omitempty"`
+	MinTemperatureC *float64 `json:"min_temperature_c,omitempty"`
+	MaxTemperatureC *float64 `json:"max_temperature_c,omitempty"`
 }
 type TravelCandidateRef struct {
 	QueryID        string `json:"query_id"`
@@ -55,4 +64,5 @@ type TravelEvidence struct {
 	Candidates     []TravelCandidate `json:"candidates"`
 	MissingFields  []string          `json:"missing_fields,omitempty"`
 	Message        string            `json:"message,omitempty"`
+	Weather        []TravelWeather   `json:"weather,omitempty"`
 }

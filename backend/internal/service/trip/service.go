@@ -11,11 +11,16 @@ import (
 
 	"agent-platform/backend/internal/model"
 	"github.com/google/uuid"
+	"golang.org/x/sync/singleflight"
 )
 
 type Service struct {
-	store Store
-	now   func() time.Time
+	store      Store
+	now        func() time.Time
+	queries    QueryClient
+	queryStore QueryStore
+	queryGroup singleflight.Group
+	querySlots chan struct{}
 }
 
 func New(store Store, now func() time.Time) *Service {

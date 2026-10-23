@@ -15,3 +15,9 @@ type Store interface {
 type QueryClient interface {
 	Search(context.Context, model.TravelQuery) (model.TravelEvidence, error)
 }
+
+type QueryStore interface {
+	Store
+	FindTravelQuery(context.Context, model.TravelExecution, string) (model.TravelEvidence, bool, error)
+	SaveTravelQuery(context.Context, model.TravelExecution, string, model.TravelEvidence) (model.TravelEvidence, error)
+}

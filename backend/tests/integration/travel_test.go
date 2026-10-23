@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,6 +27,88 @@ func travelFixture(t *testing.T) (*fixture, model.TravelExecution, *tripsvc.Serv
 		t.Fatal(err)
 	}
 	return f, model.TravelExecution{Scope: f.scope, ConversationID: f.conversation, RunID: r.ID, Attempt: r.Attempt}, tripsvc.New(f.repo, time.Now)
+}
+
+type travelQueryProbe struct {
+	calls            atomic.Int32
+	entered, release chan struct{}
+}
+
+func (p *travelQueryProbe) Search(ctx context.Context, q model.TravelQuery) (model.TravelEvidence, error) {
+	p.calls.Add(1)
+	if p.entered != nil {
+		close(p.entered)
+		select {
+		case <-p.release:
+		case <-ctx.Done():
+			return model.TravelEvidence{}, ctx.Err()
+		}
+	}
+	price := int64(10000)
+	return model.TravelEvidence{Status: "ok", Source: model.TravelSource{Provider: "test", URL: "https://example.test/train", FetchedAt: time.Now()}, Candidates: []model.TravelCandidate{{ID: "G1", Name: "G1", Origin: q.Origin, Destination: q.Destination, PriceFen: &price}}}, nil
+}
+
+func TestTravelQueries(t *testing.T) {
+	ctx := context.Background()
+	f, ref, service := travelFixture(t)
+	p, err := service.Apply(ctx, ref, "query-plan", travelCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &travelQueryProbe{}
+	queries := tripsvc.NewWithQueries(f.repo, provider, time.Now)
+	q := model.TravelQuery{Domain: "train", Origin: " 上海 ", Destination: "杭州", Date: "2026-10-25"}
+	first, err := queries.Query(ctx, ref, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Query.Origin != "上海" {
+		t.Fatal("query was not normalized")
+	}
+	q.PlanID = p.Plan.ID
+	q.PlanRevision = 1
+	q.TaskID = "t1"
+	bound, err := queries.Query(ctx, ref, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if provider.calls.Load() != 1 || bound.PlanID != p.Plan.ID || bound.ID == first.ID {
+		t.Fatalf("did not reuse and rebind scoped evidence: %+v calls=%d", bound, provider.calls.Load())
+	}
+	selected, err := service.Apply(ctx, ref, "select", model.TripCommand{Operation: "select", PlanID: p.Plan.ID, ExpectedRevision: 1, Selections: []model.TripSelection{{TaskID: "t1", Domain: "train", Ref: model.TravelCandidateRef{QueryID: bound.ID, ResultRevision: bound.ResultRevision, CandidateID: "G1"}}}})
+	if err != nil || selected.Plan.Tasks[0].Train == nil {
+		t.Fatalf("evidence selection: %+v %v", selected, err)
+	}
+	// A query begun against an old plan revision must not bind its late result.
+	blocked := &travelQueryProbe{entered: make(chan struct{}), release: make(chan struct{})}
+	lateQueries := tripsvc.NewWithQueries(f.repo, blocked, time.Now)
+	if _, err = f.pool.Exec(ctx, "UPDATE travel_query_evidence SET fetched_at=now()-interval '10 minutes',expires_at=now()-interval '1 minute'"); err != nil {
+		t.Fatal(err)
+	}
+	lateQuery := model.TravelQuery{Domain: "train", PlanID: p.Plan.ID, PlanRevision: 2, TaskID: "t1", Origin: "上海", Destination: "杭州", Date: "2026-10-25"}
+	done := make(chan error, 1)
+	go func() { _, err := lateQueries.Query(ctx, ref, lateQuery); done <- err }()
+	select {
+	case <-blocked.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("provider not called")
+	}
+	defer func() {
+		select {
+		case <-blocked.release:
+		default:
+			close(blocked.release)
+		}
+	}()
+	date := "2026-10-27"
+	_, err = service.Apply(ctx, ref, "change-while-querying", model.TripCommand{Operation: "amend", PlanID: p.Plan.ID, ExpectedRevision: 2, Changes: []model.TripTaskChange{{TaskID: "t1", DepartureDate: &date}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	close(blocked.release)
+	if err = <-done; !errors.Is(err, model.ErrConflict) {
+		t.Fatalf("accepted stale query result: %v", err)
+	}
 }
 func travelCommand() model.TripCommand {
 	oneWay := false

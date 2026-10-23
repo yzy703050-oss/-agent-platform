@@ -36,3 +36,16 @@
 - 一个数据库测试组的三个子场景验证：003 升级及迁移失败回滚、并发行程修订/重放/隔离/围栏、决策跨 attempt 保持及回执故障整笔回滚。
 - 验证：真实 PostgreSQL 下 `go test ./tests/integration -run 'TestTravelTransactions|TestMigrationIdempotent|TestConcurrentIdempotentAdmission|TestCompleteTransactionRollback' -count=1 -timeout 120s` 及 Repository/Trip 的 vet 均通过；日志 .cache/reports/travel-task3.log。
 - 不将数据库层幂等通过等同于完整 Eino 故障恢复；OpenSpec 2.2 的端到端提交后断点前场景继续由 Task 6 验证。
+
+## Task 4：查询与客户端（进行中）
+
+- 已实现规范化查询、同执行范围并发合并、共享有界并发、5 分钟证据缓存、独立查询到行程查询的重新绑定，以及数据库修订/时效检查。
+- 新增聚合车次、高德酒店地点和 wttr.in 天气客户端；响应体限制、超时/取消和错误脱敏由小型 providerhttp 包共用，错误不回传带 Key 的请求 URL。
+- 车次金额按有理数转整数分，不经过 float64；只有来源时长能证明时才推算跨日到达时间。酒店参考消费值不映射为房价、库存或可预订状态。
+- 一个协议测试组覆盖三个供应方的关键映射及非法返回，使用本机 httptest，不调用真实付费 API。查询组复用真实 PostgreSQL fixture，验证缓存、证据选择和迟到结果拒绝。
+- RED→GREEN：缺少查询/客户端实现时失败；非法天气响应被误判为无日期数据的 partial 已由协议断言捕获并修复为协议错误。
+- 验证：`TestProviderContract|TestTravelQueries|TestTravelTransactions` 及相关 Service/Client/Repository vet 均通过，日志 .cache/reports/travel-task4-providers.log。
+- 默认沙箱无法访问本机 httptest 回环连接，使用已授权用户环境运行后通过；这不是改用测试替身掩盖真实 API 问题。
+- 尚未完成真实供应方冒烟、网页检索供应方核验及完整查询韧性，因此本任务未标为全部完成。接下来可继续偏好、工具和执行贯通，不因等待外部配置停止所有工作。
+
+协议参考（2026-10-23 核验）：[聚合数据](https://www.juhe.cn/docs/api/id/817)、[高德 POI 2.0](https://developer.amap.com/api/webservice/guide/api-advanced/newpoisearch)、[wttr.in JSON 输出](https://github.com/chubin/wttr.in#json-output)。聚合页面直接读取返回 405，官方搜索索引可定位接口；解析细节仍参考原实现，真实服务验收未完成。
