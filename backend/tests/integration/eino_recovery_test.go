@@ -160,3 +160,41 @@ func TestIncompatibleCheckpointDoesNotExecute(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+func TestEinoChatPersistsToolsAndCompletedOutput(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	var a *general.Agent
+	a = general.NewAgent(&recoveryModel{}, &countedSettings{}, func(in contracts.RunInput) adk.CheckPointStore {
+		return &general.RepositoryStore{Store: f.repo, Input: in, Fingerprint: a.Fingerprint()}
+	}, "test", time.Second)
+	reg := manager.NewRegistry()
+	reg.Register("general", a)
+	mgr := manager.New(f.repo, memory.New(f.repo, 32000), reg, contracts.Limits{Iterations: 8, ExecutionTimeout: time.Second * 10, ToolTimeout: time.Second})
+	defer mgr.Close()
+	r, e := mgr.Submit(ctx, f.input("eino", "read settings twice"), "general")
+	if e != nil {
+		t.Fatal(e)
+	}
+	mgr.Wait()
+	got, e := f.repo.GetRun(ctx, f.scope, r.ID)
+	if e != nil || got.Status != "succeeded" || got.PartialOutput != "resumed-complete" {
+		t.Fatalf("completion: %+v %v", got, e)
+	}
+	messages, e := f.repo.ListMessages(ctx, f.scope, f.conversation, 0, 100)
+	if e != nil || len(messages) != 6 {
+		t.Fatalf("missing tool history: %+v %v", messages, e)
+	}
+	events, e := mgr.Events(ctx, f.scope, r.ID, 0)
+	if e != nil {
+		t.Fatal(e)
+	}
+	tools := 0
+	for _, event := range events {
+		if event.Type == "tool.completed" {
+			tools++
+		}
+	}
+	if tools != 2 {
+		t.Fatalf("tool events=%d", tools)
+	}
+}

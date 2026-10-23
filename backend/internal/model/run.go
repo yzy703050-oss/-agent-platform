@@ -9,4 +9,6 @@ type Run struct {
 	Attempt         int64  `json:"attempt"`
 	Version         int64  `json:"version"`
 	ContextEligible bool   `json:"context_eligible"`
+	ErrorCode       string `json:"error_code"`
+	PartialOutput   string `json:"partial_output"`
 }

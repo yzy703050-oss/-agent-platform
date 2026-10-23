@@ -64,6 +64,8 @@ func New(d Dependencies) http.Handler {
 		protected.POST("/pages/:id/leave", api.LeavePage)
 	}
 	if d.Manager != nil {
+		protected.GET("/runs/:id/events", api.RunEvents)
+		protected.GET("/metrics", api.Metrics)
 		protected.GET("/runs/:id", api.GetRun)
 		protected.POST("/runs/:id/pause", api.PauseRun)
 		protected.POST("/runs/:id/resume", api.ResumeRun)

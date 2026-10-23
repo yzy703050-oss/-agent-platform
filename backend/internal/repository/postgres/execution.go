@@ -28,6 +28,7 @@ func (r *Repository) FindIdempotentRun(ctx context.Context, in model.AdmitRunInp
 }
 func (r *Repository) TransitionRun(ctx context.Context, in model.TransitionRunInput) (model.Run, error) {
 	allowed := map[string]bool{"accepted:running": true, "accepted:failed": true, "running:failed": true, "running:pausing": true, "resuming:running": true, "resuming:failed": true, "pausing:interrupted": true, "running:interrupted": true, "accepted:interrupted": true, "resuming:interrupted": true, "running:cancelling": true, "pausing:cancelling": true, "paused:cancelling": true, "accepted:cancelling": true, "resuming:cancelling": true, "cancelling:cancelled": true, "cancelling:interrupted": true}
+	allowed["running:timed_out"] = true
 	if !allowed[in.From+":"+in.To] {
 		return model.Run{}, model.ErrConflict
 	}
@@ -47,7 +48,7 @@ func (r *Repository) TransitionRun(ctx context.Context, in model.TransitionRunIn
 	if err != nil {
 		return run, err
 	}
-	if in.To == "failed" || in.To == "cancelled" || in.To == "interrupted" {
+	if in.To == "failed" || in.To == "timed_out" || in.To == "cancelled" || in.To == "interrupted" {
 		if _, err = tx.Exec(ctx, "UPDATE checkpoints SET valid=false WHERE run_id=$1", run.ID); err != nil {
 			return model.Run{}, err
 		}

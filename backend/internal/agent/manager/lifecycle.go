@@ -23,7 +23,7 @@ func (m *Manager) Pause(ctx context.Context, s model.Scope, id string) (model.Ru
 		m.mu.Unlock()
 		return model.Run{}, model.ErrConflict
 	}
-	run, e = m.store.TransitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: run.Status, To: "pausing"})
+	run, e = m.transitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: run.Status, To: "pausing"})
 	m.mu.Unlock()
 	if e != nil {
 		return run, e
@@ -31,15 +31,24 @@ func (m *Manager) Pause(ctx context.Context, s model.Scope, id string) (model.Ru
 	bounded, cancel := context.WithTimeout(context.Background(), m.stopBudget())
 	defer cancel()
 	result, pauseErr := x.execution.Pause(bounded)
+	if pauseErr == nil {
+		select {
+		case <-x.done:
+		case <-bounded.Done():
+			pauseErr = bounded.Err()
+		}
+	}
 	finish, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
 	if pauseErr == nil && result.Stopped && result.CheckpointSaved {
 		if paused, err := m.store.FinalizePause(finish, model.FinalizePauseInput{Scope: s, RunID: id, Attempt: run.Attempt}); err == nil {
+			m.metrics.paused.Add(1)
+			m.notify(paused)
 			return paused, nil
 		}
 	}
 	x.cancel()
-	return m.store.TransitionRun(finish, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: "pausing", To: "interrupted", ErrorCode: "pause_checkpoint_unavailable"})
+	return m.transitionRun(finish, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: "pausing", To: "interrupted", ErrorCode: "pause_checkpoint_unavailable"})
 }
 func (m *Manager) Resume(ctx context.Context, s model.Scope, id string) (model.Run, error) {
 	m.mu.Lock()
@@ -74,10 +83,10 @@ func (m *Manager) Resume(ctx context.Context, s model.Scope, id string) (model.R
 	}
 	execution, e := a.NewExecution(ctx, contracts.RunInput{Scope: s, Run: run, Resume: true, CheckpointID: id, Limits: m.limits})
 	if e != nil {
-		_, _ = m.store.TransitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: "resuming", To: "interrupted", ErrorCode: "checkpoint_incompatible"})
+		_, _ = m.transitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: "resuming", To: "interrupted", ErrorCode: "checkpoint_incompatible"})
 		return model.Run{}, model.ErrCheckpointIncompatible
 	}
-	run, e = m.store.TransitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: "resuming", To: "running"})
+	run, e = m.transitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: "resuming", To: "running"})
 	if e != nil {
 		return run, e
 	}
@@ -96,7 +105,7 @@ func (m *Manager) Cancel(ctx context.Context, s model.Scope, id string) (model.R
 		return run, nil
 	}
 	x := m.active[id]
-	run, e = m.store.TransitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: run.Status, To: "cancelling"})
+	run, e = m.transitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: run.Status, To: "cancelling"})
 	m.mu.Unlock()
 	if e != nil {
 		return run, e
@@ -113,7 +122,7 @@ func (m *Manager) Cancel(ctx context.Context, s model.Scope, id string) (model.R
 	}
 	finish, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
-	return m.store.TransitionRun(finish, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: "cancelling", To: status, ErrorCode: code})
+	return m.transitionRun(finish, model.TransitionRunInput{Scope: s, RunID: id, Attempt: run.Attempt, From: "cancelling", To: status, ErrorCode: code})
 }
 func (m *Manager) stopBudget() time.Duration {
 	d := m.limits.PauseTimeout

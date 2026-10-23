@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const runColumns = "id,conversation_id,user_id,page_id,status,attempt,version,context_eligible"
+const runColumns = "id,conversation_id,user_id,page_id,status,attempt,version,context_eligible,error_code,partial_output"
 
 func scanRun(row pgx.Row) (model.Run, error) {
 	var r model.Run
-	err := row.Scan(&r.ID, &r.ConversationID, &r.UserID, &r.PageID, &r.Status, &r.Attempt, &r.Version, &r.ContextEligible)
+	err := row.Scan(&r.ID, &r.ConversationID, &r.UserID, &r.PageID, &r.Status, &r.Attempt, &r.Version, &r.ContextEligible, &r.ErrorCode, &r.PartialOutput)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, model.ErrNotFound
 	}
@@ -137,7 +137,10 @@ func (r *Repository) CompleteRun(ctx context.Context, in model.FinishRunInput) e
 	if err = appendMessage(ctx, tx, run, "assistant", in.FinalText); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, "UPDATE agent_runs SET status='succeeded',version=version+1,updated_at=now() WHERE id=$1", run.ID); err != nil {
+	if _, err = tx.Exec(ctx, "DELETE FROM messages WHERE run_id=$1 AND source_key='partial'", run.ID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, "UPDATE agent_runs SET status='succeeded',partial_output=$2,version=version+1,updated_at=now() WHERE id=$1", run.ID, in.FinalText); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, "UPDATE checkpoints SET valid=false WHERE run_id=$1", run.ID); err != nil {

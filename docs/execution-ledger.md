@@ -35,5 +35,11 @@ Task 5 RED: LeaseManager/Pause/Resume/Reconcile 未实现编译失败；断点�
 Task 5 evidence: 实际 Eino TurnLoop + RepositoryStore 保存 PostgreSQL 断点，销毁内核对象后创建新实例恢复，已完成工具不重放；不兼容指纹时模型调用次数为零。HTTP 测试覆盖页面令牌拒绝、暂停、GET 不自动恢复、手动继续与结束。
 Task 5 Ruling: 新增 002 迁移记录消息 attempt 和稳定 source_key；以 Run + 工具调用标识去重，而执行尝试作为存储围栏，避免跨恢复重复展示。
 Task 5 Ruling: 暂停/结束在状态提交后使用独立有界上下文完成停止与落库，HTTP 客户端断开不会撤销已接受的生命周期操作。正常关闭服务先请求安全暂停，再释放数据库单实例锁。
-Task 6: in progress；SSE、部分输出与诊断。
-Task 7–8: not started。
+Task 6: complete；全套 71 项后端测试（真实 PostgreSQL）与 go vet 通过。
+Task 6 RED: EventHub/事件查询/部分输出字段未实现；超时误记 failed、最终回答替换 partial 后重复使用旧 ordinal 两项断言失败，修复为 timed_out 和先分配新 ordinal 再删除 partial，复测通过。
+Task 6 evidence: 真实 Eino Stream 分块、真实 Eino + PostgreSQL 两次工具调用与最终输出持久化、完成通知先提交、慢订阅有界、seq 去重、错误脱敏、跨用户 SSE 拒绝、SSE 断开不暂停、部分输出暂停后仍可查询。
+Task 6 Ruling: EventHub 仅推送临时 delta 或已提交变更通知；SSE 先订阅后读 PostgreSQL 持久事件，依靠 seq 去重，并每 2 秒核对持久事件与 Session，避免遗漏通知。缓冲每订阅 64 条、每 Run 8 个、进程 128 个。
+Task 6 Ruling: 聚合文本上限 256KB，每 250ms 或 4KB 保存并在停止时刷新；partial 以历史消息保存，完成事务替换为最终消息。暂停 finalize 等待执行回调落库结束。
+Task 6 Ruling: 该版本 TurnLoop 恢复分支 Runner 默认非流式，沿用框架恢复语义；初次执行提供真实流式增量，恢复成功后通过终态事件与 GET 取得完整输出，不伪造 Token 增量。
+Task 7: in progress；React 依赖已固定，7 项交互测试先因 App 缺失而失败。
+Task 8: not started。

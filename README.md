@@ -1,6 +1,6 @@
 # Go Agent Platform
 
-Go + React Agent 平台，当前 MVP 进度 5/8：聊天执行、数据存储、认证与会话、页面租约和持久化恢复 API 已实现；SSE 和 React 尚未完成。真实模型网络冒烟待本地配置。
+Go + React Agent 平台，当前 MVP 进度 6/8：聊天、认证与会话、页面租约、持久化恢复和 SSE 已实现；React 界面正在实现。真实模型网络冒烟待本地配置。
 
 ## 正式文档
 

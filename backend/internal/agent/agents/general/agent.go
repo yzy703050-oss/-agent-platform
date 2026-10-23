@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
@@ -38,11 +39,19 @@ func (a *Agent) NewExecution(ctx context.Context, in contracts.RunInput) (contra
 	if e != nil {
 		return nil, e
 	}
-	runner, e := NewRunner(ctx, RunnerConfig{Agent: kernel, Store: a.store(in), RunID: in.Run.ID, Fingerprint: a.fingerprint, Resume: in.Resume, PauseTimeout: a.pauseTimeout})
+	exec := &execution{input: in, done: make(chan struct{})}
+	runner, e := NewRunner(ctx, RunnerConfig{Agent: kernel, Store: a.store(in), RunID: in.Run.ID, Fingerprint: a.fingerprint, Resume: in.Resume, PauseTimeout: a.pauseTimeout, Streaming: true, OnDelta: func(text string) error {
+		b, _ := json.Marshal(map[string]string{"text": text})
+		if exec.emit == nil {
+			return nil
+		}
+		return exec.emit(contracts.Event{Type: "message.delta", Payload: b})
+	}})
 	if e != nil {
 		return nil, e
 	}
-	return &execution{runner: runner, input: in, done: make(chan struct{})}, nil
+	exec.runner = runner
+	return exec, nil
 }
 
 type execution struct {
@@ -53,9 +62,12 @@ type execution struct {
 	err             error
 	cancel          context.CancelFunc
 	cancelRequested bool
+	emit            func(contracts.Event) error
 }
 
 func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error) (contracts.ExecutionResult, error) {
+	e.emit = emit
+	ctx = agenttools.WithObserver(ctx, emit)
 	ctx, cancel := context.WithCancel(ctx)
 	e.mu.Lock()
 	e.cancel = cancel
@@ -90,7 +102,11 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 	e.mu.Lock()
 	e.err = err
 	e.mu.Unlock()
-	return contracts.ExecutionResult{FinalText: e.runner.Result().FinalText}, err
+	code := ""
+	if errors.Is(err, adk.ErrExceedMaxIterations) {
+		code = "iteration_limit"
+	}
+	return contracts.ExecutionResult{FinalText: e.runner.Result().FinalText, ErrorCode: code}, err
 }
 func (e *execution) Pause(ctx context.Context) (contracts.PauseResult, error) {
 	if !e.runner.RequestPause() {

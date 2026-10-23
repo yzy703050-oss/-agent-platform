@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -19,6 +20,8 @@ type RunnerConfig struct {
 	Fingerprint  string
 	Resume       bool
 	PauseTimeout time.Duration
+	Streaming    bool
+	OnDelta      func(string) error
 }
 type RunResult struct {
 	Resumable bool
@@ -75,7 +78,7 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 	cfg := adk.TurnLoopConfig[string, *schema.Message]{
 		Store: r.store, CheckpointID: r.cfg.RunID,
 		GenInput: func(_ context.Context, _ *adk.TurnLoop[string, *schema.Message], items []string) (*adk.GenInputResult[string, *schema.Message], error) {
-			return &adk.GenInputResult[string, *schema.Message]{Input: &adk.AgentInput{Messages: messages}, Consumed: items}, nil
+			return &adk.GenInputResult[string, *schema.Message]{Input: &adk.AgentInput{Messages: messages, EnableStreaming: r.cfg.Streaming}, Consumed: items}, nil
 		},
 		GenResume: func(_ context.Context, _ *adk.TurnLoop[string, *schema.Message], interrupted, unhandled, newItems []string) (*adk.GenResumeResult[string, *schema.Message], error) {
 			return &adk.GenResumeResult[string, *schema.Message]{Consumed: interrupted, Remaining: append(unhandled, newItems...)}, nil
@@ -99,7 +102,7 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 				if event.Output == nil || event.Output.MessageOutput == nil {
 					continue
 				}
-				msg, e := event.Output.MessageOutput.GetMessage()
+				msg, e := r.readMessage(event.Output.MessageOutput)
 				if e != nil {
 					return e
 				}
@@ -158,4 +161,50 @@ func (r *Runner) Run(ctx context.Context, messages []*schema.Message, emit func(
 		return nil
 	}
 	return exit.ExitReason
+}
+
+func (r *Runner) readMessage(out *adk.MessageVariant) (*schema.Message, error) {
+	if !out.IsStreaming {
+		return out.GetMessage()
+	}
+	defer out.MessageStream.Close()
+	chunks := []*schema.Message{}
+	size := 0
+	for {
+		chunk, e := out.MessageStream.Recv()
+		if e == io.EOF {
+			break
+		}
+		if e != nil {
+			return nil, e
+		}
+		if chunk == nil {
+			continue
+		}
+		size += len(chunk.Content)
+		for _, call := range chunk.ToolCalls {
+			size += len(call.Function.Arguments)
+		}
+		if size > 256000 {
+			return nil, errors.New("model output limit exceeded")
+		}
+		chunks = append(chunks, chunk)
+		if (out.Role == schema.Assistant || chunk.Role == schema.Assistant) && chunk.Content != "" && r.cfg.OnDelta != nil {
+			runes := []rune(chunk.Content)
+			for len(runes) > 0 {
+				n := len(runes)
+				if n > 1000 {
+					n = 1000
+				}
+				if e = r.cfg.OnDelta(string(runes[:n])); e != nil {
+					return nil, e
+				}
+				runes = runes[n:]
+			}
+		}
+	}
+	if len(chunks) == 0 {
+		return nil, nil
+	}
+	return schema.ConcatMessages(chunks)
 }

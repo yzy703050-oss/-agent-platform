@@ -20,6 +20,7 @@ type pausableAgent struct {
 	fail      bool
 	claimOnly bool
 	starts    atomic.Int32
+	events    []contracts.Event
 }
 type pausableExecution struct {
 	a    *pausableAgent
@@ -31,8 +32,13 @@ type pausableExecution struct {
 func (a *pausableAgent) NewExecution(_ context.Context, in contracts.RunInput) (contracts.Execution, error) {
 	return &pausableExecution{a: a, in: in, stop: make(chan struct{})}, nil
 }
-func (e *pausableExecution) Start(ctx context.Context, _ func(contracts.Event) error) (contracts.ExecutionResult, error) {
+func (e *pausableExecution) Start(ctx context.Context, emit func(contracts.Event) error) (contracts.ExecutionResult, error) {
 	e.a.starts.Add(1)
+	for _, event := range e.a.events {
+		if err := emit(event); err != nil {
+			return contracts.ExecutionResult{}, err
+		}
+	}
 	e.a.inputs <- e.in
 	select {
 	case <-e.stop:

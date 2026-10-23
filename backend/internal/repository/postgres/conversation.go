@@ -88,7 +88,7 @@ func (r *Repository) ListMessages(ctx context.Context, scope model.Scope, id str
 	if _, err := r.FindConversation(ctx, scope, id); err != nil {
 		return nil, err
 	}
-	rows, err := r.pool.Query(ctx, "SELECT id,conversation_id,run_id,role,content,tool_call_id,ordinal,tool_calls FROM messages WHERE conversation_id=$1 AND user_id=$2 AND ordinal>$3 ORDER BY ordinal LIMIT $4", id, scope.UserID, after, limit)
+	rows, err := r.pool.Query(ctx, "SELECT id,conversation_id,run_id,role,content,tool_call_id,ordinal,tool_calls,display_status FROM messages WHERE conversation_id=$1 AND user_id=$2 AND ordinal>$3 ORDER BY ordinal LIMIT $4", id, scope.UserID, after, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (r *Repository) ListMessages(ctx context.Context, scope model.Scope, id str
 	for rows.Next() {
 		var m model.Message
 		var calls []byte
-		if err = rows.Scan(&m.ID, &m.ConversationID, &m.RunID, &m.Role, &m.Content, &m.ToolCallID, &m.Ordinal, &calls); err != nil {
+		if err = rows.Scan(&m.ID, &m.ConversationID, &m.RunID, &m.Role, &m.Content, &m.ToolCallID, &m.Ordinal, &calls, &m.DisplayStatus); err != nil {
 			return nil, err
 		}
 		if err = json.Unmarshal(calls, &m.ToolCalls); err != nil {

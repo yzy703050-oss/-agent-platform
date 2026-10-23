@@ -8,6 +8,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
+	"strings"
 	"sync"
 	"time"
 )
@@ -23,6 +25,9 @@ type Store interface {
 	ListRecoverableRuns(context.Context) ([]model.ScopedRun, error)
 	ReconcileRun(context.Context, model.Scope, model.Run, string, string) (model.Run, error)
 	ports.CheckpointStore
+	ListRunEvents(context.Context, model.Scope, string, int64) ([]contracts.Event, error)
+	AppendRunEvent(context.Context, model.Scope, contracts.Event) error
+	SavePartialOutput(context.Context, model.Scope, string, int64, string) error
 }
 type ContextBuilder interface {
 	Build(context.Context, model.Scope, string, string) ([]model.Message, error)
@@ -32,6 +37,7 @@ type activeRun struct {
 	scope     model.Scope
 	execution contracts.Execution
 	cancel    context.CancelFunc
+	done      chan struct{}
 }
 type Manager struct {
 	mu       sync.Mutex
@@ -44,11 +50,13 @@ type Manager struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	closed   bool
+	hub      *EventHub
+	metrics  Metrics
 }
 
 func New(s Store, b ContextBuilder, r *Registry, l contracts.Limits) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Manager{store: s, memory: b, registry: r, limits: l, active: map[string]*activeRun{}, ctx: ctx, cancel: cancel}
+	return &Manager{store: s, memory: b, registry: r, limits: l, active: map[string]*activeRun{}, ctx: ctx, cancel: cancel, hub: NewEventHub(64)}
 }
 func (m *Manager) Available(agent string) bool { _, ok := m.registry.Get(agent); return ok }
 func (m *Manager) Wait()                       { m.wg.Wait() }
@@ -112,7 +120,7 @@ func (m *Manager) Submit(ctx context.Context, in model.AdmitRunInput, agent stri
 		m.fail(run, in.Scope, "agent_initialization_failed")
 		return run, model.ErrModelUnavailable
 	}
-	run, e = m.store.TransitionRun(ctx, model.TransitionRunInput{Scope: in.Scope, RunID: run.ID, Attempt: run.Attempt, From: "accepted", To: "running"})
+	run, e = m.transitionRun(ctx, model.TransitionRunInput{Scope: in.Scope, RunID: run.ID, Attempt: run.Attempt, From: "accepted", To: "running"})
 	if e != nil {
 		return model.Run{}, e
 	}
@@ -121,13 +129,36 @@ func (m *Manager) Submit(ctx context.Context, in model.AdmitRunInput, agent stri
 }
 func (m *Manager) launch(run model.Run, s model.Scope, exec contracts.Execution) {
 	ctx, cancel := context.WithTimeout(m.ctx, m.limits.ExecutionTimeout)
-	x := &activeRun{run, s, exec, cancel}
+	x := &activeRun{run: run, scope: s, execution: exec, cancel: cancel, done: make(chan struct{})}
 	m.active[run.ID] = x
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
+		defer close(x.done)
 		defer cancel()
 		defer func() { m.mu.Lock(); delete(m.active, run.ID); m.mu.Unlock() }()
+		m.metrics.started.Add(1)
+		started := time.Now()
+		slog.Info("run_started", "run_id", run.ID, "attempt", run.Attempt)
+		defer func() {
+			m.metrics.durationMS.Add(time.Since(started).Milliseconds())
+			slog.Info("execution_stopped", "run_id", run.ID, "attempt", run.Attempt, "duration_ms", time.Since(started).Milliseconds())
+		}()
+		var partial strings.Builder
+		partial.WriteString(run.PartialOutput)
+		lastSave := time.Time{}
+		savedBytes := partial.Len()
+		flush := func(ctx context.Context) error {
+			if partial.Len() == savedBytes {
+				return nil
+			}
+			if err := m.store.SavePartialOutput(ctx, s, run.ID, run.Attempt, partial.String()); err != nil {
+				return err
+			}
+			savedBytes = partial.Len()
+			lastSave = time.Now()
+			return nil
+		}
 		result, err := exec.Start(ctx, func(e contracts.Event) error {
 			if e.Type == "message" {
 				var msg model.Message
@@ -136,12 +167,51 @@ func (m *Manager) launch(run model.Run, s model.Scope, exec contracts.Execution)
 				}
 				return m.store.AppendRunMessage(ctx, s, run.ID, run.Attempt, msg)
 			}
+			e.RunID = run.ID
+			e.Attempt = run.Attempt
+			e.Seq = 0
+			if e.Type == "message.delta" {
+				var delta struct {
+					Text string `json:"text"`
+				}
+				if len(e.Payload) > 16000 || json.Unmarshal(e.Payload, &delta) != nil || partial.Len()+len(delta.Text) > 256000 {
+					return model.ErrInvalidInput
+				}
+				partial.WriteString(delta.Text)
+				if time.Since(lastSave) >= 250*time.Millisecond || partial.Len()-savedBytes >= 4096 {
+					if err := flush(ctx); err != nil {
+						return err
+					}
+				}
+				m.hub.Publish(e)
+				return nil
+			}
+			if e.Type == "tool.started" || e.Type == "tool.completed" || e.Type == "tool.failed" {
+				if err := m.store.AppendRunEvent(ctx, s, e); err != nil {
+					return err
+				}
+				m.notify(run)
+				if e.Type != "tool.started" {
+					var info struct {
+						DurationMS int64 `json:"duration_ms"`
+					}
+					_ = json.Unmarshal(e.Payload, &info)
+					slog.Info("tool_finished", "run_id", run.ID, "attempt", run.Attempt, "status", e.Type, "duration_ms", info.DurationMS)
+				}
+				return nil
+			}
 			return nil
 		})
 		finishCtx, done := context.WithTimeout(context.Background(), 5*time.Second)
 		defer done()
+		if flushErr := flush(finishCtx); flushErr != nil && err == nil {
+			err = flushErr
+		}
 		if err != nil {
 			code := "execution_failed"
+			if result.ErrorCode == "iteration_limit" {
+				code = "iteration_limit"
+			}
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				code = "execution_timeout"
 			}
@@ -154,11 +224,18 @@ func (m *Manager) launch(run model.Run, s model.Scope, exec contracts.Execution)
 		}
 		if e = m.store.CompleteRun(finishCtx, model.FinishRunInput{Scope: s, RunID: run.ID, Attempt: run.Attempt, FinalText: result.FinalText}); e != nil {
 			m.fail(run, s, "persistence_failed")
+		} else {
+			m.metrics.succeeded.Add(1)
+			m.notify(run)
 		}
 	}()
 }
 func (m *Manager) fail(run model.Run, s model.Scope, code string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, _ = m.store.TransitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: run.ID, Attempt: run.Attempt, From: run.Status, To: "failed", ErrorCode: code})
+	status := "failed"
+	if code == "execution_timeout" {
+		status = "timed_out"
+	}
+	_, _ = m.transitionRun(ctx, model.TransitionRunInput{Scope: s, RunID: run.ID, Attempt: run.Attempt, From: run.Status, To: status, ErrorCode: code})
 }

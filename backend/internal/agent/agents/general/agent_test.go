@@ -4,6 +4,7 @@ import (
 	"agent-platform/backend/internal/agent/contracts"
 	pm "agent-platform/backend/internal/model"
 	"context"
+	"encoding/json"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 	"sync/atomic"
@@ -34,6 +35,36 @@ func (r *readSettings) Get(context.Context, pm.Scope) (pm.UserSettings, error) {
 }
 func TestUnknownToolDenied(t *testing.T) { testAgentLimit(t, "delete_everything", false) }
 func TestIterationLimit(t *testing.T)    { testAgentLimit(t, "get_my_settings", true) }
+
+type chunkModel struct{ loopModel }
+
+func (m *chunkModel) WithTools([]*schema.ToolInfo) (model.ToolCallingChatModel, error) { return m, nil }
+func (m *chunkModel) Stream(context.Context, []*schema.Message, ...model.Option) (*schema.StreamReader[*schema.Message], error) {
+	return schema.StreamReaderFromArray([]*schema.Message{schema.AssistantMessage("第一块", nil), schema.AssistantMessage("第二块", nil)}), nil
+}
+func TestExecutionEmitsActualStreamChunks(t *testing.T) {
+	a := NewAgent(&chunkModel{}, &readSettings{}, func(contracts.RunInput) adkStore { return &diskStore{dir: t.TempDir()} }, "stream", time.Second)
+	exec, e := a.NewExecution(context.Background(), contracts.RunInput{Run: pm.Run{ID: "stream"}, Limits: contracts.Limits{Iterations: 2, ToolTimeout: time.Second}, Messages: []pm.Message{{Role: "user", Content: "hi"}}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	chunks := []string{}
+	result, e := exec.Start(context.Background(), func(event contracts.Event) error {
+		if event.Type == "message.delta" {
+			var delta struct {
+				Text string `json:"text"`
+			}
+			if e := json.Unmarshal(event.Payload, &delta); e != nil {
+				return e
+			}
+			chunks = append(chunks, delta.Text)
+		}
+		return nil
+	})
+	if e != nil || len(chunks) != 2 || chunks[0] != "第一块" || result.FinalText != "第一块第二块" {
+		t.Fatalf("chunks=%v result=%+v err=%v", chunks, result, e)
+	}
+}
 func TestCancelBeforeStartNeverCallsModel(t *testing.T) {
 	m := &loopModel{toolName: "get_my_settings"}
 	a := NewAgent(m, &readSettings{}, func(contracts.RunInput) adkStore { return &diskStore{dir: t.TempDir()} }, "test", time.Second)
