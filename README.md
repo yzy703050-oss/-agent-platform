@@ -1,6 +1,6 @@
 # Go Agent Platform
 
-Go + React Agent 平台，当前已建立目录骨架并完成首轮 MVP 文档，产品代码尚未实现。
+Go + React Agent 平台，当前 MVP 进度 1/8：已实现并验证 Eino 执行与断点恢复底座，完整 HTTP 服务与 React 界面尚未实现。
 
 ## 正式文档
 
@@ -11,7 +11,7 @@ Go + React Agent 平台，当前已建立目录骨架并完成首轮 MVP 文档�
 - [实施任务状态](openspec/changes/build-agent-platform-mvp/tasks.md)
 - [详细实施计划](docs/superpowers/plans/2026-10-22-agent-platform-mvp.md)
 
-README 只负责导航与当前状态，不另行定义产品行为。文档待用户审阅和执行方式选择后进入实施。
+README 只负责导航与当前状态，不另行定义产品行为。用户已选择单代理执行；进度与证据见 [执行记录](docs/execution-ledger.md) 和 [验证记录](docs/verification.md)。
 
 ## 已确认方向
 
@@ -61,7 +61,17 @@ docs/superpowers/plans/          实施计划
 
 - 已发现 Go 1.27.2、Node 24.20.0、OpenSpec 1.12.0。
 - 用户确认未安装 PostgreSQL 和 Docker；后续提供 Compose 与原生 PostgreSQL 两条启动说明。
-- 暂无 go.mod、package.json、业务代码和数据库迁移，当前不能启动应用。
-- 当前没有 Git 仓库，没有提交、分支或 PR。
-- 未运行产品单元测试、数据库集成测试或真实模型冒烟；文档校验结果单独报告，不能替代实现验证。
+- backend/go.mod 已建立，Eino 恢复底座的 6 项测试及 go vet 通过；前端与数据库尚未实现，当前不能启动应用。
+- 已有本地 Git 分支 feat/agent-platform-mvp；没有远程推送或 PR。
+- 数据库集成与真实模型冒烟尚未运行；race 测试因本机工具链启动失败而未通过，详见验证记录。
+
+运行已有测试（PowerShell，在项目根目录）：
+
+```powershell
+$env:GOMODCACHE = Join-Path (Get-Location) '.cache/go-mod'
+$env:GOCACHE = Join-Path (Get-Location) '.cache/go-build'
+Set-Location backend
+go test ./... -count=1
+go vet ./...
+```
 
