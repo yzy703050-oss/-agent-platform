@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -9,6 +10,9 @@ import (
 )
 
 type Config struct {
+	TrainAPIKey, AMAPAPIKey                                                              string
+	RAGMCPCommand, RAGMCPDir, RAGCollection                                              string
+	RAGMCPArgs                                                                           []string
 	PublicOrigin                                                                         string
 	CookieSecure                                                                         bool
 	DatabaseDSN, HTTPAddr, ModelBaseURL, ModelID, ModelAPIKey                            string
@@ -17,6 +21,14 @@ type Config struct {
 
 func Load(get func(string) string) (Config, error) {
 	c := Config{DatabaseDSN: get("DB_DSN"), HTTPAddr: get("HTTP_ADDR"), ModelBaseURL: get("LLM_BASE_URL"), ModelID: get("LLM_MODEL"), ModelAPIKey: get("LLM_API_KEY")}
+	c.TrainAPIKey, c.AMAPAPIKey = get("TRAIN_API_KEY"), get("AMAP_API_KEY")
+	c.RAGMCPCommand, c.RAGMCPDir, c.RAGCollection = get("RAG_MCP_COMMAND"), get("RAG_MCP_DIR"), get("RAG_COLLECTION")
+	c.RAGMCPArgs = []string{"-m", "src.mcp_server.server"}
+	if args := get("RAG_MCP_ARGS"); args != "" {
+		if json.Unmarshal([]byte(args), &c.RAGMCPArgs) != nil {
+			return c, errors.New("RAG_MCP_ARGS must be a JSON string array")
+		}
+	}
 	if c.DatabaseDSN == "" {
 		return c, errors.New("DB_DSN is required; no in-memory database fallback")
 	}

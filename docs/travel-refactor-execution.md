@@ -63,3 +63,13 @@
 真实 PostgreSQL 的 TestTravelWorkflow、TestTravelWorkflowRecovery 通过，包含有效旧断点重放、跨新实例手动恢复、迭代预算连续性、初始化零模型/查询调用和修订不重复。TestTravelTransactions 增加 unknown 操作拒绝。共享 Runner 拒绝强制升级停止的可恢复状态；普通聊天、共享运行时及差旅受影响检查通过（.cache/reports/travel-task6-all.log、travel-task6-old-checkpoint.log）。
 
 恢复诊断发现非流式强制取消可能丢失内核历史，已修订 design D7/D8 并补回归。安全停止时可记录在途模型决策，pausing 业务写入仍拒绝。政策工具、平台入口注册和前端仍待后续任务，开发服务未切换到新代码。
+
+### Task 7 — 现有 RAG MCP 接入
+
+核验用户提供项目 src/mcp_server/server.py 和 query_policy_evidence.py，采用官方 MCP Go SDK v1.8.0 的 stdio 连接，工具列表检查后调用 query_policy_evidence(query,collection,top_k)。参数来自本地运维配置，模型不能替换命令、工作目录或集合；子进程不继承平台数据库及模型密钥，stderr 不进入事件。
+
+政策证据验证 schema_version=1、集合、片段身份、完整内容与来源；严格区分未命中、错误、范围不适用及适用条件不足。命中只代表证据可用，不能自动宣称行程合规。TestPolicyEvidence、TestPolicyProtocol 及相关 vet 通过。
+
+真实 TestPolicyMCPReal 从给定项目启动并连接成功，default 集合返回 no_knowledge、0 fragments（.cache/reports/travel-task7-mcp-real.log）。连接协议已通，含真实文档的命中验收仍未完成；不向 RAG 导入或修改文档。非密钥连接位置已补入本地忽略的 .env，配置模板只保留占位。
+
+官方 SDK 连接依据：https://github.com/modelcontextprotocol/go-sdk/blob/main/README.md 。

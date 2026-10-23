@@ -26,6 +26,7 @@ type Config struct {
 	Model       model.ToolCallingChatModel
 	Trips       traveltools.Trips
 	Preferences traveltools.Preferences
+	Policy      traveltools.Policy
 	Decisions   journalStore
 	Checkpoints ports.CheckpointStore
 	Context     *memory.TravelContext
@@ -47,7 +48,7 @@ func (a *Agent) Fingerprint() string { return a.fingerprint }
 func (a *Agent) NewExecution(ctx context.Context, in contracts.RunInput) (contracts.Execution, error) {
 	ref := pm.TravelExecution{Scope: in.Scope, ConversationID: in.Run.ConversationID, RunID: in.Run.ID, Attempt: in.Run.Attempt}
 	exec := &execution{agent: a, input: in, done: make(chan struct{})}
-	tools, err := traveltools.New(traveltools.Config{Trips: a.cfg.Trips, Preferences: a.cfg.Preferences, Execution: ref, Timeout: in.Limits.ToolTimeout})
+	tools, err := traveltools.New(traveltools.Config{Trips: a.cfg.Trips, Preferences: a.cfg.Preferences, Policy: a.cfg.Policy, Execution: ref, Timeout: in.Limits.ToolTimeout})
 	if err != nil {
 		return nil, err
 	}
