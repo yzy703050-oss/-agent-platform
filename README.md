@@ -1,6 +1,6 @@
 # Go Agent Platform
 
-Go + React Agent 平台，当前 MVP 进度 1/8：已实现并验证 Eino 执行与断点恢复底座，完整 HTTP 服务与 React 界面尚未实现。
+Go + React Agent 平台，当前 MVP 进度 2/8：已验证 Eino 断点恢复与 PostgreSQL 事务存储，完整 HTTP 服务与 React 界面尚未实现。
 
 ## 正式文档
 
@@ -60,7 +60,7 @@ docs/superpowers/plans/          实施计划
 ## 当前环境与验证状态
 
 - 已发现 Go 1.27.2、Node 24.20.0、OpenSpec 1.12.0。
-- 用户确认未安装 PostgreSQL 和 Docker；后续提供 Compose 与原生 PostgreSQL 两条启动说明。
+- 已按用户要求安装并注册 PostgreSQL 17.11；服务和开发/测试库均已验证，见 [数据库说明](docs/local-postgres.md)。未安装 Docker。
 - backend/go.mod 已建立，Eino 恢复底座的 6 项测试及 go vet 通过；前端与数据库尚未实现，当前不能启动应用。
 - 已有本地 Git 分支 feat/agent-platform-mvp；没有远程推送或 PR。
 - 数据库集成与真实模型冒烟尚未运行；race 测试因本机工具链启动失败而未通过，详见验证记录。

@@ -4,7 +4,7 @@
 
 ## 2. PostgreSQL 数据与事务边界
 
-- [ ] 2.1 实现迁移和 Repository，覆盖身份、会话、消息、Run、事件、Checkpoint；真实 PostgreSQL 验证用户范围、唯一约束、条件迁移、旧尝试围栏和语义事务，缺数据库时不得勾选。
+- [x] 2.1 实现迁移和 Repository，覆盖身份、会话、消息、Run、事件、Checkpoint；真实 PostgreSQL 验证用户范围、唯一约束、条件迁移、旧尝试围栏和语义事务。证据：11 项真实 PostgreSQL 集成测试、3 项配置测试与 go vet 通过。
 
 ## 3. 用户与会话业务闭环
 

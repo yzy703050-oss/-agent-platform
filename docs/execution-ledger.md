@@ -16,4 +16,10 @@ Task 1 additional RED: 断点在构造后被删除导致框架等待新输入，
 Task 1 Ruling: 恢复探针采用不依赖网络凭据的可控模型与只读工具，执行循环、暂停和恢复全部使用真实 Eino；测试 Store 使用临时磁盘文件，证明不依赖原执行对象的内存。生产 Store 将由 Task 2 提供。
 Task 1 Ruling: 除固定版本和配置指纹校验外，增加恢复期断点必须存在的约束，避免竞态静默启动新任务。
 Task 1 race: 本机 GCC 在沙箱启动失败，沙箱外 race 测试程序也以 0xc0000139 退出；未取得 race 通过证据，需支持工具链或 CI 验证。
-Task 2–8: not started；本机未安装 PostgreSQL/Docker，真实模型尚未验证。
+Task 2: complete；真实 PostgreSQL 17.11 上 11 项事务测试和 3 项配置测试通过，全套现有 20 项测试及 go vet 通过。
+Task 2 RED: Repository/Migrate/存储输入类型未实现而编译失败；配置测试因 Load 未实现而失败。
+Task 2 Ruling: 用户要求“安装并注册”，安装本机 PostgreSQL Windows 服务，仅本机监听，分离开发/测试角色，凭据不提交。
+Task 2 Ruling: pgx 固定 v5.11.0，模块最低 Go 版本提高至 1.25.0，本机 1.27.2 满足要求。
+Task 2 Ruling: CheckpointStore 使用 GetCheckpoint/SaveCheckpoint/InvalidateCheckpoint，避免其他仓储 Get/Save 重名；Eino 桥接仍使用 Get/Set/Delete。
+Task 3: in progress；下一步认证、设置、会话与 HTTP。
+Task 4–8: not started；真实模型尚未验证。
