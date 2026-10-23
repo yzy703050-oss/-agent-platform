@@ -49,3 +49,9 @@
 - 尚未完成真实供应方冒烟、网页检索供应方核验及完整查询韧性，因此本任务未标为全部完成。接下来可继续偏好、工具和执行贯通，不因等待外部配置停止所有工作。
 
 协议参考（2026-10-23 核验）：[聚合数据](https://www.juhe.cn/docs/api/id/817)、[高德 POI 2.0](https://developer.amap.com/api/webservice/guide/api-advanced/newpoisearch)、[wttr.in JSON 输出](https://github.com/chubin/wttr.in#json-output)。聚合页面直接读取返回 405，官方搜索索引可定位接口；解析细节仍参考原实现，真实服务验收未完成。
+
+### Task 5 — 来源隔离与预算（已验证的部分）
+
+真实 PostgreSQL 的 TestTravelMemoryIsolation 通过：偏好修订幂等、被替代来源排除、更早有效值回退、混合摘要全部来源检查、明确撤回和推断冲突保护。TestTravelContextBudget 先失败后通过，超长可选摘要让位于当前 Run，历史按整个 Run 保留，不拆分工具配对。相关 memory/preference/repository vet 通过。
+
+低频自动偏好分析及自动摘要生成尚未接入，不将 Task 5 或 OpenSpec 7.3 整体勾选完成。当前摘要可安全保存与读取；预算不足明确返回限制。代码不访问 Python 数据库。

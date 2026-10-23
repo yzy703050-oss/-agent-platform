@@ -1,0 +1,100 @@
+package integration
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+
+	"agent-platform/backend/internal/agent/memory"
+	"agent-platform/backend/internal/model"
+	prefsvc "agent-platform/backend/internal/service/travelpreference"
+)
+
+func TestTravelMemoryIsolation(t *testing.T) {
+	ctx := context.Background()
+	f, first, _ := travelFixture(t)
+	prefs := prefsvc.New(f.repo)
+	command := model.TravelPreferenceCommand{Operation: "set", Key: "seat", Value: "EARLIER_VALID_PREFERENCE", Origin: "explicit"}
+	initial, err := prefs.Apply(ctx, first, "pref-first", command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := prefs.Apply(ctx, first, "pref-first", command)
+	if err != nil || replayed.Revision != initial.Revision {
+		t.Fatalf("preference replay: %+v %v", replayed, err)
+	}
+	if err = f.repo.CompleteRun(ctx, model.FinishRunInput{Scope: first.Scope, RunID: first.RunID, Attempt: first.Attempt, FinalText: "已完成"}); err != nil {
+		t.Fatal(err)
+	}
+	secondRun, err := f.repo.AcceptRun(ctx, f.input("second", "REPLACED_USER_MESSAGE"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.repo.TransitionRun(ctx, model.TransitionRunInput{Scope: f.scope, RunID: secondRun.ID, Attempt: 1, From: "accepted", To: "running"}); err != nil {
+		t.Fatal(err)
+	}
+	second := model.TravelExecution{Scope: f.scope, ConversationID: f.conversation, RunID: secondRun.ID, Attempt: 1}
+	command.Value = "REPLACED_PREFERENCE"
+	if _, err = prefs.Apply(ctx, second, "pref-second", command); err != nil {
+		t.Fatal(err)
+	}
+	summary, err := f.repo.SaveTravelSummary(ctx, second, model.TravelSummary{SourceRuns: []string{first.RunID, second.RunID}, Version: 1, Content: "REPLACED_MIXED_SUMMARY"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.pool.Exec(ctx, "UPDATE agent_runs SET status='paused' WHERE id=$1", second.RunID); err != nil {
+		t.Fatal(err)
+	}
+	newRun, err := f.repo.SupersedePausedRun(ctx, f.input("third", "开始新的差旅任务"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.repo.TransitionRun(ctx, model.TransitionRunInput{Scope: f.scope, RunID: newRun.ID, Attempt: 1, From: "accepted", To: "running"}); err != nil {
+		t.Fatal(err)
+	}
+	current := model.TravelExecution{Scope: f.scope, ConversationID: f.conversation, RunID: newRun.ID, Attempt: 1}
+	// Even a summary whose creation run remains valid must validate every source.
+	if _, err = f.pool.Exec(ctx, "UPDATE travel_memory_summaries SET source_run_id=$2 WHERE id=$1", summary.ID, first.RunID); err != nil {
+		t.Fatal(err)
+	}
+	messages, err := memory.New(f.repo, 32000).Build(ctx, f.scope, f.conversation, newRun.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	builder := memory.NewTravelContext(prefs, f.repo, 32000)
+	input, err := builder.Build(ctx, f.scope, f.conversation, newRun.ID, messages)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal(input)
+	if strings.Contains(string(data), "REPLACED_") || !strings.Contains(string(data), "EARLIER_VALID_PREFERENCE") {
+		t.Fatalf("memory exclusion/fallback failed: %s", data)
+	}
+	command.Origin = "inferred"
+	command.Value = "INFERRED_OVERRIDE"
+	if _, err = prefs.Apply(ctx, current, "inferred", command); !errors.Is(err, model.ErrConflict) {
+		t.Fatalf("inference overrode explicit preference: %v", err)
+	}
+	command.Operation = "retract"
+	command.Origin = "explicit"
+	command.Value = ""
+	if _, err = prefs.Apply(ctx, current, "retract", command); err != nil {
+		t.Fatal(err)
+	}
+	command.Operation = "set"
+	command.Origin = "inferred"
+	command.Value = "REVIVED_VALUE"
+	if _, err = prefs.Apply(ctx, current, "revive", command); !errors.Is(err, model.ErrConflict) {
+		t.Fatalf("inference revived retraction: %v", err)
+	}
+	input, err = builder.Build(ctx, f.scope, f.conversation, newRun.ID, messages)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ = json.Marshal(input)
+	if strings.Contains(string(data), "EARLIER_VALID_PREFERENCE") || strings.Contains(string(data), "REPLACED_") {
+		t.Fatalf("retracted or excluded data leaked: %s", data)
+	}
+}

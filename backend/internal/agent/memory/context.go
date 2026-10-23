@@ -20,6 +20,10 @@ func (b *ContextBuilder) Build(ctx context.Context, s model.Scope, conv, run str
 	if e != nil {
 		return nil, e
 	}
+	return retainRuns(all, b.maxBytes)
+}
+
+func retainRuns(all []model.Message, maxBytes int) ([]model.Message, error) {
 	start, total := len(all), 0
 	for end := len(all); end > 0; {
 		begin := end - 1
@@ -29,12 +33,9 @@ func (b *ContextBuilder) Build(ctx context.Context, s model.Scope, conv, run str
 		}
 		size := 0
 		for _, m := range all[begin:end] {
-			size += len(m.Content) + len(m.ToolCallID) + 32
-			for _, t := range m.ToolCalls {
-				size += len(t.Arguments) + len(t.Name) + len(t.ID)
-			}
+			size += messageBytes(m)
 		}
-		if total+size > b.maxBytes {
+		if total+size > maxBytes {
 			if end == len(all) {
 				return nil, model.ErrInvalidInput
 			}
@@ -45,4 +46,12 @@ func (b *ContextBuilder) Build(ctx context.Context, s model.Scope, conv, run str
 		end = begin
 	}
 	return all[start:], nil
+}
+
+func messageBytes(m model.Message) int {
+	size := len(m.Content) + len(m.ToolCallID) + 32
+	for _, call := range m.ToolCalls {
+		size += len(call.Arguments) + len(call.Name) + len(call.ID)
+	}
+	return size
 }
