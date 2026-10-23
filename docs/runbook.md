@@ -52,7 +52,7 @@ pwsh -NoProfile -File .\scripts\model-smoke.ps1 -ExerciseRecovery
 
 脚本创建合成测试账户和会话，验证真实模型、只读设置工具以及可选暂停/继续；正常模型调用会消耗服务商额度。只报告状态与工具数量，不打印 Key、Cookie、页面令牌或模型全文。恢复检查需要任务在暂停前尚未结束；若模型过快完成或未保存有效断点，该项明确失败，不冒充通过。未配置模型时脚本会拒绝执行。
 
-Windows 的 race 工具链当前不可用，本机没有 race 通过证据。已提供 GitHub Actions 的 Linux `go test -race` 工作流；尚未推送或执行 CI，不将其记为通过。Compose 和镜像也尚未在本机实际构建。
+Windows 的 race 工具链当前不可用，本机没有 race 通过证据。GitHub Actions 的 Linux `go test -race` 已实际通过，见 [CI 运行记录](https://github.com/yzy703050-oss/-agent-platform/actions/runs/39921638050)。Compose 和镜像尚未在本机实际构建。
 
 ## 手动演示路径
 
@@ -106,4 +106,4 @@ docker compose up --build
 
 ## 交付状态
 
-代码、自动化验证、真实模型与浏览器恢复已取得证据，见 [真实模型验收](real-model-acceptance.md)。最终状态以 [验证记录](verification.md)、[任务表](../openspec/changes/build-agent-platform-mvp/tasks.md) 为准；当前等待 Linux race CI 后归档。Docker 可选路径继续明确未验证。
+代码、自动化验证、真实模型与浏览器恢复、Linux race CI 已取得证据，见 [真实模型验收](real-model-acceptance.md)。MVP 已归档，最终证据见 [验证记录](verification.md)、[任务表](../openspec/changes/archive/2026-10-23-build-agent-platform-mvp/tasks.md)。Docker 可选路径继续明确未验证。

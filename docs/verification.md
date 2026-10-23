@@ -2,7 +2,7 @@
 
 ## 当前状态（2026-10-23）
 
-MVP 代码、本机交付与真实模型验收已通过；Linux race CI 尚待执行。用户选择单代理实施与作者整体自审。OpenSpec 8.1 保持未勾选，未归档、未合并。用户已授权创建 GitHub 仓库并运行 CI，后续明确采用公开仓库。
+MVP 代码、本机交付、真实模型验收与 Linux race CI 已通过。用户选择单代理实施与作者整体自审，授权公开仓库推送。OpenSpec 主规格已同步，变更归档于 changes/archive/2026-10-23-build-agent-platform-mvp。保留 feat/agent-platform-mvp 分支，无 PR 或合并。
 
 ## 最终本机自动化证据
 
@@ -31,6 +31,14 @@ PostgreSQL 是真实本机 17.11 服务，集成测试使用独立测试库和�
 - 流式安全工具边界恢复检查通过；强制截流探针曾观察到已完成工具重放，因此平台拒绝保存这种断点，明确 interrupted。不是靠重跑到绿掩盖问题。
 - SSE 在已订阅、尚未首次读库时完成任务的真实 HTTP/数据库竞争测试通过，完成事件只出现一次。
 
+## Linux CI 实际证据
+
+[GitHub Actions run 39921638050](https://github.com/yzy703050-oss/-agent-platform/actions/runs/39921638050)，提交 ce6634294a3e887c818cde8ec54a0ce5366c3cd0。已读取两项 job 的完整日志并核对各步骤结果：
+
+- backend job 120308013774：真实 PostgreSQL 服务下 go test -race ./... -count=1 -timeout 180s 全部包通过，集成测试包 32.472s；go vet 与后端构建通过。
+- frontend job 120308013338：npm ci、13 项组件测试、TypeScript 与生产构建通过。
+- CI 使用合成数据库配置，不需要或上传本地真实模型 Key。Windows 本机 race 仍无通过结果，不能以 Linux 成功改写本机事实。
+
 ## 浏览器实际检查
 
 本机 React 连接真实 Go API 与开发库，使用合成验收账户完成登录、创建通用会话、切换创建差旅会话、从历史返回原 Agent、加载设置表单。未配置模型时明确显示聊天不可用；差旅显示尚未接入，无模拟行程。
@@ -44,14 +52,13 @@ PostgreSQL 是真实本机 17.11 服务，集成测试使用独立测试库和�
 - 作者自审及修复见 [代码审查](code-review.md)。用户选择单代理，未派独立评审。
 - 全部 36 个 Scenario 的代码/测试/人工证据映射见 [规格核对](spec-verification.md)。
 - 当前 CLI 没有 verify 子命令，项目没有额外 verify 工作流；使用人工逐项核对，未声称运行 OpenSpec verify。
-- OpenSpec tasks 与详细实施计划已记录实际完成部分与未完成验收，不仅凭勾选框认定交付。
+- OpenSpec tasks 与详细实施计划已逐项核对代码和测试。archive 实际同步 5 份主规格、22 个 Requirement、36 个 Scenario；归档后将任务表中“归档操作自身”及其父任务两项标为完成。
 
 ## 尚未取得的证据
 
 | 检查 | 当前状态 |
 | --- | --- |
 | Windows race | 工具链失败；沙箱内 GCC DLL 重定位错误，沙箱外测试程序退出 0xc0000139，无通过证据 |
-| Linux race CI | 工作流已提供，未推送或执行，无结果 |
 | Docker Compose/镜像 | 配置已提供，本机无 Docker，未实际构建或运行 |
 
 model-smoke.ps1 及 -ExerciseRecovery 已实际通过，脱敏报告保存在 .cache/reports/model-smoke.json。最初长回答恢复探针失败，修正验收触发点为短工具步骤的安全边界后通过，产品代码未改。密钥只在本地 .env 配置，修改后重启 API，不发送到聊天中。

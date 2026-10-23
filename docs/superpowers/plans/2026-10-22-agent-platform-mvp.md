@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go + Gin + pgx + PostgreSQL；Eino v0.9.0-beta.1；React + Vite + TypeScript；Go testing、httptest、前端组件测试和真实 PostgreSQL 集成测试。
 
-**Spec:** [proposal](../../../openspec/changes/build-agent-platform-mvp/proposal.md)、[specs](../../../openspec/changes/build-agent-platform-mvp/specs/)、[design](../../../openspec/changes/build-agent-platform-mvp/design.md)、[tasks](../../../openspec/changes/build-agent-platform-mvp/tasks.md)。本计划只展开执行步骤；行为以 specs 为准，技术决定以 design 为准。
+**Spec:** [proposal](../../../openspec/changes/archive/2026-10-23-build-agent-platform-mvp/proposal.md)、[specs](../../../openspec/changes/archive/2026-10-23-build-agent-platform-mvp/specs/)、[design](../../../openspec/changes/archive/2026-10-23-build-agent-platform-mvp/design.md)、[tasks](../../../openspec/changes/archive/2026-10-23-build-agent-platform-mvp/tasks.md)。本计划只展开执行步骤；行为以 specs 为准，技术决定以 design 为准。
 
 ## Global Constraints
 
@@ -149,16 +149,16 @@
 - [x] 先写发布验收检查：缺数据库配置明确失败、迁移后 health ready、平台不静默用内存；未配置模型时 model_unavailable。
 - [x] 实现启动配置与脚本，执行 backend 的 `go test ./...`、`go vet ./...`，frontend 的 `npm ci`、`npm run test -- --run`、`npm run build`。
 - [x] 提供真实 PostgreSQL 后运行完整 `go test ./... -v -count=1`，包含全部集成和数据库必备的发布验收；84 PASS、0 FAIL、0 SKIP，分项保存输出。
-- [ ] Windows race 工具链不可用，需在 Linux CI 实际验证，不将未执行工作流记为通过。
+- [x] Windows race 工具链不可用，Linux CI 已实际通过 go test -race ./...（含真实 PostgreSQL）、vet 和构建；证据：https://github.com/yzy703050-oss/-agent-platform/actions/runs/39921638050。
 - [x] 配置真实模型后完成真实聊天/工具/安全边界暂停恢复与浏览器验收，证据见 docs/real-model-acceptance.md；Key 仅本地保存。
 - [x] 按所选单/多代理方式做代码审核；对 specs 每个 Scenario 建立测试或人工证据映射，核对 tasks 不是只看勾选框。
 - [x] 运行 `openspec validate build-agent-platform-mvp --strict`；检查是否提供 verify 工作流。当前 CLI 无 verify 子命令：若未启用额外 verify 技能，使用人工规格核对并明确标注，不把 validate 当实现 verify。
-- [ ] 仅在全部交付和真实验证满足完成条件后执行 `openspec archive build-agent-platform-mvp`，确认归档与主规格同步；之后进入分支收尾，按用户选择保留分支、合并或创建 PR。
-- [ ] 更新 8.1、验证记录和交付状态。任何跳过项、环境阻碍或重要缺陷未解决时不得宣称 MVP 全部完成。
+- [x] 全部必需验收通过后执行 `openspec archive build-agent-platform-mvp --yes`，同步 5 份主规格并归档；当前保留已推送分支，未额外合并或创建 PR。
+- [x] 更新 8.1、验证记录和交付状态。必需测试均通过；Docker 可选路径和 Windows 本机 race 环境限制继续明确列出。
 
 ## Execution Record
 
-2026-10-23：用户选择单代理执行；当前 feat/agent-platform-mvp。任务 1–7 已实现，本机最终 84 项后端测试、13 项前端测试、vet 与构建通过；详细审查和 36 个 Scenario 证据见 docs/code-review.md 与 docs/spec-verification.md。真实模型与浏览器验收已于同日补齐，8.1 当前等待 Linux race CI。PostgreSQL 已安装注册；Docker 为可选且未运行，race 无通过证据。用户已授权创建公开 GitHub 仓库运行 CI。
+2026-10-23：用户选择单代理执行；当前 feat/agent-platform-mvp。任务 1–7 已实现，本机最终 84 项后端测试、13 项前端测试、vet 与构建通过；详细审查和 36 个 Scenario 证据见 docs/code-review.md 与 docs/spec-verification.md。真实模型与浏览器验收已于同日补齐，Linux race CI 已通过，OpenSpec 已同步主规格并归档。PostgreSQL 已安装注册；Docker 为可选且未运行，Windows 本机 race 无通过证据。用户已授权创建公开 GitHub 仓库运行 CI。
 
 开始实施前记录用户审阅结论和执行方式，读取 OpenSpec apply 指导，再按任务实施。每项记录红灯命令/原因、绿灯命令/输出、受影响任务、提交及遗留限制；完成证据写入 docs/verification.md，并同步 OpenSpec tasks。
 

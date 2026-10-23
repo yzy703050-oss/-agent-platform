@@ -1,14 +1,14 @@
 # Go Agent Platform
 
-Go + React Agent 平台：前后端、交付脚本、真实模型聊天与安全边界恢复已通过验收，84 项后端和 13 项前端测试通过；当前最后阶段等待 Linux race CI，尚未归档。实际模型与浏览器证据见 [真实模型验收](docs/real-model-acceptance.md)。
+Go + React Agent 平台 MVP 已完成：84 项后端、13 项前端测试通过，真实模型聊天、工具和安全边界恢复已验收，Linux race CI 通过。OpenSpec 已归档；差旅仅预留入口。实际模型与浏览器证据见 [真实模型验收](docs/real-model-acceptance.md)。
 
 ## 正式文档
 
-唯一正式需求来源是 [OpenSpec MVP 变更](openspec/changes/build-agent-platform-mvp/proposal.md)：
+正式行为来源是 [OpenSpec 主规格](openspec/specs/)，本次 [MVP 变更已归档](openspec/changes/archive/2026-10-23-build-agent-platform-mvp/proposal.md)：
 
-- [行为规格](openspec/changes/build-agent-platform-mvp/specs/)
-- [技术设计与架构图](openspec/changes/build-agent-platform-mvp/design.md)
-- [实施任务状态](openspec/changes/build-agent-platform-mvp/tasks.md)
+- [行为规格](openspec/specs/)
+- [技术设计与架构图](openspec/changes/archive/2026-10-23-build-agent-platform-mvp/design.md)
+- [实施任务状态](openspec/changes/archive/2026-10-23-build-agent-platform-mvp/tasks.md)
 - [详细实施计划](docs/superpowers/plans/2026-10-22-agent-platform-mvp.md)
 
 README 只负责导航与当前状态，不另行定义产品行为。用户已选择单代理执行；进度与证据见 [执行记录](docs/execution-ledger.md) 和 [验证记录](docs/verification.md)。
@@ -63,9 +63,9 @@ backend/
     repository/postgres/        持久化及事务
     client/llm/                 模型客户端
     model/                      稳定实体
-  migrations/                   后续数据库迁移
-  tests/integration/            后续真实数据库测试
-frontend/src/                   React 前端预留
+  migrations/                   PostgreSQL 数据库迁移
+  tests/integration/            真实数据库与 HTTP 集成测试
+frontend/src/                   React 工作台
 openspec/                       正式变更文档
 docs/superpowers/plans/          实施计划
 ```
@@ -76,9 +76,9 @@ docs/superpowers/plans/          实施计划
 
 - 已发现 Go 1.27.2、Node 24.20.0、OpenSpec 1.12.0。
 - 已按用户要求安装并注册 PostgreSQL 17.11；服务和开发/测试库均已验证，见 [数据库说明](docs/local-postgres.md)。未安装 Docker。
-- 后端现有 33 项测试、go vet 和构建通过，真实 PostgreSQL 与 HTTP 冒烟通过；前端尚未实现。
-- 已有本地 Git 分支 feat/agent-platform-mvp；没有远程推送或 PR。
-- 真实模型冒烟尚未运行；race 因本机工具链启动失败未通过，详见验证记录。
+- 后端 84 项测试、go vet 和构建通过；前端 13 项组件测试、TypeScript 与生产构建通过。
+- 分支 feat/agent-platform-mvp 已推送至 [GitHub](https://github.com/yzy703050-oss/-agent-platform/tree/feat/agent-platform-mvp)，尚未创建 PR。
+- 真实模型聊天、工具和安全边界恢复已通过；Windows race 工具链不可用，Linux CI 结果见验证记录。
 
 启动当前基础 API（读取本地 .env，不打印凭据）：
 
@@ -86,7 +86,7 @@ docs/superpowers/plans/          实施计划
 pwsh -File scripts/dev-server.ps1
 ```
 
-默认 http://127.0.0.1:8080，健康检查 /health/live、/health/ready。普通聊天目前返回 model_unavailable，差旅返回 agent_unavailable，不生成模拟回答。
+默认 http://127.0.0.1:8080，健康检查 /health/live、/health/ready。普通聊天使用本地配置的真实模型；未配置时返回 model_unavailable。差旅返回 agent_unavailable，不生成模拟行程。
 
 运行已有测试（PowerShell，在项目根目录）：
 

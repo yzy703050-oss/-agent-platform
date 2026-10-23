@@ -4,7 +4,7 @@
 
 当前 OpenSpec CLI 无 `verify` 子命令，项目也没有额外启用 verify 工作流；以下为人工逐项核对，**不是已运行 OpenSpec verify 的声明**。`openspec validate --strict` 只证明文档结构有效。
 
-自动测试使用真实 PostgreSQL，以及真实 Eino + 可控模型。2026-10-23 已补齐真实模型 API 和浏览器任务验收，详见 real-model-acceptance.md。Linux race 尚无结果，8.1 保持未勾选，变更未归档。
+自动测试使用真实 PostgreSQL，以及真实 Eino + 可控模型。2026-10-23 已补齐真实模型 API 和浏览器任务验收，详见 real-model-acceptance.md。Linux race CI 已通过，22 个 Requirement、36 个 Scenario 已核对，8.1 完成且变更已归档。
 
 ## 身份与会话：8 个场景
 
@@ -69,6 +69,7 @@
 
 ## 尚未取得的证据
 
-- Linux CI race 结果与 Compose/镜像实际构建。已提供配置，当前没有执行证据。
+- Windows 本机 race 受工具链限制无通过证据；Linux CI 已通过，链接见 verification.md。
+- Compose/镜像为可选路径，本轮不安装 Docker，实际构建和运行未验证。
 
-Linux race 按 design D11 和实施计划仍需取得实际结果后才归档；Compose 属于本轮不安装 Docker 的可选路径，继续明确未验证。测试夹具响应不作为产品真实模型回答。
+Linux race 按 design D11 和实施计划取得实际通过结果后已归档；Compose 可选路径继续明确未验证。测试夹具响应不作为产品真实模型回答。
