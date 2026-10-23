@@ -28,6 +28,9 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      TRAVEL_QUERY_MODE: ${TRAVEL_QUERY_MODE:-live}
+      TRAIN_API_KEY: ${TRAIN_API_KEY:-}
+      AMAP_API_KEY: ${AMAP_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy

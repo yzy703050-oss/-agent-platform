@@ -74,7 +74,10 @@ VALUES($1,$2,$3,$4,$5,'accepted',$6,$7) ON CONFLICT(run_id,operation_id) DO NOTH
 	if storedKind != kind || (storedHash != "" && storedHash != hash) {
 		return model.ErrIdempotencyConflict
 	}
-	if status == "unknown" || status == "succeeded" {
+	if status == "unknown" {
+		return model.ErrTravelOutcomeUnknown
+	}
+	if status == "succeeded" {
 		return model.ErrConflict
 	}
 	_, err = tx.Exec(ctx, "UPDATE travel_actions SET request_hash=$3,attempt=$4,status='running',updated_at=now() WHERE run_id=$1 AND operation_id=$2", ref.RunID, id, hash, ref.Attempt)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 
 	"github.com/cloudwego/eino/adk"
@@ -47,7 +48,10 @@ func NewKernel(ctx context.Context, cfg KernelConfig) (adk.ResumableAgent, error
 				return nil, err
 			}
 			out := make([]*schema.Message, 0, len(input.Messages)+1)
-			out = append(out, schema.SystemMessage(instruction+" 当前阶段："+string(s.Phase)))
+			if err = saveState(ctx, s); err != nil {
+				return nil, err
+			}
+			out = append(out, schema.SystemMessage(instruction+" 北京日期："+s.Today+"。当前阶段："+string(s.Phase)))
 			return append(out, input.Messages...), nil
 		},
 	})
@@ -70,6 +74,9 @@ func (h *phaseHandler) BeforeModelRewriteState(ctx context.Context, state *adk.C
 	}
 	if s.ModelCalls >= h.limit {
 		return ctx, state, adk.ErrExceedMaxIterations
+	}
+	if len(state.Messages) > 0 && state.Messages[0].Role == schema.System && strings.HasPrefix(state.Messages[0].Content, instruction) {
+		state.Messages[0] = schema.SystemMessage(instruction + " 北京日期：" + s.Today + "。当前阶段：" + string(s.Phase))
 	}
 	if h.onState != nil {
 		if err = h.onState(ctx, s); err != nil {
@@ -114,6 +121,33 @@ func (h *phaseHandler) WrapInvokableToolCall(_ context.Context, next adk.Invokab
 		if t.Name == "write_trip" && (json.Unmarshal([]byte(args), &command) != nil || (command.Operation != "propose" && command.Operation != "select" && command.Operation != "amend")) {
 			return "", errors.New("invalid trip operation")
 		}
+		if t.Name == "write_trip" {
+			h.mu.Lock()
+			s, err = readState(ctx)
+			if err == nil {
+				switch command.Operation {
+				case "propose":
+					if s.PlanAttempts >= 2 {
+						err = adk.ErrExceedMaxIterations
+					} else {
+						s.PlanAttempts++
+					}
+				case "amend":
+					if s.RepairAttempts >= 3 {
+						err = adk.ErrExceedMaxIterations
+					} else {
+						s.RepairAttempts++
+					}
+				}
+			}
+			if err == nil {
+				err = saveState(ctx, s)
+			}
+			h.mu.Unlock()
+			if err != nil {
+				return "", err
+			}
+		}
 		result, err := next(ctx, args, opts...)
 		if err != nil {
 			return result, err
@@ -124,6 +158,8 @@ func (h *phaseHandler) WrapInvokableToolCall(_ context.Context, next adk.Invokab
 		if err != nil {
 			return "", err
 		}
+		s.LastToolCallID = t.CallID
+		s.LastDecision = s.ModelCalls - 1
 		switch t.Name {
 		case "write_trip":
 			var observation struct {

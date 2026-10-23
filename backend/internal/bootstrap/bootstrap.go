@@ -7,6 +7,7 @@ import (
 	"agent-platform/backend/internal/agent/manager"
 	"agent-platform/backend/internal/agent/memory"
 	chatapp "agent-platform/backend/internal/application/chat"
+	"agent-platform/backend/internal/client/demo"
 	"agent-platform/backend/internal/client/hotel"
 	"agent-platform/backend/internal/client/llm"
 	ragmcp "agent-platform/backend/internal/client/mcp"
@@ -72,7 +73,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	var rag *ragmcp.Client
 	var retriever tripsvc.PolicyRetriever
 	if cfg.RAGMCPCommand != "" && cfg.RAGMCPDir != "" && cfg.RAGCollection != "" {
-		rag, _ = ragmcp.New(ragmcp.StdioConfig{Command: cfg.RAGMCPCommand, Directory: cfg.RAGMCPDir, Args: cfg.RAGMCPArgs, Collection: cfg.RAGCollection})
+		rag, _ = ragmcp.New(ragmcp.StdioConfig{Command: cfg.RAGMCPCommand, Directory: cfg.RAGMCPDir, Args: cfg.RAGMCPArgs, Collection: cfg.RAGCollection, SettingsPath: cfg.RAGSettingsPath})
 		if rag != nil {
 			retriever = rag
 		}
@@ -84,7 +85,11 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	if cfg.AMAPAPIKey != "" {
 		providers["hotel"] = hotel.New(cfg.AMAPAPIKey, nil, time.Now)
 	}
-	trips := tripsvc.NewWithQueries(repo, providers, time.Now)
+	if cfg.TravelQueryMode == "demo" {
+		fixture := demo.New(time.Now)
+		providers = tripsvc.Providers{"train": fixture, "hotel": fixture, "weather": fixture}
+	}
+	trips := tripsvc.NewWithQueries(repo, providers, time.Now).WithQueryNamespace(cfg.TravelQueryMode)
 	preferences := prefsvc.New(repo)
 	if modelClient, err := llm.New(ctx, cfg.ModelBaseURL, cfg.ModelID, cfg.ModelAPIKey); err == nil {
 		var a *general.Agent
@@ -92,7 +97,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 			return &general.RepositoryStore{Store: repo, Input: in, Fingerprint: a.Fingerprint()}
 		}, cfg.ModelBaseURL+"/"+cfg.ModelID, time.Duration(cfg.PauseSeconds)*time.Second)
 		registry.Register("general", a)
-		tripAgent, err := travel.NewAgent(travel.Config{Model: modelClient, Trips: trips, Preferences: preferences, Policy: tripsvc.NewPolicyService(retriever), Decisions: repo, Checkpoints: repo, Context: memory.NewTravelContext(preferences, repo, 32000), Identity: cfg.ModelBaseURL + "/" + cfg.ModelID})
+		tripAgent, err := travel.NewAgent(travel.Config{Model: modelClient, Trips: trips, Preferences: preferences, Policy: tripsvc.NewPolicyService(retriever), Decisions: repo, Checkpoints: repo, Context: memory.NewTravelContext(preferences, repo, 32000).WithMaintenance(memory.NewMaintenance(repo, preferences)), Identity: cfg.ModelBaseURL + "/" + cfg.ModelID})
 		if err == nil {
 			registry.Register("travel", tripAgent)
 		}

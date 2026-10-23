@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/cloudwego/eino/adk"
 )
@@ -20,16 +21,21 @@ const (
 
 // State is serialized in the Eino session, independently of live Go objects.
 type State struct {
-	Version    int    `json:"version"`
-	Phase      Phase  `json:"phase"`
-	ModelCalls int    `json:"model_calls"`
-	PlanID     string `json:"plan_id,omitempty"`
+	Version        int    `json:"version"`
+	Phase          Phase  `json:"phase"`
+	ModelCalls     int    `json:"model_calls"`
+	PlanID         string `json:"plan_id,omitempty"`
+	Today          string `json:"today,omitempty"`
+	PlanAttempts   int    `json:"plan_attempts"`
+	RepairAttempts int    `json:"repair_attempts"`
+	LastToolCallID string `json:"last_tool_call_id,omitempty"`
+	LastDecision   int    `json:"last_decision"`
 }
 
 func readState(ctx context.Context) (State, error) {
 	v, ok := adk.GetSessionValue(ctx, stateKey)
 	if !ok {
-		return State{Version: 1, Phase: PhasePlanning}, nil
+		return State{Version: 1, Phase: PhasePlanning, Today: time.Now().In(time.FixedZone("Asia/Shanghai", 8*60*60)).Format("2006-01-02")}, nil
 	}
 	text, ok := v.(string)
 	if !ok {

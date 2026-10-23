@@ -12,6 +12,21 @@ func TestDatabaseRequired(t *testing.T) {
 	}
 }
 
+func TestInvalidTravelModeRejected(t *testing.T) {
+	_, err := Load(func(k string) string {
+		if k == "DB_DSN" {
+			return "postgres://local/database"
+		}
+		if k == "TRAVEL_QUERY_MODE" {
+			return "typo"
+		}
+		return ""
+	})
+	if err == nil {
+		t.Fatal("invalid mode silently accepted")
+	}
+}
+
 func TestProductionCookieCannotBeInsecure(t *testing.T) {
 	_, err := Load(func(k string) string {
 		switch k {

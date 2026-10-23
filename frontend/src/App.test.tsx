@@ -103,7 +103,13 @@ async function openPaused(client: PlatformAPI) {
 }
 describe("平台交互", () => {
   it("readyTravelWorksWithoutGeneral", async () => {
-    const { client } = fixture();
+    const { client, paused } = fixture();
+    vi.mocked(client.submit).mockResolvedValue({
+      ...paused,
+      id: "new-run",
+      conversation_id: "new-travel",
+      status: "running",
+    });
     vi.mocked(client.agents).mockResolvedValue({
       items: [
         { id: "general", available: false },
@@ -138,6 +144,24 @@ describe("平台交互", () => {
       }),
     );
     expect(await screen.findByText(/正在校验行程/)).toBeInTheDocument();
+    vi.mocked(client.run).mockResolvedValue({
+      ...paused,
+      id: "new-run",
+      conversation_id: "new-travel",
+      status: "succeeded",
+    });
+    act(() =>
+      listener({
+        run_id: "new-run",
+        attempt: 1,
+        seq: 2,
+        type: "run.succeeded",
+        payload: {},
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/正在校验行程/)).not.toBeInTheDocument(),
+    );
   });
   it("usesServerHeartbeatInterval", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });

@@ -15,11 +15,13 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/components/tool/utils"
 	"github.com/cloudwego/eino/schema"
+	"golang.org/x/sync/errgroup"
 )
 
 type Trips interface {
 	Apply(context.Context, model.TravelExecution, string, model.TripCommand) (model.TripResult, error)
 	Read(context.Context, model.Scope, string) (model.TripPlan, error)
+	Inspect(context.Context, model.TravelExecution, string) (model.TripResult, error)
 	Query(context.Context, model.TravelExecution, model.TravelQuery) (model.TravelEvidence, error)
 }
 type Preferences interface {
@@ -64,9 +66,9 @@ func New(cfg Config) ([]tool.BaseTool, error) {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 10 * time.Second
 	}
-	read, err := infer("read_travel", "读取当前用户已保存的行程，不修改。", cfg.Timeout, func(ctx context.Context, in *readArgs) (*model.TripPlan, error) {
-		p, err := cfg.Trips.Read(ctx, cfg.Execution.Scope, in.PlanID)
-		return &p, err
+	read, err := infer("read_travel", "读取当前会话已保存行程并核验候选时效，不修改历史。", cfg.Timeout, func(ctx context.Context, in *readArgs) (*TripObservation, error) {
+		p, err := cfg.Trips.Inspect(ctx, cfg.Execution, in.PlanID)
+		return &TripObservation{Trip: p}, err
 	})
 	if err != nil {
 		return nil, err
@@ -92,13 +94,21 @@ func New(cfg Config) ([]tool.BaseTool, error) {
 				return nil, err
 			}
 		}
-		out := &TripObservation{Trip: p}
-		for _, q := range p.Queries {
-			e, err := cfg.Trips.Query(ctx, cfg.Execution, q)
-			if err != nil {
-				return nil, err
-			}
-			out.Evidence = append(out.Evidence, e)
+		out := &TripObservation{Trip: p, Evidence: make([]model.TravelEvidence, len(p.Queries))}
+		group, queryCtx := errgroup.WithContext(ctx)
+		group.SetLimit(4)
+		for i, q := range p.Queries {
+			group.Go(func() error {
+				e, err := cfg.Trips.Query(queryCtx, cfg.Execution, q)
+				if err != nil {
+					return err
+				}
+				out.Evidence[i] = e
+				return nil
+			})
+		}
+		if err = group.Wait(); err != nil {
+			return nil, err
 		}
 		return out, nil
 	})
@@ -182,11 +192,14 @@ func (t *observedTool) InvokableRun(ctx context.Context, args string, opts ...to
 	defer cancel()
 	result, err = t.InvokableTool.InvokableRun(bounded, args, opts...)
 	if bounded.Err() != nil {
+		if t.name == "query_policy" && ctx.Err() == nil {
+			return `{"evidence":{"status":"error"},"applicability":"unverified","compliance":"unverified","reason":"政策检索超时，尚未核验。"}`, nil
+		}
 		return "", agenttools.ErrToolTimeout
 	}
 	if err != nil && (errors.Is(err, model.ErrInvalidInput) || errors.Is(err, model.ErrNotFound)) {
 		// Correctable business observations contain no database or provider details.
-		return `{"status":"invalid_input","message":"参数或候选无效，请根据已返回的条件和证据修正"}`, nil
+		return `{"status":"invalid_input","message":"参数或候选无效；候选可能已过期，请重新查询后使用最新引用和修订选择。"}`, nil
 	}
 	return result, err
 }

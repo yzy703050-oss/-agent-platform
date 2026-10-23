@@ -1,10 +1,12 @@
 type Candidate = {
+  is_demo?: boolean;
   id: string;
   name: string;
   price_fen: number | null;
   address?: string;
 };
 type Evidence = {
+  is_demo?: boolean;
   status: string;
   message?: string;
   candidates?: Candidate[];
@@ -48,8 +50,28 @@ export function TravelResult({ content }: { content: string }) {
       : [];
   const price = (v: number | null) =>
     v == null ? "价格未核验" : `${(v / 100).toFixed(2)} 元`;
+  const demo =
+    evidence.some((q) => q.is_demo) ||
+    plan?.tasks?.some(
+      (t) => t.train?.candidate.is_demo || t.hotel?.candidate.is_demo,
+    );
+  const demoPolicy =
+    !!data.evidence &&
+    typeof data.evidence === "object" &&
+    "is_demo" in data.evidence &&
+    data.evidence.is_demo === true;
   return (
     <div className="travel-result">
+      {demo && (
+        <p role="note">
+          <strong>演示数据：仅供功能演示，非真实报价、余票或天气。</strong>
+        </p>
+      )}
+      {demoPolicy && (
+        <p role="note">
+          <strong>演示政策：虚构条款，不能用于正式报销或合规判断。</strong>
+        </p>
+      )}
       {plan?.tasks && (
         <>
           <p>行程已保存 · 修订 {plan.revision}</p>

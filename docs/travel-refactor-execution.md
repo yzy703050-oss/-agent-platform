@@ -79,3 +79,15 @@
 Bootstrap 注册独立 General/Travel，两个入口共用模型连接与平台底座，缺查询凭据时只把对应供应方报告为 unavailable。Application/Handler 按会话 Agent 判断就绪；不再硬编码拒绝 travel。前端按当前入口启用输入，切换仍新建会话，差旅历史继续可见；工具结果以行程、候选、未知价格和缺口展示。
 
 新增 travel.phase 白名单事件，Manager 与 Repository 校验阶段/业务ID/大小并持久化，禁止提示词等任意字段；前端显示阶段。TestChatAgentReadiness、TestTravelPhaseEvents、现有未就绪/页面恢复及差旅工作流检查通过（travel-task8-api.log）。App 14 个现有及扩展场景通过，TypeScript/Vite 构建通过（travel-task8-ui.log、travel-task8-ui-build.log）。真实浏览器验收尚未进行；不得由组件测试代替。
+
+### 最终复核及用户补充：演示依赖
+
+低频摘要/偏好分析已接入且通过 memory 单测和真实 PostgreSQL 来源隔离验证；补充有效 Session 读取、保存候选到期检查、独立查询事实输出、最后工具观察恢复、有界瞬态重试及政策工具超时观察。相关回归通过，详见 travel-refactor-verification.md。
+
+真实车次、高德地点、模型保存及修订均通过；开发库迁移004已追加。完整 scripts/verify.ps1 -SkipNpmInstall 通过，包含真实数据库，无数据库跳过；前端15个场景通过。TestTravelWorkflowVariants 合并覆盖往返、活动修正和部分查询，无额外测试框架。
+
+按用户最新授权新增显式 TRAVEL_QUERY_MODE=demo，证据/候选持久化 is_demo，选中后和最终回复继续标注；真实和演示缓存隔离。TestDemoFactsRemainLabelled、TestTravelDemoQueries、前端标识用例通过。默认 live 不自动回退；演示只替换只读查询，业务事务和恢复保持真实。
+
+自编 docs/fixtures/demo-travel-policy.txt，现有 RAG 默认云嵌入连接失败后找到已存在的本地 BGE 配置 config/travel_policy.yaml，使用同一真实 ingestion pipeline 导入独立 agent_platform_demo，成功1片段。未修改 RAG 源码。Go TestPolicyMCPReal 返回 ok/1 fragment 并验证来源和演示标识。增加可信 RAG_SETTINGS_PATH 配置，仅把此路径传入 MCP 子进程，不传平台密钥。本机冷启动约18秒，工具超时调整为30秒。
+
+浏览器已看到演示车次/天气标识和政策来源。关页 fallback 发生冷启动长工具时得到 interrupted 而非虚假可恢复，符合强制停止边界；安全点手动恢复及新问题替代继续验证中。当前 CI、归档仍未完成。

@@ -17,6 +17,7 @@ type PolicyFragment struct {
 	Conditions PolicyConditions `json:"conditions"`
 }
 type PolicyEvidence struct {
+	IsDemo     bool             `json:"is_demo,omitempty"`
 	Status     string           `json:"status"`
 	Collection string           `json:"collection,omitempty"`
 	Fragments  []PolicyFragment `json:"fragments,omitempty"`

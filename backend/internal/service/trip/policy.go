@@ -33,6 +33,14 @@ func (s *PolicyService) Check(ctx context.Context, q model.PolicyRequest) (model
 		return out, nil
 	}
 	out.Evidence = e
+	if e.IsDemo {
+		out.Reason = "演示政策：虚构条款仅用于检索和引用演示，不能作为正式报销或合规依据。"
+		if e.Status != "ok" || len(e.Fragments) == 0 {
+			out.Evidence.Fragments = nil
+			out.Reason += "未获得演示文档片段。"
+		}
+		return out, nil
+	}
 	if e.Status != "ok" || len(e.Fragments) == 0 {
 		out.Evidence.Fragments = nil
 		out.Reason = "没有可核验的政策依据。"

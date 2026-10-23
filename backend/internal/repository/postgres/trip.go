@@ -17,7 +17,8 @@ func (r *Repository) GetTrip(ctx context.Context, scope model.Scope, id string) 
 	err := r.pool.QueryRow(ctx, `SELECT v.snapshot FROM travel_plans p
 JOIN travel_plan_revisions v ON v.plan_id=p.id AND v.revision=p.current_revision
 JOIN conversations c ON c.id=p.conversation_id AND c.user_id=p.user_id
-WHERE p.id=$1 AND p.user_id=$2 AND c.deleted_at IS NULL`, id, scope.UserID).Scan(&data)
+WHERE p.id=$1 AND p.user_id=$2 AND c.deleted_at IS NULL
+AND EXISTS(SELECT 1 FROM sessions s WHERE s.id=$3 AND s.user_id=p.user_id AND s.revoked_at IS NULL AND s.expires_at>now())`, id, scope.UserID, scope.SessionID).Scan(&data)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return p, model.ErrNotFound
 	}

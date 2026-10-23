@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -96,5 +97,42 @@ func TestTravelMemoryIsolation(t *testing.T) {
 	data, _ = json.Marshal(input)
 	if strings.Contains(string(data), "EARLIER_VALID_PREFERENCE") || strings.Contains(string(data), "REPLACED_") {
 		t.Fatalf("retracted or excluded data leaked: %s", data)
+	}
+	// Low-frequency analysis consumes the same authorized repository history.
+	for i := 0; i < 6; i++ {
+		if err = f.repo.CompleteRun(ctx, model.FinishRunInput{Scope: f.scope, RunID: current.RunID, Attempt: 1, FinalText: "历史任务已完成"}); err != nil {
+			t.Fatal(err)
+		}
+		r, err := f.repo.AcceptRun(ctx, f.input(fmt.Sprintf("history-%d", i), "我习惯坐二等座"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = f.repo.TransitionRun(ctx, model.TransitionRunInput{Scope: f.scope, RunID: r.ID, Attempt: 1, From: "accepted", To: "running"}); err != nil {
+			t.Fatal(err)
+		}
+		current.RunID = r.ID
+	}
+	allowed, err := f.repo.ListContext(ctx, f.scope, f.conversation, current.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	maintenance := memory.NewMaintenance(f.repo, prefs)
+	if err = maintenance.Maintain(ctx, current, allowed); err != nil {
+		t.Fatal(err)
+	}
+	if err = maintenance.Maintain(ctx, current, allowed); err != nil {
+		t.Fatal(err)
+	}
+	input, err = builder.Build(ctx, f.scope, f.conversation, current.RunID, allowed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ = json.Marshal(input)
+	if strings.Contains(string(data), "REPLACED_") || !strings.Contains(string(data), "二等座") {
+		t.Fatalf("analysis bypassed source isolation: %s", data)
+	}
+	var summaryCount int
+	if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_memory_summaries WHERE source_run_id=$1", current.RunID).Scan(&summaryCount); err != nil || summaryCount != 1 {
+		t.Fatalf("unchanged history repeated summary: %d %v", summaryCount, err)
 	}
 }

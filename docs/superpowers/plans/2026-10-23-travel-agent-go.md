@@ -177,7 +177,13 @@
 
 ## 计划自检与执行状态
 
+### 用户补充：演示依赖（对应 OpenSpec 5.6、design D12）
+
+在 Task 4/7/8 的现有接口内增加 demo 查询供应方和演示政策标识。涉及 model/travel_evidence.go、model/travel_policy.go、client/demo、config/bootstrap、查询缓存命名空间、TravelResult 和事实渲染。先用现有 Config/渲染边界证明非法模式、丢失演示标识的失败，再实现；复用真实数据库 fixture 验证标识持久化和模式隔离。编写 docs/fixtures/demo-travel-policy.txt（现有 ingestion CLI 只接收 TXT/PDF），导入 agent_platform_demo，真实 MCP 验证非空片段和文档来源。验证受影响 Go 包及前端用例，最终统一回归。该补充不新增业务能力或另建 RAG 服务。
+
 - 所有 OpenSpec 实施组已映射至 Task 1–9；源码矩阵允许多对一覆盖，不生成一套与正式 specs 竞争的规格。
 - 前置顺序：Task 1 探针后实现 Task 2/3，Task 4/5 使用同一业务类型与事务，Task 6 贯通，Task 7 的内部政策接口可先定义供 Task 6 消费；外部服务信息不足不阻塞纯业务实现。
 - Task 2 的 Service 依赖消费者 Store，Task 3 Repository 实现它；Task 6 依赖 Service，不 import PostgreSQL。共享 Eino 适配位于 agent 下，不进入 model/Service。
 - 执行方式已确定为单代理；2026-10-23 用户明确答复“按计划开始实施（推荐）”。已读取 apply 指导，启动实施并维护本计划执行记录与 OpenSpec tasks。
+
+当前补充证据：TestTravelWorkflowVariants 合并验证往返、活动修正不重复查询、供应方缺失的部分结果；TestTravelDemoQueries 验证演示候选保存及模式缓存隔离。完整本地 verify、Go MCP 演示政策命中已通过。最终浏览器、当前提交 Linux CI 和归档尚未完成，不能整体标记交付完成。

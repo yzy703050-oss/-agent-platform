@@ -1,6 +1,6 @@
 # 本地运行与验收
 
-本项目支持单实例 Go API。默认模型入口为普通聊天；差旅只预留入口。正式需求仍以 OpenSpec 变更为准。
+本项目支持单实例 Go API，提供通用聊天和 Go 原生差旅两个独立入口。正式需求以 OpenSpec 为准；本次重构证据见 [差旅验收](travel-refactor-verification.md)。
 
 ## 直接运行（本机已安装 PostgreSQL）
 
@@ -36,6 +36,10 @@ pwsh -NoProfile -File .\scripts\dev-frontend.ps1
 `DB_DSN` 只用于运行库，`TEST_DATABASE_URL` 必须指向独立测试库。加载脚本只解析允许的 `KEY=value`，不执行 `.env` 内容，不加载管理员的 `.env.postgres`。
 
 ## 自动化验收
+
+差旅查询：本地 `.env` 的 `TRAVEL_QUERY_MODE=live` 使用真实供应方，`demo` 使用明确标记的演示车次、酒店地点和天气，真实失败不会自动回退。两种模式缓存隔离。演示模式仍使用真实数据库、模型、权限、事务和断点。
+
+演示政策原文为 `docs/fixtures/demo-travel-policy.txt`，只导入现有 RAG 的 `agent_platform_demo` 集合。`RAG_SETTINGS_PATH` 可指向 RAG 已有的 `config/travel_policy.yaml`，使用现有本地 BGE；平台标注虚构政策，不作为正式报销或合规依据。无需启动原 Python 差旅 Agent。冷启动约18秒，本机 `TOOL_SECONDS=30`，默认10秒；超时保持未核验。
 
 ```powershell
 pwsh -NoProfile -File .\scripts\verify.ps1
@@ -106,4 +110,4 @@ docker compose up --build
 
 ## 交付状态
 
-代码、自动化验证、真实模型与浏览器恢复、Linux race CI 已取得证据，见 [真实模型验收](real-model-acceptance.md)。MVP 已归档，最终证据见 [验证记录](verification.md)、[任务表](../openspec/changes/archive/2026-10-23-build-agent-platform-mvp/tasks.md)。Docker 可选路径继续明确未验证。
+基础平台 MVP 已归档，历史证据见 [真实模型验收](real-model-acceptance.md)、[验证记录](verification.md)。当前 Go 差旅重构尚未归档，最新验收及缺口见 [差旅验收](travel-refactor-verification.md)。Docker 可选路径继续明确未验证。

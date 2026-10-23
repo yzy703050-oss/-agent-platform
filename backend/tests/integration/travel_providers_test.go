@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -15,6 +16,52 @@ import (
 	"agent-platform/backend/internal/model"
 	trip "agent-platform/backend/internal/service/trip"
 )
+
+func TestTravelTrainReal(t *testing.T) {
+	if os.Getenv("REQUIRE_TRAIN_TEST") != "1" {
+		t.Skip("opt-in real provider smoke")
+	}
+	key := os.Getenv("TRAIN_API_KEY")
+	if key == "" {
+		t.Fatal("TRAIN_API_KEY required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	date := time.Now().In(time.FixedZone("Asia/Shanghai", 8*60*60)).AddDate(0, 0, 2).Format("2006-01-02")
+	e, err := train.New(key, nil, time.Now).Search(ctx, model.TravelQuery{Domain: "train", Origin: "上海", Destination: "杭州", Date: date})
+	if err != nil {
+		t.Fatalf("real train provider: %v", err)
+	}
+	if e.Status != "ok" && e.Status != "partial" {
+		t.Fatalf("real provider not ready: status=%s", e.Status)
+	}
+	t.Logf("real train: status=%s candidates=%d source=%s", e.Status, len(e.Candidates), e.Source.Provider)
+}
+
+func TestTravelHotelReal(t *testing.T) {
+	if os.Getenv("REQUIRE_HOTEL_TEST") != "1" {
+		t.Skip("opt-in real provider smoke")
+	}
+	key := os.Getenv("AMAP_API_KEY")
+	if key == "" {
+		t.Fatal("AMAP_API_KEY required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	e, err := hotel.New(key, nil, time.Now).Search(ctx, model.TravelQuery{Domain: "hotel", City: "杭州"})
+	if err != nil {
+		t.Fatalf("real hotel provider: %v", err)
+	}
+	if e.Status != "ok" && e.Status != "partial" {
+		t.Fatalf("real provider not ready: status=%s", e.Status)
+	}
+	for _, c := range e.Candidates {
+		if c.PriceFen != nil || c.Remaining != nil {
+			t.Fatal("place search invented room price or inventory")
+		}
+	}
+	t.Logf("real hotel: status=%s candidates=%d source=%s", e.Status, len(e.Candidates), e.Source.Provider)
+}
 
 type providerDoer func(*http.Request) (*http.Response, error)
 

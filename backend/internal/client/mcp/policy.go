@@ -79,7 +79,7 @@ func decodePolicy(data []byte, collection string) (model.PolicyEvidence, error) 
 	if (wire.Status == "ok") != (len(wire.Fragments) > 0) {
 		return model.PolicyEvidence{}, ErrProtocol
 	}
-	out := model.PolicyEvidence{Status: wire.Status, Collection: wire.Collection}
+	out := model.PolicyEvidence{Status: wire.Status, Collection: wire.Collection, IsDemo: collection == "agent_platform_demo"}
 	seen := map[string]bool{}
 	for _, f := range wire.Fragments {
 		if f.ID == "" || f.ChunkID != f.ID || strings.TrimSpace(f.Content) == "" || f.Metadata.Source == "" || seen[f.ID] {

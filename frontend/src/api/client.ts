@@ -235,7 +235,7 @@ export function errorText(error: unknown): string {
     idempotency_conflict: "这次请求与之前的内容不一致，请重新发送。",
     run_quota_exceeded: "同时执行的任务已达上限，请稍后再试。",
     model_unavailable: "聊天服务暂不可用，请联系管理员配置模型。",
-    agent_unavailable: "该助手尚未接入。",
+    agent_unavailable: "该助手暂不可用，请联系管理员检查配置。",
     checkpoint_incompatible: "原断点与当前配置不兼容，无法继续。",
     not_found: "资源不存在、页面已过期或没有访问权限。",
     csrf_rejected: "登录信息已更新，请重新登录。",

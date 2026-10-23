@@ -24,7 +24,7 @@ func (r *Repository) FindTravelToolResult(ctx context.Context, ref model.TravelE
 		return "", false, err
 	}
 	if status == "unknown" {
-		return "", false, model.ErrConflict
+		return "", false, model.ErrTravelOutcomeUnknown
 	}
 	var out struct {
 		Output *string `json:"tool_observation"`

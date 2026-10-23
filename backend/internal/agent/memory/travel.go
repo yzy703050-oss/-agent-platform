@@ -16,10 +16,18 @@ type TravelContext struct {
 	preferences TravelPreferenceReader
 	summaries   TravelSummaryReader
 	maxBytes    int
+	maintenance *Maintenance
 }
 
 func NewTravelContext(preferences TravelPreferenceReader, summaries TravelSummaryReader, maxBytes int) *TravelContext {
 	return &TravelContext{preferences: preferences, summaries: summaries, maxBytes: maxBytes}
+}
+func (b *TravelContext) WithMaintenance(m *Maintenance) *TravelContext { b.maintenance = m; return b }
+func (b *TravelContext) Maintain(ctx context.Context, ref model.TravelExecution, messages []model.Message) error {
+	if b.maintenance == nil {
+		return nil
+	}
+	return b.maintenance.Maintain(ctx, ref, messages)
 }
 func (b *TravelContext) Build(ctx context.Context, scope model.Scope, conversationID, runID string, messages []model.Message) ([]model.Message, error) {
 	var preferences []model.TravelPreference

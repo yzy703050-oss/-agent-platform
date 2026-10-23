@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +21,13 @@ func NewWithQueries(store QueryStore, client QueryClient, now func() time.Time) 
 	s.queryStore = store
 	s.queries = client
 	s.querySlots = make(chan struct{}, 4)
+	return s
+}
+
+// WithQueryNamespace isolates caches when operator-configured providers change.
+// Call only during dependency assembly, before serving requests.
+func (s *Service) WithQueryNamespace(namespace string) *Service {
+	s.queryNamespace = namespace
 	return s
 }
 
@@ -76,7 +84,7 @@ func (s *Service) Query(ctx context.Context, ref model.TravelExecution, q model.
 		return model.TravelEvidence{}, err
 	}
 	digest := sha256.Sum256(data)
-	key := hex.EncodeToString(digest[:])
+	key := s.queryNamespace + ":" + hex.EncodeToString(digest[:])
 	scopeData, _ := json.Marshal([]string{ref.Scope.UserID, ref.Scope.SessionID, ref.ConversationID, ref.RunID, strconv.FormatInt(ref.Attempt, 10), key})
 	value, err, _ := s.queryGroup.Do(string(scopeData), func() (any, error) {
 		cached, ok, err := s.queryStore.FindTravelQuery(ctx, ref, key)
@@ -95,8 +103,25 @@ func (s *Service) Query(ctx context.Context, ref model.TravelExecution, q model.
 		}
 		defer func() { <-s.querySlots }()
 		e, err := s.queries.Search(queryCtx, physical)
+		if errors.Is(err, model.ErrProviderTransient) && queryCtx.Err() == nil {
+			timer := time.NewTimer(150 * time.Millisecond)
+			select {
+			case <-timer.C:
+				e, err = s.queries.Search(queryCtx, physical)
+			case <-queryCtx.Done():
+				timer.Stop()
+				err = queryCtx.Err()
+			}
+		}
 		if err != nil {
-			return nil, err
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			message := "供应方查询失败，未获得有效候选。"
+			if queryCtx.Err() != nil {
+				message = "供应方查询超时，未获得有效候选。"
+			}
+			return model.TravelEvidence{Status: "error", Query: q, Message: message}, nil
 		}
 		if e.Status != "ok" && e.Status != "partial" {
 			e.ID = ""

@@ -22,10 +22,13 @@ import (
 )
 
 type workflowModel struct {
-	calls    atomic.Int32
-	boundary chan struct{}
-	blocked  atomic.Bool
-	release  chan struct{}
+	calls     atomic.Int32
+	boundary  chan struct{}
+	blocked   atomic.Bool
+	release   chan struct{}
+	queryOnly bool
+	command   *model.TripCommand
+	repair    bool
 }
 
 func (m *workflowModel) WithTools([]*schema.ToolInfo) (einomodel.ToolCallingChatModel, error) {
@@ -33,6 +36,14 @@ func (m *workflowModel) WithTools([]*schema.ToolInfo) (einomodel.ToolCallingChat
 }
 func (m *workflowModel) Generate(ctx context.Context, input []*schema.Message, _ ...einomodel.Option) (*schema.Message, error) {
 	m.calls.Add(1)
+	if m.queryOnly {
+		for _, msg := range input {
+			if msg.Role == schema.Tool {
+				return schema.AssistantMessage("已经付款并预订成功，价格1元", nil), nil
+			}
+		}
+		return toolDecision("independent-query", "query_travel", `{"domain":"train","origin":"上海","destination":"杭州","date":"2026-10-25"}`), nil
+	}
 	var last struct {
 		Trip     model.TripResult       `json:"trip"`
 		Evidence []model.TravelEvidence `json:"evidence"`
@@ -43,7 +54,11 @@ func (m *workflowModel) Generate(ctx context.Context, input []*schema.Message, _
 		}
 	}
 	if last.Trip.Plan.ID == "" {
-		args, _ := json.Marshal(travelCommand())
+		command := travelCommand()
+		if m.command != nil {
+			command = *m.command
+		}
+		args, _ := json.Marshal(command)
 		return toolDecision("create", "write_trip", string(args)), nil
 	}
 	if last.Trip.Plan.Revision == 1 {
@@ -55,10 +70,23 @@ func (m *workflowModel) Generate(ctx context.Context, input []*schema.Message, _
 				return nil, ctx.Err()
 			}
 		}
-		q := last.Evidence[0]
-		cmd := modelTripSelection(last.Trip.Plan.ID, q)
+		cmd := model.TripCommand{Operation: "select", PlanID: last.Trip.Plan.ID, ExpectedRevision: 1}
+		for _, q := range last.Evidence {
+			if q.Query.Domain == "train" && len(q.Candidates) > 0 {
+				cmd.Selections = append(cmd.Selections, model.TripSelection{TaskID: q.TaskID, Domain: "train", Ref: model.TravelCandidateRef{QueryID: q.ID, ResultRevision: q.ResultRevision, CandidateID: q.Candidates[0].ID}})
+			}
+		}
+		if len(cmd.Selections) == 0 {
+			return schema.AssistantMessage("已经付款", nil), nil
+		}
 		args, _ := json.Marshal(cmd)
 		return toolDecision("select", "write_trip", string(args)), nil
+	}
+	if last.Trip.Plan.Revision == 2 && m.repair {
+		activities := []model.TripActivity{{Purpose: "补充会议", Date: "2026-10-25", Source: "user", Strength: model.Hard}}
+		cmd := model.TripCommand{Operation: "amend", PlanID: last.Trip.Plan.ID, ExpectedRevision: 2, Changes: []model.TripTaskChange{{TaskID: "t1", Activities: &activities}}}
+		args, _ := json.Marshal(cmd)
+		return toolDecision("repair", "write_trip", string(args)), nil
 	}
 	// The platform must render confirmed facts, not repeat this invented claim.
 	return schema.AssistantMessage("已付款并预订成功，价格1元", nil), nil
@@ -237,5 +265,87 @@ func TestTravelWorkflow(t *testing.T) {
 	}
 	if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plan_revisions").Scan(&revisions); err != nil || revisions != 2 {
 		t.Fatalf("replay duplicated revisions: %d %v", revisions, err)
+	}
+}
+
+func TestTravelIndependentQuery(t *testing.T) {
+	ctx := context.Background()
+	f, ref, _ := travelFixture(t)
+	m := &workflowModel{queryOnly: true}
+	provider := &travelQueryProbe{}
+	a, err := travelagent.NewAgent(travelagent.Config{Model: m, Trips: tripsvc.NewWithQueries(f.repo, provider, time.Now), Preferences: prefsvc.New(f.repo), Decisions: f.repo, Checkpoints: f.repo, Identity: "independent-query"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := f.repo.GetRun(ctx, f.scope, ref.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec, err := a.NewExecution(ctx, contracts.RunInput{Scope: f.scope, Run: run, Messages: []model.Message{{Role: "user", Content: "只查车次"}}, Limits: contracts.Limits{Iterations: 4, ToolTimeout: time.Second * 5}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := exec.Start(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result.FinalText, "100.00") || strings.Contains(result.FinalText, "已经付款") {
+		t.Fatalf("query response fabricated facts: %s", result.FinalText)
+	}
+	var plans int
+	if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plans").Scan(&plans); err != nil || plans != 0 {
+		t.Fatalf("independent query created plan: %d %v", plans, err)
+	}
+}
+
+func TestTravelWorkflowVariants(t *testing.T) {
+	for _, partial := range []bool{false, true} {
+		t.Run(fmt.Sprint("partial=", partial), func(t *testing.T) {
+			ctx := context.Background()
+			f, ref, _ := travelFixture(t)
+			cmd := travelCommand()
+			round := true
+			cmd.RoundTrip = &round
+			cmd.Tasks = append(cmd.Tasks, model.TripTask{Origin: "杭州", Destination: "上海", DepartureDate: "2026-10-27"})
+			provider := &travelQueryProbe{}
+			client := travelQueryFunc(func(ctx context.Context, q model.TravelQuery) (model.TravelEvidence, error) {
+				if partial {
+					provider.calls.Add(1)
+					return model.TravelEvidence{Status: "unavailable", Message: "供应方未配置。"}, nil
+				}
+				return provider.Search(ctx, q)
+			})
+			m := &workflowModel{command: &cmd, repair: !partial}
+			a, err := travelagent.NewAgent(travelagent.Config{Model: m, Trips: tripsvc.NewWithQueries(f.repo, client, time.Now), Preferences: prefsvc.New(f.repo), Decisions: f.repo, Checkpoints: f.repo, Identity: "variants"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			run, err := f.repo.GetRun(ctx, f.scope, ref.RunID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			exec, err := a.NewExecution(ctx, contracts.RunInput{Scope: f.scope, Run: run, Messages: []model.Message{{Role: "user", Content: "往返并补充会议"}}, Limits: contracts.Limits{Iterations: 8, ToolTimeout: 5 * time.Second}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := exec.Start(ctx, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := 3
+			if partial {
+				want = 1
+			}
+			var revisions int
+			if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plan_revisions").Scan(&revisions); err != nil || revisions != want || provider.calls.Load() != 2 {
+				t.Fatalf("revision/query mismatch: %d/%d %v", revisions, provider.calls.Load(), err)
+			}
+			if strings.Contains(result.FinalText, "已经付款") || !strings.Contains(result.FinalText, "杭州 → 上海") {
+				t.Fatal("invalid final facts", result.FinalText)
+			}
+			if partial && !strings.Contains(result.FinalText, "尚未选择") {
+				t.Fatal("missing partial result", result.FinalText)
+			}
+		})
 	}
 }

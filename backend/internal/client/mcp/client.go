@@ -19,6 +19,7 @@ import (
 // StdioConfig is operator configuration, never model or HTTP request input.
 type StdioConfig struct {
 	Command, Directory, Collection string
+	SettingsPath                   string
 	Args                           []string
 }
 type Client struct {
@@ -30,6 +31,9 @@ type Client struct {
 
 func New(cfg StdioConfig) (*Client, error) {
 	if !filepath.IsAbs(cfg.Command) || !filepath.IsAbs(cfg.Directory) || cfg.Collection == "" {
+		return nil, model.ErrInvalidInput
+	}
+	if cfg.SettingsPath != "" && !filepath.IsAbs(cfg.SettingsPath) {
 		return nil, model.ErrInvalidInput
 	}
 	if _, err := NewPolicyClient(&unconnected{}, cfg.Collection); err != nil {
@@ -62,6 +66,9 @@ func (c *Client) connect(ctx context.Context) (*sdk.ClientSession, error) {
 		}
 	}
 	cmd.Env = append(cmd.Env, "PYTHONUTF8=1", "PYTHONDONTWRITEBYTECODE=1")
+	if c.cfg.SettingsPath != "" {
+		cmd.Env = append(cmd.Env, "MODULAR_RAG_SETTINGS_PATH="+c.cfg.SettingsPath)
+	}
 	hideProcess(cmd)
 	client := sdk.NewClient(&sdk.Implementation{Name: "agent-platform", Version: "travel-v1"}, &sdk.ClientOptions{Capabilities: &sdk.ClientCapabilities{}, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	session, err := client.Connect(ctx, &sdk.CommandTransport{Command: cmd, TerminateDuration: time.Second}, nil)

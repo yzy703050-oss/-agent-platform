@@ -22,6 +22,7 @@ type TravelSource struct {
 	FetchedAt time.Time `json:"fetched_at"`
 }
 type TravelCandidate struct {
+	IsDemo       bool       `json:"is_demo,omitempty"`
 	ID           string     `json:"id"`
 	Name         string     `json:"name"`
 	Origin       string     `json:"origin,omitempty"`
@@ -50,6 +51,7 @@ type TravelCandidateRef struct {
 	CandidateID    string `json:"candidate_id"`
 }
 type TravelEvidence struct {
+	IsDemo         bool              `json:"is_demo,omitempty"`
 	ID             string            `json:"id"`
 	UserID         string            `json:"user_id"`
 	ConversationID string            `json:"conversation_id"`

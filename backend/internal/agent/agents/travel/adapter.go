@@ -41,7 +41,7 @@ func NewAgent(cfg Config) (*Agent, error) {
 	if cfg.Model == nil || cfg.Trips == nil || cfg.Preferences == nil || cfg.Decisions == nil || cfg.Checkpoints == nil || cfg.Identity == "" {
 		return nil, errors.New("travel dependencies unavailable")
 	}
-	sum := sha256.Sum256([]byte(cfg.Identity + instruction + "travel-workflow-v1:tools-v1:eino-v0.9.0-beta.1"))
+	sum := sha256.Sum256([]byte(cfg.Identity + instruction + "travel-workflow-v2:tools-v2:eino-v0.9.0-beta.1"))
 	return &Agent{cfg: cfg, fingerprint: hex.EncodeToString(sum[:])}, nil
 }
 func (a *Agent) Fingerprint() string { return a.fingerprint }
@@ -56,7 +56,19 @@ func (a *Agent) NewExecution(ctx context.Context, in contracts.RunInput) (contra
 	kernel, err := NewKernel(ctx, KernelConfig{Model: a.cfg.Model, Tools: tools, MaxIterations: in.Limits.Iterations, Handlers: []adk.ChatModelAgentMiddleware{h}, OnState: func(ctx context.Context, s State) error {
 		exec.mu.Lock()
 		exec.planID = s.PlanID
+		exec.state = s
 		exec.mu.Unlock()
+		if s.PlanID != "" {
+			inspection, err := a.cfg.Trips.Inspect(ctx, ref, s.PlanID)
+			if err != nil {
+				return err
+			}
+			for _, issue := range inspection.Validation.Issues {
+				if issue.Code == "selection_expired" {
+					return pm.ErrTravelEvidenceExpired
+				}
+			}
+		}
 		b, _ := json.Marshal(map[string]any{"phase": s.Phase, "plan_id": s.PlanID})
 		return agenttools.Emit(ctx, contracts.Event{Type: "travel.phase", Payload: b})
 	}})
@@ -83,6 +95,7 @@ type execution struct {
 	cancel          context.CancelFunc
 	cancelRequested bool
 	planID          string
+	state           State
 }
 
 func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error) (contracts.ExecutionResult, error) {
@@ -104,6 +117,10 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 	}
 	messages := e.input.Messages
 	if !e.input.Resume && e.agent.cfg.Context != nil {
+		ref := pm.TravelExecution{Scope: e.input.Scope, ConversationID: e.input.Run.ConversationID, RunID: e.input.Run.ID, Attempt: e.input.Run.Attempt}
+		if err = e.agent.cfg.Context.Maintain(ctx, ref, messages); err != nil {
+			return contracts.ExecutionResult{}, err
+		}
 		messages, err = e.agent.cfg.Context.Build(ctx, e.input.Scope, e.input.Run.ConversationID, e.input.Run.ID, messages)
 		if err != nil {
 			return contracts.ExecutionResult{}, err
@@ -114,12 +131,40 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 		input = append(input, toEino(m))
 	}
 	var finalPlanID string
+	var queryEvidence *pm.TravelEvidence
+	var policyAssessment *pm.PolicyAssessment
+	var savedPreference *pm.TravelPreference
+	observe := func(content string) {
+		var out traveltools.TripObservation
+		if json.Unmarshal([]byte(content), &out) == nil && out.Trip.Plan.ID != "" {
+			finalPlanID = out.Trip.Plan.ID
+		}
+		var fields map[string]json.RawMessage
+		if json.Unmarshal([]byte(content), &fields) != nil {
+			return
+		}
+		if fields["query"] != nil {
+			var q pm.TravelEvidence
+			if json.Unmarshal([]byte(content), &q) == nil {
+				queryEvidence = &q
+			}
+		}
+		if fields["compliance"] != nil {
+			var p pm.PolicyAssessment
+			if json.Unmarshal([]byte(content), &p) == nil {
+				policyAssessment = &p
+			}
+		}
+		if fields["key"] != nil {
+			var p pm.TravelPreference
+			if json.Unmarshal([]byte(content), &p) == nil {
+				savedPreference = &p
+			}
+		}
+	}
 	err = e.runner.Run(ctx, input, func(v *schema.Message) error {
 		if v.Role == schema.Tool {
-			var out traveltools.TripObservation
-			if json.Unmarshal([]byte(v.Content), &out) == nil && out.Trip.Receipt != nil {
-				finalPlanID = out.Trip.Plan.ID
-			}
+			observe(v.Content)
 		}
 		if emit == nil || (v.Role != schema.Tool && len(v.ToolCalls) == 0) {
 			return nil
@@ -134,17 +179,63 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 	if errors.Is(err, agenttools.ErrToolTimeout) {
 		code = "tool_timeout"
 	}
+	if errors.Is(err, pm.ErrTravelOutcomeUnknown) {
+		code = "travel_result_unknown"
+	}
+	if errors.Is(err, pm.ErrTravelEvidenceExpired) {
+		code = "travel_evidence_expired"
+	}
 	text := e.runner.Result().FinalText
+	if err == nil && !e.runner.Result().Resumable && finalPlanID == "" && queryEvidence == nil && policyAssessment == nil && savedPreference == nil {
+		e.mu.Lock()
+		s := e.state
+		e.mu.Unlock()
+		if s.LastToolCallID != "" {
+			ref := pm.TravelExecution{Scope: e.input.Scope, ConversationID: e.input.Run.ConversationID, RunID: e.input.Run.ID, Attempt: e.input.Run.Attempt}
+			d, ok, readErr := e.agent.cfg.Decisions.FindTravelDecision(ctx, ref, decisionKey(s.LastDecision))
+			if readErr != nil {
+				err = readErr
+			} else if !ok {
+				err = pm.ErrConflict
+			} else {
+				out, found, readErr := e.agent.cfg.Decisions.FindTravelToolResult(ctx, ref, d.OperationIDs[s.LastToolCallID])
+				if readErr != nil {
+					err = readErr
+				} else if !found {
+					err = pm.ErrConflict
+				} else {
+					observe(out)
+				}
+			}
+		}
+	}
 	if finalPlanID == "" {
 		e.mu.Lock()
 		finalPlanID = e.planID
 		e.mu.Unlock()
 	}
 	if err == nil && !e.runner.Result().Resumable && finalPlanID != "" {
-		var p pm.TripPlan
-		p, err = e.agent.cfg.Trips.Read(ctx, e.input.Scope, finalPlanID)
+		var inspected pm.TripResult
+		inspected, err = e.agent.cfg.Trips.Inspect(ctx, pm.TravelExecution{Scope: e.input.Scope, ConversationID: e.input.Run.ConversationID, RunID: e.input.Run.ID, Attempt: e.input.Run.Attempt}, finalPlanID)
 		if err == nil {
-			text = renderTrip(p)
+			text = renderTrip(inspected.Plan)
+		}
+	}
+	if err == nil && !e.runner.Result().Resumable && finalPlanID == "" {
+		if queryEvidence != nil {
+			text = renderEvidence(*queryEvidence)
+		}
+		if policyAssessment != nil {
+			text = policyAssessment.Reason
+			for _, f := range policyAssessment.Evidence.Fragments {
+				text += "\n政策来源：" + f.Source + "（片段 " + f.ID + "）"
+			}
+		}
+		if savedPreference != nil {
+			text = "已保存偏好：" + savedPreference.Key
+			if savedPreference.Retracted {
+				text = "已撤回偏好：" + savedPreference.Key
+			}
 		}
 	}
 	return contracts.ExecutionResult{FinalText: text, ErrorCode: code}, err
@@ -183,6 +274,9 @@ func renderTrip(p pm.TripPlan) string {
 	fmt.Fprintf(&b, "行程已保存（修订 %d），校验状态：%s。\n", p.Revision, p.Validation.Status)
 	for _, t := range p.Tasks {
 		fmt.Fprintf(&b, "\n%s → %s，%s", t.Origin, t.Destination, t.DepartureDate)
+		if (t.Train != nil && t.Train.Candidate.IsDemo) || (t.Hotel != nil && t.Hotel.Candidate.IsDemo) {
+			b.WriteString("\n演示数据：该段候选及金额仅供演示，不能用于真实出行。")
+		}
 		if t.Train != nil {
 			fmt.Fprintf(&b, "\n车次：%s", t.Train.Candidate.Name)
 			if price := t.Train.Candidate.PriceFen; price != nil {
@@ -203,5 +297,45 @@ func renderTrip(p pm.TripPlan) string {
 		fmt.Fprintf(&b, "\n待确认：%s", issue.Message)
 	}
 	b.WriteString("\n以上为规划与查询结果，尚未预订或付款。")
+	return b.String()
+}
+
+func renderEvidence(e pm.TravelEvidence) string {
+	var b strings.Builder
+	if e.IsDemo {
+		b.WriteString("演示数据：以下为模拟结果，不代表真实报价、余票或天气。\n")
+	}
+	if e.Message != "" {
+		b.WriteString(e.Message + "\n")
+	}
+	if e.Source.Provider != "" {
+		fmt.Fprintf(&b, "查询来源：%s，获取于 %s。\n", e.Source.Provider, e.Source.FetchedAt.Format("2006-01-02 15:04:05 MST"))
+	}
+	for i, c := range e.Candidates {
+		if i >= 10 {
+			break
+		}
+		fmt.Fprintf(&b, "\n%s", c.Name)
+		if c.PriceFen != nil {
+			fmt.Fprintf(&b, "，价格 %d.%02d 元", *c.PriceFen/100, *c.PriceFen%100)
+		} else {
+			b.WriteString("，价格与库存未核验")
+		}
+		if c.Address != "" {
+			b.WriteString("，" + c.Address)
+		}
+	}
+	for _, w := range e.Weather {
+		fmt.Fprintf(&b, "\n%s %s", w.Date, w.Description)
+		if w.TemperatureC != nil {
+			fmt.Fprintf(&b, "，%.1f°C", *w.TemperatureC)
+		}
+	}
+	if len(e.Candidates) == 0 && len(e.Weather) == 0 && e.Message == "" {
+		b.WriteString("未获得可用结果。")
+	}
+	if e.Query.Domain != "weather" {
+		b.WriteString("\n查询结果不代表已预订或付款。")
+	}
 	return b.String()
 }

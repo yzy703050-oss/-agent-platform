@@ -523,7 +523,9 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
                   )}
                 </>
               )}
-              {toolState && <p className="tool-status">◈ {toolState}</p>}
+              {toolState && run && activeStatuses.has(run.status) && (
+                <p className="tool-status">◈ {toolState}</p>
+              )}
             </div>
             {run?.status === "paused" && (
               <div className="notice pause-note">
@@ -536,7 +538,14 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
               </div>
             )}
             {run?.error_code && run.status !== "cancelled" && (
-              <div className="run-error">原因：{run.error_code}</div>
+              <div className="run-error">
+                原因：
+                {run.error_code === "travel_evidence_expired"
+                  ? "已有候选依据已过期，请重新查询并选择；历史行程仍可查看。"
+                  : run.error_code === "travel_result_unknown"
+                    ? "操作结果待核实，已停止自动重放，请联系管理员核对保存记录。"
+                    : run.error_code}
+              </div>
             )}
             {!modelReady && (
               <div className="notice">

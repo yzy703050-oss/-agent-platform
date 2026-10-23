@@ -75,6 +75,19 @@ func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, op
 	if response == nil {
 		return nil, pm.ErrInvalidInput
 	}
+	encoded, encodeErr := json.Marshal(fromEino(response))
+	if encodeErr != nil || len(encoded) > 256000 {
+		return nil, pm.ErrInvalidInput
+	}
+	writes := 0
+	for _, c := range response.ToolCalls {
+		if c.Function.Name == "write_trip" || c.Function.Name == "write_travel_preference" {
+			writes++
+		}
+	}
+	if writes > 1 {
+		return nil, pm.ErrInvalidInput
+	}
 	d, err = m.h.store.AcceptTravelDecision(ctx, m.h.ref, pm.TravelDecision{RunID: m.h.ref.RunID, DecisionKey: key, Stage: string(s.Phase), RequestHash: hash, Response: fromEino(response)})
 	if err != nil {
 		return nil, err

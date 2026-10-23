@@ -1,6 +1,7 @@
 package providerhttp
 
 import (
+	"agent-platform/backend/internal/model"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,7 +16,7 @@ type Doer interface {
 }
 
 var ErrResponse = errors.New("invalid provider response")
-var ErrRequest = errors.New("provider request failed")
+var ErrRequest = fmt.Errorf("provider request failed: %w", model.ErrProviderTransient)
 
 func Default(client Doer) Doer {
 	if client != nil {
@@ -39,6 +40,9 @@ func Decode(ctx context.Context, client Doer, req *http.Request, out any) error 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+			return fmt.Errorf("provider HTTP status %d: %w", resp.StatusCode, model.ErrProviderTransient)
+		}
 		return fmt.Errorf("provider HTTP status %d", resp.StatusCode)
 	}
 	const limit = 1 << 20

@@ -220,7 +220,7 @@ func (m *Manager) launch(run model.Run, s model.Scope, exec contracts.Execution)
 		}
 		if err != nil {
 			code := "execution_failed"
-			if result.ErrorCode == "iteration_limit" || result.ErrorCode == "tool_timeout" {
+			if result.ErrorCode == "iteration_limit" || result.ErrorCode == "tool_timeout" || result.ErrorCode == "travel_result_unknown" || result.ErrorCode == "travel_evidence_expired" {
 				code = result.ErrorCode
 			}
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {

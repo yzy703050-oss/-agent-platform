@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"agent-platform/backend/internal/client/demo"
 	"context"
 	"errors"
 	"sync"
@@ -32,6 +33,11 @@ func travelFixture(t *testing.T) (*fixture, model.TravelExecution, *tripsvc.Serv
 type travelQueryProbe struct {
 	calls            atomic.Int32
 	entered, release chan struct{}
+}
+type travelQueryFunc func(context.Context, model.TravelQuery) (model.TravelEvidence, error)
+
+func (f travelQueryFunc) Search(ctx context.Context, q model.TravelQuery) (model.TravelEvidence, error) {
+	return f(ctx, q)
 }
 
 func (p *travelQueryProbe) Search(ctx context.Context, q model.TravelQuery) (model.TravelEvidence, error) {
@@ -85,6 +91,17 @@ func TestTravelQueries(t *testing.T) {
 	if _, err = f.pool.Exec(ctx, "UPDATE travel_query_evidence SET fetched_at=now()-interval '10 minutes',expires_at=now()-interval '1 minute'"); err != nil {
 		t.Fatal(err)
 	}
+	inspection, err := service.Inspect(ctx, ref, p.Plan.ID)
+	if err != nil || inspection.Plan.Tasks[0].Train != nil {
+		t.Fatalf("expired stored selection remained current: %+v %v", inspection, err)
+	}
+	expired := false
+	for _, issue := range inspection.Validation.Issues {
+		expired = expired || issue.Code == "selection_expired"
+	}
+	if !expired {
+		t.Fatal("stored evidence expiry was not reported")
+	}
 	lateQuery := model.TravelQuery{Domain: "train", PlanID: p.Plan.ID, PlanRevision: 2, TaskID: "t1", Origin: "上海", Destination: "杭州", Date: "2026-10-25"}
 	done := make(chan error, 1)
 	go func() { _, err := lateQueries.Query(ctx, ref, lateQuery); done <- err }()
@@ -108,6 +125,83 @@ func TestTravelQueries(t *testing.T) {
 	close(blocked.release)
 	if err = <-done; !errors.Is(err, model.ErrConflict) {
 		t.Fatalf("accepted stale query result: %v", err)
+	}
+	for _, kind := range []string{"transient", "exhausted", "malformed"} {
+		t.Run(kind, func(t *testing.T) {
+			var calls atomic.Int32
+			client := travelQueryFunc(func(ctx context.Context, q model.TravelQuery) (model.TravelEvidence, error) {
+				n := calls.Add(1)
+				if kind == "malformed" {
+					return model.TravelEvidence{}, errors.New("invalid external payload")
+				}
+				if n == 1 || kind == "exhausted" {
+					return model.TravelEvidence{}, model.ErrProviderTransient
+				}
+				return (&travelQueryProbe{}).Search(ctx, q)
+			})
+			query := model.TravelQuery{Domain: "train", Origin: "南京", Destination: "杭州", Date: "2026-10-28"}
+			if kind == "exhausted" {
+				query.Date = "2026-10-29"
+			}
+			if kind == "malformed" {
+				query.Date = "2026-10-30"
+			}
+			result, err := tripsvc.NewWithQueries(f.repo, client, time.Now).Query(ctx, ref, query)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if kind == "transient" {
+				if calls.Load() != 2 || result.Status != "ok" {
+					t.Fatalf("retry failed: %+v calls=%d", result, calls.Load())
+				}
+			}
+			if kind != "transient" {
+				want := int32(2)
+				if kind == "malformed" {
+					want = 1
+				}
+				if result.Status != "error" || calls.Load() != want || len(result.Candidates) > 0 {
+					t.Fatalf("failure fabricated results or retried indefinitely: %+v calls=%d", result, calls.Load())
+				}
+			}
+		})
+	}
+}
+
+func TestTravelDemoQueries(t *testing.T) {
+	ctx := context.Background()
+	f, ref, service := travelFixture(t)
+	p, err := service.Apply(ctx, ref, "demo-plan", travelCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	demoQueries := tripsvc.NewWithQueries(f.repo, demo.New(time.Now), time.Now).WithQueryNamespace("demo")
+	q := model.TravelQuery{Domain: "train", Origin: "上海", Destination: "杭州", Date: "2026-10-25", PlanID: p.Plan.ID, PlanRevision: 1, TaskID: "t1"}
+	e, err := demoQueries.Query(ctx, ref, q)
+	if err != nil || !e.IsDemo || len(e.Candidates) == 0 || !e.Candidates[0].IsDemo {
+		t.Fatalf("unlabelled demo: %+v %v", e, err)
+	}
+	saved, err := service.Apply(ctx, ref, "demo-select", model.TripCommand{Operation: "select", PlanID: p.Plan.ID, ExpectedRevision: 1, Selections: []model.TripSelection{{TaskID: "t1", Domain: "train", Ref: model.TravelCandidateRef{QueryID: e.ID, ResultRevision: 1, CandidateID: e.Candidates[0].ID}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := service.Read(ctx, ref.Scope, saved.Plan.ID)
+	if err != nil || loaded.Tasks[0].Train == nil || !loaded.Tasks[0].Train.Candidate.IsDemo {
+		t.Fatalf("saved demo label lost: %v", err)
+	}
+	live := &travelQueryProbe{}
+	q.PlanRevision = 2
+	real, err := tripsvc.NewWithQueries(f.repo, live, time.Now).WithQueryNamespace("live").Query(ctx, ref, q)
+	if err != nil || real.IsDemo || live.calls.Load() != 1 || real.ID == e.ID {
+		t.Fatal("demo cache leaked into live mode", err)
+	}
+	hotel, err := demoQueries.Query(ctx, ref, model.TravelQuery{Domain: "hotel", City: "杭州"})
+	if err != nil || !hotel.IsDemo || hotel.Candidates[0].PriceFen != nil || hotel.Candidates[0].Remaining != nil {
+		t.Fatal("demo hotel invented price/inventory", err)
+	}
+	weather, err := demoQueries.Query(ctx, ref, model.TravelQuery{Domain: "weather", City: "杭州", Date: "2026-10-25"})
+	if err != nil || !weather.IsDemo || len(weather.Weather) != 1 {
+		t.Fatal("missing labelled demo weather", err)
 	}
 }
 func travelCommand() model.TripCommand {
@@ -224,6 +318,12 @@ func TestTravelTransactions(t *testing.T) {
 		}
 		if _, err = service.Apply(ctx, ref, "after-pause", travelCommand()); !errors.Is(err, model.ErrConflict) {
 			t.Fatalf("write after pause: %v", err)
+		}
+		if _, err = f.pool.Exec(ctx, "UPDATE sessions SET revoked_at=now() WHERE id=$1", ref.Scope.SessionID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = service.Read(ctx, ref.Scope, first.Plan.ID); err == nil {
+			t.Fatal("revoked session read travel business data")
 		}
 	})
 	t.Run("receipt_atomicity_and_decisions", func(t *testing.T) {

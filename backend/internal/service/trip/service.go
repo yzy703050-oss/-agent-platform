@@ -15,12 +15,13 @@ import (
 )
 
 type Service struct {
-	store      Store
-	now        func() time.Time
-	queries    QueryClient
-	queryStore QueryStore
-	queryGroup singleflight.Group
-	querySlots chan struct{}
+	store          Store
+	now            func() time.Time
+	queries        QueryClient
+	queryStore     QueryStore
+	queryNamespace string
+	queryGroup     singleflight.Group
+	querySlots     chan struct{}
 }
 
 func New(store Store, now func() time.Time) *Service {
@@ -30,7 +31,7 @@ func New(store Store, now func() time.Time) *Service {
 	return &Service{store: store, now: now}
 }
 func (s *Service) Read(ctx context.Context, scope model.Scope, id string) (model.TripPlan, error) {
-	if scope.UserID == "" || id == "" {
+	if scope.UserID == "" || scope.SessionID == "" || id == "" {
 		return model.TripPlan{}, model.ErrInvalidInput
 	}
 	return s.store.GetTrip(ctx, scope, id)

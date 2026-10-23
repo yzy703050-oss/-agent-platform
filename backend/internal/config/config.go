@@ -10,8 +10,10 @@ import (
 )
 
 type Config struct {
+	TravelQueryMode                                                                      string
 	TrainAPIKey, AMAPAPIKey                                                              string
 	RAGMCPCommand, RAGMCPDir, RAGCollection                                              string
+	RAGSettingsPath                                                                      string
 	RAGMCPArgs                                                                           []string
 	PublicOrigin                                                                         string
 	CookieSecure                                                                         bool
@@ -22,7 +24,15 @@ type Config struct {
 func Load(get func(string) string) (Config, error) {
 	c := Config{DatabaseDSN: get("DB_DSN"), HTTPAddr: get("HTTP_ADDR"), ModelBaseURL: get("LLM_BASE_URL"), ModelID: get("LLM_MODEL"), ModelAPIKey: get("LLM_API_KEY")}
 	c.TrainAPIKey, c.AMAPAPIKey = get("TRAIN_API_KEY"), get("AMAP_API_KEY")
+	c.TravelQueryMode = get("TRAVEL_QUERY_MODE")
+	if c.TravelQueryMode == "" {
+		c.TravelQueryMode = "live"
+	}
+	if c.TravelQueryMode != "live" && c.TravelQueryMode != "demo" {
+		return c, errors.New("TRAVEL_QUERY_MODE must be live or demo")
+	}
 	c.RAGMCPCommand, c.RAGMCPDir, c.RAGCollection = get("RAG_MCP_COMMAND"), get("RAG_MCP_DIR"), get("RAG_COLLECTION")
+	c.RAGSettingsPath = get("RAG_SETTINGS_PATH")
 	c.RAGMCPArgs = []string{"-m", "src.mcp_server.server"}
 	if args := get("RAG_MCP_ARGS"); args != "" {
 		if json.Unmarshal([]byte(args), &c.RAGMCPArgs) != nil {

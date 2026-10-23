@@ -36,7 +36,7 @@ func TestPolicyMCPReal(t *testing.T) {
 	if command == "" || dir == "" || collection == "" {
 		t.Fatal("RAG configuration required")
 	}
-	c, err := New(StdioConfig{Command: command, Directory: dir, Collection: collection, Args: []string{"-m", "src.mcp_server.server"}})
+	c, err := New(StdioConfig{Command: command, Directory: dir, Collection: collection, SettingsPath: os.Getenv("RAG_SETTINGS_PATH"), Args: []string{"-m", "src.mcp_server.server"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,6 +46,16 @@ func TestPolicyMCPReal(t *testing.T) {
 	result, err := c.Search(ctx, "差旅住宿报销标准")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if collection == "agent_platform_demo" {
+		if result.Status != "ok" || len(result.Fragments) == 0 || !result.IsDemo {
+			t.Fatal("demo collection returned no labelled policy evidence")
+		}
+		for _, f := range result.Fragments {
+			if f.Source == "" || f.ID == "" {
+				t.Fatal("missing demo policy attribution")
+			}
+		}
 	}
 	t.Logf("real MCP: collection=%s status=%s fragments=%d", result.Collection, result.Status, len(result.Fragments))
 }
