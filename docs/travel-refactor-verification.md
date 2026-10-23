@@ -10,7 +10,7 @@
 | B05–B06 查询复用、隔离及过期候选 | `TestTravelQueries`：归属、缓存、规范化、绑定、迟到结果、瞬态最多重试一次；`Inspect` 在恢复和最终展示重新核验保存候选时效 |
 | B07 政策证据 | `TestPolicyEvidence`、`TestPolicyProtocol`、工具超时用例；真实 `TestPolicyMCPReal` 从独立演示集合返回 `ok / 1 fragment`，具有来源与片段 ID |
 | B08–B10 编排、事实及断点 | `TestTravelWorkflow`、`TestTravelWorkflowRecovery`：决策先保存、选择真实证据、跨实例/attempt恢复、旧有效断点重放不增加修订、累计迭代不重置、未知结果拒绝自动重放 |
-| B11 页面生命周期 | 平台既有租约、恢复、SSE 检查复用；差旅页面内切换继续已在实际浏览器验证，关页与手动继续的最终浏览器结果待补 |
+| B11 页面生命周期 | 平台既有租约、恢复、SSE 检查复用；差旅页面内切换继续已在实际浏览器验证，页面离开/重开显示 paused，手动继续同一 Run 的 attempt2并完成，开发库状态一致 |
 | B12–B14 任务隔离与记忆 | `TestTravelMemoryIsolation`、`TestTravelContextBudget`、`TestTravelMemoryMaintenance`：来源过滤、混合摘要失效、有效版本回退、明确撤回保护、保守推断和完整工具配对 |
 | B15 原平台回归 | 完整 Go/真实 PostgreSQL、vet/build 和前端检查通过；Linux race 仍需当前提交 CI 结果 |
 | 用户新增演示模式 | `TestDemoFactsRemainLabelled`、`TestTravelDemoQueries`、TravelResult 组件检查：演示标识贯穿保存选择和输出，live/demo 缓存隔离，酒店价格/库存未知 |
@@ -45,7 +45,7 @@
 
 - `scripts/verify.ps1 -SkipNpmInstall`：完整 Go / 真实 PostgreSQL、vet/build、前端测试和构建 PASS。
 - 实际浏览器：已验证独立差旅入口、真实行程保存与选择、页面内切换继续；已验证政策无命中。最新演示模式及关页恢复待最终验收。
-- Linux race CI：等待当前提交推送后的结果。
+- Linux race CI：提交 f1db682 的 [Actions](https://github.com/yzy703050-oss/-agent-platform/actions/runs/39962470618) 已通过，含真实 PostgreSQL race/vet/build 和前端；后续批量事实输出修正等待最终 CI。
 - OpenSpec：CLI 1.12 未提供 verify 工作流，采用人工逐项核对需求、设计、任务与证据；不声称运行了 OpenSpec verify。
 
 ## 尚未实现及部署限制
@@ -53,3 +53,9 @@
 主 Agent 委派、真实订票/酒店预订/支付/报销审批、正式企业政策接入和自动完整合规判断、网页搜索供应方、Redis/队列/多实例、动态 Agent/MCP 管理均未实现。天气客户端已有协议验证，真实天气外网冒烟未取得证据，演示模式天气可用。Docker/Compose 尚未实际运行，本机走原生 PostgreSQL。
 
 框架版本、工具或模型变化可使旧断点不兼容，历史仍保留；强制取消、超时或未知业务结果不会承诺继续。正常关闭页面请求安全点暂停，不能保证任意模型 Token 处无损停止。当前变更在剩余验收完成前保持未归档。
+
+浏览器补充：恢复任务B在重开时为 paused/attempt1/有效断点，手动继续后 succeeded/attempt2/断点失效，保存行程修订1→2，演示标识保留。一次冷启动政策长工具关闭和一次查询边界竞争未形成安全断点，均显示 interrupted 而非伪造继续，符合已确认的保守恢复边界。最终回复汇总多个独立查询的修正已先失败后通过相关工作流检查。任务完成后隐藏陈旧阶段提示的前端修正也已验证15/15通过并构建成功。
+
+新问题替代浏览器证据：四段规划任务处于 paused 时直接发送新问题，旧 Run 变为 cancelled/context_eligible=false/断点valid=false；历史仍可见，新 Run 独立查询北京至天津。实际数据库与界面一致。
+
+复现知识导入：在已有 RAG 项目目录，用该项目 Python 执行其 src.ingestion.pipeline.IngestionPipeline(load_settings('config/travel_policy.yaml'), collection='agent_platform_demo').run('本平台绝对路径/docs/fixtures/demo-travel-policy.txt')。使用原有本地 BGE 配置；CLI 的 dry_run 缺失不在本次修改范围，实际调用的是相同摄入内核而非另建索引实现。

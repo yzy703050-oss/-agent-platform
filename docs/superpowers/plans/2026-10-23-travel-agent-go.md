@@ -95,15 +95,15 @@
 
 **OpenSpec:** 5.1–5.3；travel-evidence；B05–B06。
 
-**Files:** 扩展 service/trip/query.go、ports.go；创建 client/{train,hotel,weather,search}/client.go、相关配置字段和少量协议测试；扩展 postgres/travel_evidence.go。
+**Files:** 扩展 service/trip/query.go、ports.go；创建 client/{train,hotel,weather}/client.go（未配置网页供应方由 Providers 明确返回 unavailable）、相关配置字段和少量协议测试；扩展 postgres/travel_evidence.go。
 
 **Interfaces:** `QueryClient.Search(ctx context.Context, q model.TravelQuery) (model.TravelEvidence,error)`；`Service.Query(ctx,ref,q)` 负责范围内去重、限时、落库与回执引用；Provider 不接收可覆盖认证身份的模型参数。查询结果在保存时再次检查 Run 和绑定修订。
 
-- [ ] 先写 `TestTravelQueries` 的关键边界：独立与自动查询等价去重、过期刷新、跨范围不复用、迟到结果不覆盖、供应方超时/非法格式、酒店价格保持未知。协议测试用 httptest，不访问付费 API。
-- [ ] 运行 `go test ./internal/service/trip ./internal/client/train ./internal/client/hotel ./internal/client/weather ./internal/client/search -run 'TestTravelQueries|TestProviderContract' -count=1`。Expected: 新能力缺失或协议断言失败。
-- [ ] 根据已核验协议实现聚合车次、高德地点和天气；网页检索仅在可用供应方明确后实现，不复制 Python DDGS 依赖。缓存键含允许数据范围，查询并发有限，可重试只读瞬态错误且有界。
-- [ ] 重跑受影响包。Expected: 协议及 Service 测试 PASS；在用户配置可用凭据后各做代表性真实查询并记录，缺配置的真实子项仍未完成。
-- [ ] 自审并提交 `feat: add scoped travel query evidence and provider adapters`。
+- [x] 先写 `TestTravelQueries` 的关键边界：独立与自动查询等价去重、过期刷新、跨范围不复用、迟到结果不覆盖、供应方超时/非法格式、酒店价格保持未知。协议测试用 httptest，不访问付费 API。
+- [x] 运行 `go test ./internal/service/trip ./internal/client/train ./internal/client/hotel ./internal/client/weather -run 'TestTravelQueries|TestProviderContract' -count=1`。Expected: 新能力缺失或协议断言失败。
+- [x] 根据已核验协议实现聚合车次、高德地点和天气；网页检索仅在可用供应方明确后实现，不复制 Python DDGS 依赖。缓存键含允许数据范围，查询并发有限，可重试只读瞬态错误且有界。
+- [x] 重跑受影响包。Expected: 协议及 Service 测试 PASS；在用户配置可用凭据后各做代表性真实查询并记录，缺配置的真实子项仍未完成。
+- [x] 自审并提交 `feat: add scoped travel query evidence and provider adapters`。
 
 ### Task 5: 偏好修订与上下文来源隔离
 
@@ -113,11 +113,11 @@
 
 **Interfaces:** `PreferenceService.Apply(ctx,ref,operationID,cmd model.TravelPreferenceCommand) (model.TravelPreference,error)`；`ReadEffective(ctx,scope,currentRunID)` 仅返回允许来源修订；`TravelContext.Build(ctx,scope,conversationID,runID,messages []model.Message) ([]model.Message,error)` 在统一预算内注入与压缩，不改变 General 策略。
 
-- [ ] 写 `TestTravelMemoryIsolation` 综合数据库与实际构建输入：偏好保存/撤回、旧 Run 替代后剔除及回退有效版本、混合摘要失效、推断不能覆盖明确值；复用现有 Context 测试补一个超预算配对场景。
-- [ ] 运行 `go test ./tests/integration -run TestTravelMemoryIsolation -count=1` 及 `go test ./internal/agent/memory -count=1`。Expected: 缺少来源过滤导致失败，须实际断言唯一旧标记不在模型输入中。
-- [ ] 实现带来源修订和摘要来源集合，先过滤再压缩；只分析有效历史，以低频变更版本触发分析，撤回记录不能被推断覆盖。偏好写入复用 Task 3 事务回执。
-- [ ] 重跑对应检查。Expected: PASS，更早有效历史仍能使用，工具调用与结果完整配对，不读取 Python 数据。
-- [ ] 自审并提交 `feat: isolate travel preferences and summaries by source run`。
+- [x] 写 `TestTravelMemoryIsolation` 综合数据库与实际构建输入：偏好保存/撤回、旧 Run 替代后剔除及回退有效版本、混合摘要失效、推断不能覆盖明确值；复用现有 Context 测试补一个超预算配对场景。
+- [x] 运行 `go test ./tests/integration -run TestTravelMemoryIsolation -count=1` 及 `go test ./internal/agent/memory -count=1`。Expected: 缺少来源过滤导致失败，须实际断言唯一旧标记不在模型输入中。
+- [x] 实现带来源修订和摘要来源集合，先过滤再压缩；只分析有效历史，以低频变更版本触发分析，撤回记录不能被推断覆盖。偏好写入复用 Task 3 事务回执。
+- [x] 重跑对应检查。Expected: PASS，更早有效历史仍能使用，工具调用与结果完整配对，不读取 Python 数据。
+- [x] 自审并提交 `feat: isolate travel preferences and summaries by source run`。
 
 ### Task 6: 差旅工具、阶段编排和持久化恢复贯通
 
@@ -127,11 +127,11 @@
 
 **Interfaces:** `NewAgent(cfg Config) (*Agent,error)` 实现 contracts.Agent，Config 注入模型、Trip/Preference Service、Context、DecisionStore 与 CheckpointStore；NewExecution/Start/Pause/Cancel 保持平台既有契约。Tools 使用 read_travel、query_travel、write_trip、query_policy、write_travel_preference，OperationID 从已接受决策绑定，模型不能指定可信执行范围。
 
-- [ ] 先完善 `TestTravelWorkflow`：脚本模型完成规划→查询→校验→选择，断言最终事实来自保存结果；通过同组恢复 fixture 验证提交后断点前退出不重复写入、未知写入拒绝重放、迭代限制恢复不重置。
-- [ ] 运行 `go test ./internal/agent/agents/travel ./internal/agenttools/travel -count=1`。Expected: 未实现工具/阶段/回执对应失败。
-- [ ] 实现 Handlers 的阶段提示、工具授权与决策包装：完整模型响应在工具执行前持久化，恢复返回已接受决策及原调用 ID；只对实际已提交结果生成完成事实。业务错误形成可修正观察，基础设施未知状态不得自动再写。
-- [ ] 完成跨实例真实数据库恢复场景和 `NewExecution` 启动探测零副作用断言。Expected: 新工具/工作流及受影响平台生命周期检查 PASS，探针成为正式用例，不另建一套恢复测试。
-- [ ] 自审并提交 `feat: execute resumable travel workflows with business tools`。
+- [x] 先完善 `TestTravelWorkflow`：脚本模型完成规划→查询→校验→选择，断言最终事实来自保存结果；通过同组恢复 fixture 验证提交后断点前退出不重复写入、未知写入拒绝重放、迭代限制恢复不重置。
+- [x] 运行 `go test ./internal/agent/agents/travel ./internal/agenttools/travel -count=1`。Expected: 未实现工具/阶段/回执对应失败。
+- [x] 实现 Handlers 的阶段提示、工具授权与决策包装：完整模型响应在工具执行前持久化，恢复返回已接受决策及原调用 ID；只对实际已提交结果生成完成事实。业务错误形成可修正观察，基础设施未知状态不得自动再写。
+- [x] 完成跨实例真实数据库恢复场景和 `NewExecution` 启动探测零副作用断言。Expected: 新工具/工作流及受影响平台生命周期检查 PASS，探针成为正式用例，不另建一套恢复测试。
+- [x] 自审并提交 `feat: execute resumable travel workflows with business tools`。
 
 ### Task 7: 现有 RAG MCP 的政策能力
 
@@ -141,11 +141,11 @@
 
 **Interfaces:** `PolicyRetriever.Search(ctx,q string) (model.PolicyEvidence,error)` 是内部业务边界；PolicyEvidence 包含状态、来源/片段、适用信息与缺口。client/mcp 将实际 MCP 工具契约映射到该边界；不把旧 stdio/schema_version 写死为未经核验的新协议。
 
-- [ ] 先写少量 `TestPolicyEvidence`，覆盖命中、未命中、超时、不适用、格式错误及检索内容不能授予额外工具权限；内部接口测试不依赖真实服务。
-- [ ] 运行 `go test ./internal/service/trip -run TestPolicyEvidence -count=1`。Expected: 缺失政策判断导致失败。
-- [ ] 实现内部判断；待用户提供服务地址/位置后检查 transport、工具列表、鉴权及证据格式，再使用实际 MCP 客户端完成连接，协议测试复用同组结果 fixture。无需再建 RAG。
-- [ ] 运行受影响检查并实际调用该 MCP 服务。Expected: 内部与协议测试 PASS，真实检索有来源；服务信息未齐时先继续 Task 8 的其他部分，本项真实接入不勾选、不宣称全部重构完成。
-- [ ] 自审并提交 `feat: integrate existing RAG MCP policy evidence`，只提交实际完成的部分。
+- [x] 先写少量 `TestPolicyEvidence`，覆盖命中、未命中、超时、不适用、格式错误及检索内容不能授予额外工具权限；内部接口测试不依赖真实服务。
+- [x] 运行 `go test ./internal/service/trip -run TestPolicyEvidence -count=1`。Expected: 缺失政策判断导致失败。
+- [x] 实现内部判断；待用户提供服务地址/位置后检查 transport、工具列表、鉴权及证据格式，再使用实际 MCP 客户端完成连接，协议测试复用同组结果 fixture。无需再建 RAG。
+- [x] 运行受影响检查并实际调用该 MCP 服务。Expected: 内部与协议测试 PASS，真实检索有来源；服务信息未齐时先继续 Task 8 的其他部分，本项真实接入不勾选、不宣称全部重构完成。
+- [x] 自审并提交 `feat: integrate existing RAG MCP policy evidence`，只提交实际完成的部分。
 
 ### Task 8: 双入口、阶段事件和前端贯通
 
@@ -155,11 +155,11 @@
 
 **Interfaces:** 聊天 Application 的可用性按 Agent 类型查询；共享 Submit/Run/Pause/Resume API 保持兼容；新增受限 travel.phase 事件，payload 仅含阶段、关联业务 ID/修订和缺口摘要，不含提示词、凭据或原始完整供应方响应。
 
-- [ ] 先扩展现有 `TestChat`/Agent 列表与 App 用例：Travel 就绪发送、缺配置拒绝、General 与 Travel 分别可用、切换新会话及返回历史。选择精确现有测试名时记录到任务 brief，不另建整个前端套件。
-- [ ] 运行 `go test ./tests/integration -run 'Test.*Chat|Test.*Agent' -count=1` 和前端 `npm run test -- --run src/App.test.tsx`。Expected: travel 硬编码禁用导致新断言失败。
-- [ ] 注册 Travel，移除硬编码拒绝，保留真实依赖未就绪原因；在 Manager 明确处理和校验新事件，前端展示阶段及真实持久化结果，保持两入口独立。
-- [ ] 重跑受影响检查并用浏览器验收差旅提交、页面内切换、关闭、重开手动继续和新问题替代。Expected: 前后端与数据库状态一致，未就绪情况不调用 General 代执行。
-- [ ] 自审并提交 `feat: enable independent travel conversations and progress`。
+- [x] 先扩展现有 `TestChat`/Agent 列表与 App 用例：Travel 就绪发送、缺配置拒绝、General 与 Travel 分别可用、切换新会话及返回历史。选择精确现有测试名时记录到任务 brief，不另建整个前端套件。
+- [x] 运行 `go test ./tests/integration -run 'Test.*Chat|Test.*Agent' -count=1` 和前端 `npm run test -- --run src/App.test.tsx`。Expected: travel 硬编码禁用导致新断言失败。
+- [x] 注册 Travel，移除硬编码拒绝，保留真实依赖未就绪原因；在 Manager 明确处理和校验新事件，前端展示阶段及真实持久化结果，保持两入口独立。
+- [x] 重跑受影响检查并用浏览器验收差旅提交、页面内切换、关闭、重开手动继续和新问题替代。Expected: 前后端与数据库状态一致，未就绪情况不调用 General 代执行。
+- [x] 自审并提交 `feat: enable independent travel conversations and progress`。
 
 ### Task 9: 整体验证、交付与归档
 

@@ -1,3 +1,5 @@
+> 本文件记录已归档的基础平台 MVP 基线；当前 Go 差旅重构的实现与验收见 [差旅验收](travel-refactor-verification.md)。历史 CI 不代表后续提交。
+
 # OpenSpec 场景证据核对
 
 变更：`build-agent-platform-mvp`。正式行为来源是该变更的五份 `spec.md`。本文件只映射证据，不另立规格。

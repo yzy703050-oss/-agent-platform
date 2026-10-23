@@ -131,7 +131,8 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 		input = append(input, toEino(m))
 	}
 	var finalPlanID string
-	var queryEvidence *pm.TravelEvidence
+	var queryEvidence []pm.TravelEvidence
+	seenQueries := map[string]bool{}
 	var policyAssessment *pm.PolicyAssessment
 	var savedPreference *pm.TravelPreference
 	observe := func(content string) {
@@ -146,7 +147,15 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 		if fields["query"] != nil {
 			var q pm.TravelEvidence
 			if json.Unmarshal([]byte(content), &q) == nil {
-				queryEvidence = &q
+				key := q.ID
+				if key == "" {
+					raw, _ := json.Marshal(q.Query)
+					key = string(raw)
+				}
+				if !seenQueries[key] {
+					seenQueries[key] = true
+					queryEvidence = append(queryEvidence, q)
+				}
 			}
 		}
 		if fields["compliance"] != nil {
@@ -159,6 +168,15 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 			var p pm.TravelPreference
 			if json.Unmarshal([]byte(content), &p) == nil {
 				savedPreference = &p
+			}
+		}
+	}
+	// Replay display facts only from this run; excluded/earlier runs must never
+	// become fresh query evidence merely because their messages remain visible.
+	if e.input.Resume {
+		for _, m := range e.input.Messages {
+			if m.RunID == e.input.Run.ID && m.Role == "tool" {
+				observe(m.Content)
 			}
 		}
 	}
@@ -186,7 +204,7 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 		code = "travel_evidence_expired"
 	}
 	text := e.runner.Result().FinalText
-	if err == nil && !e.runner.Result().Resumable && finalPlanID == "" && queryEvidence == nil && policyAssessment == nil && savedPreference == nil {
+	if err == nil && !e.runner.Result().Resumable && finalPlanID == "" && len(queryEvidence) == 0 && policyAssessment == nil && savedPreference == nil {
 		e.mu.Lock()
 		s := e.state
 		e.mu.Unlock()
@@ -221,21 +239,32 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 			text = renderTrip(inspected.Plan)
 		}
 	}
-	if err == nil && !e.runner.Result().Resumable && finalPlanID == "" {
-		if queryEvidence != nil {
-			text = renderEvidence(*queryEvidence)
+	if err == nil && !e.runner.Result().Resumable {
+		var parts []string
+		if finalPlanID != "" {
+			parts = append(parts, text)
+		}
+		for _, q := range queryEvidence {
+			if finalPlanID == "" || q.PlanID == "" {
+				parts = append(parts, renderEvidence(q))
+			}
 		}
 		if policyAssessment != nil {
-			text = policyAssessment.Reason
+			policyText := policyAssessment.Reason
 			for _, f := range policyAssessment.Evidence.Fragments {
-				text += "\n政策来源：" + f.Source + "（片段 " + f.ID + "）"
+				policyText += "\n政策来源：" + f.Source + "（片段 " + f.ID + "）"
 			}
+			parts = append(parts, policyText)
 		}
 		if savedPreference != nil {
-			text = "已保存偏好：" + savedPreference.Key
+			prefText := "已保存偏好：" + savedPreference.Key
 			if savedPreference.Retracted {
-				text = "已撤回偏好：" + savedPreference.Key
+				prefText = "已撤回偏好：" + savedPreference.Key
 			}
+			parts = append(parts, prefText)
+		}
+		if len(parts) > 0 {
+			text = strings.Join(parts, "\n\n")
 		}
 	}
 	return contracts.ExecutionResult{FinalText: text, ErrorCode: code}, err
@@ -302,6 +331,14 @@ func renderTrip(p pm.TripPlan) string {
 
 func renderEvidence(e pm.TravelEvidence) string {
 	var b strings.Builder
+	switch e.Query.Domain {
+	case "train":
+		fmt.Fprintf(&b, "车次查询：%s → %s，%s。\n", e.Query.Origin, e.Query.Destination, e.Query.Date)
+	case "hotel":
+		fmt.Fprintf(&b, "酒店地点查询：%s，%s 至 %s。\n", e.Query.City, e.Query.CheckIn, e.Query.CheckOut)
+	case "weather":
+		fmt.Fprintf(&b, "天气查询：%s，%s。\n", e.Query.City, e.Query.Date)
+	}
 	if e.IsDemo {
 		b.WriteString("演示数据：以下为模拟结果，不代表真实报价、余票或天气。\n")
 	}

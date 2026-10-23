@@ -13,6 +13,7 @@ import (
 	travelagent "agent-platform/backend/internal/agent/agents/travel"
 	"agent-platform/backend/internal/agent/contracts"
 	"agent-platform/backend/internal/agent/memory"
+	"agent-platform/backend/internal/client/demo"
 	"agent-platform/backend/internal/model"
 	prefsvc "agent-platform/backend/internal/service/travelpreference"
 	tripsvc "agent-platform/backend/internal/service/trip"
@@ -22,13 +23,14 @@ import (
 )
 
 type workflowModel struct {
-	calls     atomic.Int32
-	boundary  chan struct{}
-	blocked   atomic.Bool
-	release   chan struct{}
-	queryOnly bool
-	command   *model.TripCommand
-	repair    bool
+	calls      atomic.Int32
+	boundary   chan struct{}
+	blocked    atomic.Bool
+	release    chan struct{}
+	queryOnly  bool
+	queryBatch bool
+	command    *model.TripCommand
+	repair     bool
 }
 
 func (m *workflowModel) WithTools([]*schema.ToolInfo) (einomodel.ToolCallingChatModel, error) {
@@ -42,7 +44,12 @@ func (m *workflowModel) Generate(ctx context.Context, input []*schema.Message, _
 				return schema.AssistantMessage("已经付款并预订成功，价格1元", nil), nil
 			}
 		}
-		return toolDecision("independent-query", "query_travel", `{"domain":"train","origin":"上海","destination":"杭州","date":"2026-10-25"}`), nil
+		decision := toolDecision("independent-query", "query_travel", `{"domain":"train","origin":"上海","destination":"杭州","date":"2026-10-25"}`)
+		if m.queryBatch {
+			decision.ToolCalls = append(decision.ToolCalls, toolDecision("other-query", "query_travel", `{"domain":"train","origin":"南京","destination":"苏州","date":"2026-10-26"}`).ToolCalls...)
+			decision.ToolCalls = append(decision.ToolCalls, toolDecision("weather-query", "query_travel", `{"domain":"weather","city":"杭州","date":"2026-10-25"}`).ToolCalls...)
+		}
+		return decision, nil
 	}
 	var last struct {
 		Trip     model.TripResult       `json:"trip"`
@@ -271,8 +278,8 @@ func TestTravelWorkflow(t *testing.T) {
 func TestTravelIndependentQuery(t *testing.T) {
 	ctx := context.Background()
 	f, ref, _ := travelFixture(t)
-	m := &workflowModel{queryOnly: true}
-	provider := &travelQueryProbe{}
+	m := &workflowModel{queryOnly: true, queryBatch: true}
+	provider := demo.New(time.Now)
 	a, err := travelagent.NewAgent(travelagent.Config{Model: m, Trips: tripsvc.NewWithQueries(f.repo, provider, time.Now), Preferences: prefsvc.New(f.repo), Decisions: f.repo, Checkpoints: f.repo, Identity: "independent-query"})
 	if err != nil {
 		t.Fatal(err)
@@ -291,6 +298,11 @@ func TestTravelIndependentQuery(t *testing.T) {
 	}
 	if !strings.Contains(result.FinalText, "100.00") || strings.Contains(result.FinalText, "已经付款") {
 		t.Fatalf("query response fabricated facts: %s", result.FinalText)
+	}
+	for _, fact := range []string{"上海", "南京", "22.0°C", "演示数据"} {
+		if !strings.Contains(result.FinalText, fact) {
+			t.Fatalf("batch query lost confirmed fact %q: %s", fact, result.FinalText)
+		}
 	}
 	var plans int
 	if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plans").Scan(&plans); err != nil || plans != 0 {
