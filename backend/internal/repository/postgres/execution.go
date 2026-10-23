@@ -3,6 +3,8 @@ package postgres
 import (
 	"agent-platform/backend/internal/model"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"github.com/google/uuid"
 )
@@ -79,7 +81,18 @@ func (r *Repository) AppendRunMessage(ctx context.Context, s model.Scope, id str
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO messages(id,conversation_id,run_id,user_id,role,content,tool_call_id,tool_calls,ordinal) SELECT $1,$2,$3,$4,$5,$6,$7,$8,COALESCE(MAX(ordinal),0)+1 FROM messages WHERE conversation_id=$2`, uuid.NewString(), run.ConversationID, run.ID, run.UserID, m.Role, m.Content, m.ToolCallID, b)
+	identity := m.ToolCallID
+	if m.Role == "assistant" {
+		for _, call := range calls {
+			identity += "/" + call.ID
+		}
+	}
+	if identity == "" {
+		return model.ErrInvalidInput
+	}
+	digest := sha256.Sum256([]byte(m.Role + ":" + identity))
+	key := hex.EncodeToString(digest[:])
+	_, err = tx.Exec(ctx, `INSERT INTO messages(id,conversation_id,run_id,user_id,role,content,tool_call_id,tool_calls,attempt,source_key,ordinal) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,COALESCE(MAX(ordinal),0)+1 FROM messages WHERE conversation_id=$2 ON CONFLICT(run_id,source_key) WHERE source_key<>'' DO NOTHING`, uuid.NewString(), run.ConversationID, run.ID, run.UserID, m.Role, m.Content, m.ToolCallID, b, attempt, key)
 	if err != nil {
 		return err
 	}

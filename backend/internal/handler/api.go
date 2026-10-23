@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"agent-platform/backend/internal/agent/manager"
 	chatapp "agent-platform/backend/internal/application/chat"
 	"agent-platform/backend/internal/middleware"
 	"agent-platform/backend/internal/model"
@@ -15,6 +16,8 @@ import (
 )
 
 type API struct {
+	Manager       *manager.Manager
+	Pages         *manager.LeaseManager
 	Chat          *chatapp.Application
 	Users         *usersvc.Service
 	Auth          *authsvc.Service
@@ -42,6 +45,8 @@ func failure(c *gin.Context, err error) {
 		status, code = 503, "model_unavailable"
 	case errors.Is(err, model.ErrAgentUnavailable):
 		status, code = 503, "agent_unavailable"
+	case errors.Is(err, model.ErrCheckpointIncompatible):
+		status, code = 409, "checkpoint_incompatible"
 	}
 	middleware.Reject(c, status, code)
 }
@@ -88,6 +93,12 @@ func (a *API) Logout(c *gin.Context) {
 	if err := a.Auth.Logout(c.Request.Context(), token); err != nil {
 		failure(c, err)
 		return
+	}
+	if a.Pages != nil {
+		if err := a.Pages.EndSession(c.Request.Context(), middleware.Scope(c)); err != nil {
+			failure(c, err)
+			return
+		}
 	}
 	http.SetCookie(c.Writer, &http.Cookie{Name: "session", Value: "", Path: "/", HttpOnly: true, Secure: a.SecureCookies, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	c.Status(204)
@@ -217,6 +228,14 @@ func (a *API) SubmitRun(c *gin.Context) {
 		return
 	}
 	in.ConversationID = conv.ID
+	if a.Pages == nil {
+		failure(c, model.ErrConflict)
+		return
+	}
+	if err = a.Pages.Verify(c.Request.Context(), middleware.Scope(c), in.PageID, c.GetHeader("X-Page-Token")); err != nil {
+		failure(c, err)
+		return
+	}
 	in.IdempotencyKey = c.GetHeader("Idempotency-Key")
 	run, err := a.Chat.Submit(c.Request.Context(), middleware.Scope(c), in)
 	if err != nil {

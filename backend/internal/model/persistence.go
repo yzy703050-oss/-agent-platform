@@ -10,6 +10,7 @@ var ErrIdempotencyConflict = errors.New("idempotency conflict")
 var ErrQuota = errors.New("run quota exceeded")
 var ErrModelUnavailable = errors.New("model unavailable")
 var ErrAgentUnavailable = errors.New("agent unavailable")
+var ErrCheckpointIncompatible = errors.New("checkpoint incompatible")
 
 type TransitionRunInput struct {
 	Scope               Scope

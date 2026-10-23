@@ -47,8 +47,8 @@ func appendEvent(ctx context.Context, tx pgx.Tx, run model.Run, kind string) err
 	return err
 }
 func appendMessage(ctx context.Context, tx pgx.Tx, run model.Run, role, content string) error {
-	_, err := tx.Exec(ctx, "INSERT INTO messages(id,conversation_id,run_id,user_id,role,content,ordinal) SELECT $1,$2,$3,$4,$5,$6,COALESCE(MAX(ordinal),0)+1 FROM messages WHERE conversation_id=$2",
-		uuid.NewString(), run.ConversationID, run.ID, run.UserID, role, content)
+	_, err := tx.Exec(ctx, "INSERT INTO messages(id,conversation_id,run_id,user_id,role,content,attempt,ordinal) SELECT $1,$2,$3,$4,$5,$6,$7,COALESCE(MAX(ordinal),0)+1 FROM messages WHERE conversation_id=$2",
+		uuid.NewString(), run.ConversationID, run.ID, run.UserID, role, content, run.Attempt)
 	return err
 }
 func (r *Repository) AcceptRun(ctx context.Context, in model.AdmitRunInput) (model.Run, error) {

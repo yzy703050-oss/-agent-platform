@@ -34,6 +34,40 @@ func (r *readSettings) Get(context.Context, pm.Scope) (pm.UserSettings, error) {
 }
 func TestUnknownToolDenied(t *testing.T) { testAgentLimit(t, "delete_everything", false) }
 func TestIterationLimit(t *testing.T)    { testAgentLimit(t, "get_my_settings", true) }
+func TestCancelBeforeStartNeverCallsModel(t *testing.T) {
+	m := &loopModel{toolName: "get_my_settings"}
+	a := NewAgent(m, &readSettings{}, func(contracts.RunInput) adkStore { return &diskStore{dir: t.TempDir()} }, "test", time.Second)
+	exec, e := a.NewExecution(context.Background(), contracts.RunInput{Run: pm.Run{ID: "run"}, Limits: contracts.Limits{Iterations: 2, ToolTimeout: time.Second}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- exec.Cancel(ctx) }()
+	// Cancellation starts before execution; a started cancellation must be remembered.
+	concrete := exec.(*execution)
+	deadline := time.Now().Add(time.Second)
+	for {
+		concrete.mu.Lock()
+		requested := concrete.cancelRequested
+		concrete.mu.Unlock()
+		if requested {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("cancel not registered")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	_, _ = exec.Start(ctx, nil)
+	if e = <-done; e != nil {
+		t.Fatal(e)
+	}
+	if m.calls.Load() != 0 {
+		t.Fatal("cancelled execution called model")
+	}
+}
 func testAgentLimit(t *testing.T, name string, wantTools bool) {
 	m := &loopModel{toolName: name}
 	settings := &readSettings{}

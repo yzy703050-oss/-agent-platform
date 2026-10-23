@@ -9,6 +9,7 @@ import (
 type Limits struct {
 	Iterations                    int
 	ExecutionTimeout, ToolTimeout time.Duration
+	PauseTimeout                  time.Duration
 }
 type RunInput struct {
 	Scope        model.Scope

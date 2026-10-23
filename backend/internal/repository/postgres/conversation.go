@@ -109,7 +109,7 @@ func (r *Repository) ListMessages(ctx context.Context, scope model.Scope, id str
 }
 func (r *Repository) GetSettings(ctx context.Context, scope model.Scope) (model.UserSettings, error) {
 	var s model.UserSettings
-	err := r.pool.QueryRow(ctx, "SELECT COALESCE(s.theme,'system'),COALESCE(s.reply_preference,'') FROM users u LEFT JOIN user_settings s ON u.id=s.user_id WHERE u.id=$1", scope.UserID).Scan(&s.Theme, &s.ReplyPreference)
+	err := r.pool.QueryRow(ctx, "SELECT COALESCE(s.theme,'system'),COALESCE(s.reply_preference,'') FROM users u LEFT JOIN user_settings s ON u.id=s.user_id WHERE u.id=$1 AND ($2='' OR EXISTS(SELECT 1 FROM sessions a WHERE a.id=$2 AND a.user_id=u.id AND a.revoked_at IS NULL AND a.expires_at>now()))", scope.UserID, scope.SessionID).Scan(&s.Theme, &s.ReplyPreference)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, model.ErrNotFound
 	}

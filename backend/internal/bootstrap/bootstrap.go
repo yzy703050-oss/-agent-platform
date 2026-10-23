@@ -69,7 +69,16 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		}, cfg.ModelBaseURL+"/"+cfg.ModelID, time.Duration(cfg.PauseSeconds)*time.Second)
 		registry.Register("general", a)
 	}
-	m := manager.New(repo, memory.New(repo, 32000), registry, contracts.Limits{Iterations: cfg.MaxIterations, ExecutionTimeout: time.Duration(cfg.RunSeconds) * time.Second, ToolTimeout: time.Duration(cfg.ToolSeconds) * time.Second})
-	h := router.New(router.Dependencies{Chat: chatapp.New(conversations, m), Auth: authsvc.New(repo), Users: usersvc.New(repo), Conversations: conversations, Settings: settings, SecureCookies: cfg.CookieSecure, AllowedOrigin: cfg.PublicOrigin, Ready: pool.Ping})
-	return &App{Handler: h, close: func() { m.Close(); closeApp() }}, nil
+	m := manager.New(repo, memory.New(repo, 32000), registry, contracts.Limits{Iterations: cfg.MaxIterations, ExecutionTimeout: time.Duration(cfg.RunSeconds) * time.Second, ToolTimeout: time.Duration(cfg.ToolSeconds) * time.Second, PauseTimeout: time.Duration(cfg.PauseSeconds) * time.Second})
+	if err = m.ReconcileInterrupted(ctx); err != nil {
+		m.Close()
+		closeApp()
+		return nil, errors.New("run recovery reconciliation failed")
+	}
+	pages := manager.NewLeaseManager(repo, m, time.Now, time.Duration(cfg.LeaseSeconds)*time.Second)
+	leaseCtx, stopLeases := context.WithCancel(context.Background())
+	leaseDone := make(chan struct{})
+	go func() { defer close(leaseDone); pages.Run(leaseCtx) }()
+	h := router.New(router.Dependencies{Manager: m, Pages: pages, Chat: chatapp.New(conversations, m), Auth: authsvc.New(repo), Users: usersvc.New(repo), Conversations: conversations, Settings: settings, SecureCookies: cfg.CookieSecure, AllowedOrigin: cfg.PublicOrigin, Ready: pool.Ping})
+	return &App{Handler: h, close: func() { stopLeases(); <-leaseDone; m.Close(); closeApp() }}, nil
 }

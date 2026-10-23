@@ -74,7 +74,9 @@ Go + Gin；PostgreSQL 为唯一正式存储，pgx 负责连接池与显式 SQL�
 
 幂等键唯一范围为 (user_id, conversation_id, idempotency_key)；request_hash 覆盖消息和有效执行选项，不包含临时 page_id、page_token 或网络请求标识。跨页面重试同一请求返回原 Run，不改变执行归属；只有显式恢复才转移归属。会话在 accepted/running/pausing/paused/resuming/cancelling 状态下最多一个非终态 Run，以部分唯一索引约束。新问题替代 paused Run 必须先在同一事务结束旧 Run、context_eligible=false、使断点失效，再创建新 Run 和用户消息。
 
-Repository 提供语义事务 AcceptRun、CompleteRun、SupersedePausedRun、FinalizePause；完成回答、成功状态与终态事件共同提交。Eino GenInput 不再重复保存已由 AcceptRun 保存的用户消息。中间消息按 (run_id,attempt,ordinal/tool_call_id) 幂等保存，最终消息避免重复追加。
+Repository 提供语义事务 AcceptRun、CompleteRun、SupersedePausedRun、FinalizePause；完成回答、成功状态与终态事件共同提交。Eino GenInput 不再重复保存已由 AcceptRun 保存的用户消息。中间消息记录 attempt，写入时校验当前执行围栏，并按 (run_id,source_key) 幂等保存；source_key 由消息角色与工具调用 ID 派生，恢复后的重复投递不会重复展示。最终消息在完成事务中追加。
+
+页面令牌通过 X-Page-Token 请求头发送；提交与恢复验证页面、用户、登录会话与令牌，令牌不进入 URL。撤销 Session 后，工具读取设置也会拒绝访问。
 
 Eino 类型不进入业务实体；messages 通过适配转换为 schema.Message。工具名称、调用 ID 与结果配对必须保留，不能只存最终文本。
 

@@ -30,5 +30,10 @@ Task 4 RED: manager/memory、NewSettingsTool、NewAgent 未实现，目标测试
 Task 4 Ruling: 首版唯一工具通过 Eino ToolsNode 注册并执行；身份固定在每次执行创建的工具实例，不增加第二套工具调度器，未来多工具授权时再扩展 registry。
 Task 4 Ruling: 上下文按完整 Run 裁剪，32KB UTF-8 预算；当前任务本身超预算直接失败，不截断工具配对或静默丢弃本次问题。
 Task 4 model smoke: .env 中三个 LLM 配置项尚未齐备；用户将自行填写，未请求或输出秘密；网络冒烟留在 8.1，不能据单元模型夹具宣称实际模型已验证。
-Task 5: in progress；页面租约、生命周期与重启对账。
-Task 6–8: not started。
+Task 5: complete；全套 60 项测试（真实 PostgreSQL）与 vet 通过。SSE 断开测试依赖 Task 6 的端点，在 6.1 一起交付。
+Task 5 RED: LeaseManager/Pause/Resume/Reconcile 未实现编译失败；断点确认失败停在 pausing、工具结果重复、撤销 Session 后仍能读取设置三项断言失败，修复并通过。
+Task 5 evidence: 实际 Eino TurnLoop + RepositoryStore 保存 PostgreSQL 断点，销毁内核对象后创建新实例恢复，已完成工具不重放；不兼容指纹时模型调用次数为零。HTTP 测试覆盖页面令牌拒绝、暂停、GET 不自动恢复、手动继续与结束。
+Task 5 Ruling: 新增 002 迁移记录消息 attempt 和稳定 source_key；以 Run + 工具调用标识去重，而执行尝试作为存储围栏，避免跨恢复重复展示。
+Task 5 Ruling: 暂停/结束在状态提交后使用独立有界上下文完成停止与落库，HTTP 客户端断开不会撤销已接受的生命周期操作。正常关闭服务先请求安全暂停，再释放数据库单实例锁。
+Task 6: in progress；SSE、部分输出与诊断。
+Task 7–8: not started。

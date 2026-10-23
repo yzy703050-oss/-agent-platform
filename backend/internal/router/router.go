@@ -1,6 +1,7 @@
 package router
 
 import (
+	"agent-platform/backend/internal/agent/manager"
 	chatapp "agent-platform/backend/internal/application/chat"
 	"agent-platform/backend/internal/handler"
 	"agent-platform/backend/internal/middleware"
@@ -15,6 +16,8 @@ import (
 )
 
 type Dependencies struct {
+	Manager       *manager.Manager
+	Pages         *manager.LeaseManager
 	Chat          *chatapp.Application
 	Users         *usersvc.Service
 	Auth          *authsvc.Service
@@ -29,7 +32,7 @@ func New(d Dependencies) http.Handler {
 	r := gin.New()
 	_ = r.SetTrustedProxies(nil)
 	r.Use(middleware.RequestContext(), middleware.Origin(d.AllowedOrigin))
-	api := &handler.API{Chat: d.Chat, Auth: d.Auth, Users: d.Users, Conversations: d.Conversations, Settings: d.Settings, SecureCookies: d.SecureCookies}
+	api := &handler.API{Manager: d.Manager, Pages: d.Pages, Chat: d.Chat, Auth: d.Auth, Users: d.Users, Conversations: d.Conversations, Settings: d.Settings, SecureCookies: d.SecureCookies}
 	r.GET("/health/live", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })
 	r.GET("/health/ready", func(c *gin.Context) {
 		if d.Ready == nil || d.Ready(c.Request.Context()) != nil {
@@ -55,5 +58,16 @@ func New(d Dependencies) http.Handler {
 	protected.GET("/conversations/:id/messages", api.Messages)
 	protected.POST("/conversations/:id/runs", api.SubmitRun)
 	protected.GET("/agents", api.Agents)
+	if d.Pages != nil {
+		protected.POST("/pages", api.RegisterPage)
+		protected.POST("/pages/:id/heartbeat", api.HeartbeatPage)
+		protected.POST("/pages/:id/leave", api.LeavePage)
+	}
+	if d.Manager != nil {
+		protected.GET("/runs/:id", api.GetRun)
+		protected.POST("/runs/:id/pause", api.PauseRun)
+		protected.POST("/runs/:id/resume", api.ResumeRun)
+		protected.POST("/runs/:id/cancel", api.CancelRun)
+	}
 	return r
 }

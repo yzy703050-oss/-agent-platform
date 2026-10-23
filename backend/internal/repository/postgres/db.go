@@ -21,17 +21,19 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, e = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS schema_migrations(version text PRIMARY KEY)"); e != nil {
 		return e
 	}
-	tag, e := tx.Exec(ctx, "INSERT INTO schema_migrations(version) VALUES('001') ON CONFLICT DO NOTHING")
-	if e != nil {
-		return e
-	}
-	if tag.RowsAffected() > 0 {
-		data, e := migrations.Files.ReadFile("001_platform.up.sql")
+	for _, migration := range []struct{ version, file string }{{"001", "001_platform.up.sql"}, {"002", "002_message_delivery.up.sql"}} {
+		tag, e := tx.Exec(ctx, "INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT DO NOTHING", migration.version)
 		if e != nil {
 			return e
 		}
-		if _, e = tx.Exec(ctx, string(data)); e != nil {
-			return e
+		if tag.RowsAffected() > 0 {
+			data, e := migrations.Files.ReadFile(migration.file)
+			if e != nil {
+				return e
+			}
+			if _, e = tx.Exec(ctx, string(data)); e != nil {
+				return e
+			}
 		}
 	}
 	return tx.Commit(ctx)

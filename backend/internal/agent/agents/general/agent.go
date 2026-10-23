@@ -46,21 +46,28 @@ func (a *Agent) NewExecution(ctx context.Context, in contracts.RunInput) (contra
 }
 
 type execution struct {
-	runner *Runner
-	input  contracts.RunInput
-	done   chan struct{}
-	mu     sync.Mutex
-	err    error
-	cancel context.CancelFunc
+	runner          *Runner
+	input           contracts.RunInput
+	done            chan struct{}
+	mu              sync.Mutex
+	err             error
+	cancel          context.CancelFunc
+	cancelRequested bool
 }
 
 func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error) (contracts.ExecutionResult, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	e.mu.Lock()
 	e.cancel = cancel
+	if e.cancelRequested {
+		cancel()
+	}
 	e.mu.Unlock()
 	defer cancel()
 	defer close(e.done)
+	if ctx.Err() != nil {
+		return contracts.ExecutionResult{}, ctx.Err()
+	}
 	messages := make([]*schema.Message, 0, len(e.input.Messages))
 	for _, m := range e.input.Messages {
 		v := &schema.Message{Role: schema.RoleType(m.Role), Content: m.Content, ToolCallID: m.ToolCallID}
@@ -101,6 +108,7 @@ func (e *execution) Pause(ctx context.Context) (contracts.PauseResult, error) {
 }
 func (e *execution) Cancel(ctx context.Context) error {
 	e.mu.Lock()
+	e.cancelRequested = true
 	cancel := e.cancel
 	e.mu.Unlock()
 	if cancel != nil {

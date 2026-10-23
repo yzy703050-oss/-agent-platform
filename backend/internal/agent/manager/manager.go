@@ -18,6 +18,11 @@ type Store interface {
 	GetRun(context.Context, model.Scope, string) (model.Run, error)
 	TransitionRun(context.Context, model.TransitionRunInput) (model.Run, error)
 	AppendRunMessage(context.Context, model.Scope, string, int64, model.Message) error
+	FindConversation(context.Context, model.Scope, string) (model.Conversation, error)
+	BeginResume(context.Context, model.Scope, string) (model.Run, error)
+	ListRecoverableRuns(context.Context) ([]model.ScopedRun, error)
+	ReconcileRun(context.Context, model.Scope, model.Run, string, string) (model.Run, error)
+	ports.CheckpointStore
 }
 type ContextBuilder interface {
 	Build(context.Context, model.Scope, string, string) ([]model.Message, error)
@@ -47,7 +52,23 @@ func New(s Store, b ContextBuilder, r *Registry, l contracts.Limits) *Manager {
 }
 func (m *Manager) Available(agent string) bool { _, ok := m.registry.Get(agent); return ok }
 func (m *Manager) Wait()                       { m.wg.Wait() }
-func (m *Manager) Close()                      { m.mu.Lock(); m.closed = true; m.cancel(); m.mu.Unlock(); m.wg.Wait() }
+func (m *Manager) Close() {
+	m.mu.Lock()
+	m.closed = true
+	active := make([]*activeRun, 0, len(m.active))
+	for _, x := range m.active {
+		active = append(active, x)
+	}
+	m.mu.Unlock()
+	var stops sync.WaitGroup
+	for _, x := range active {
+		stops.Add(1)
+		go func(x *activeRun) { defer stops.Done(); _, _ = m.Pause(context.Background(), x.scope, x.run.ID) }(x)
+	}
+	stops.Wait()
+	m.cancel()
+	m.wg.Wait()
+}
 func (m *Manager) Submit(ctx context.Context, in model.AdmitRunInput, agent string) (model.Run, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
