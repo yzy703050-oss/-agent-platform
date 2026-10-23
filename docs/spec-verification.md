@@ -4,7 +4,7 @@
 
 当前 OpenSpec CLI 无 `verify` 子命令，项目也没有额外启用 verify 工作流；以下为人工逐项核对，**不是已运行 OpenSpec verify 的声明**。`openspec validate --strict` 只证明文档结构有效。
 
-自动测试使用真实 PostgreSQL，以及真实 Eino + 可控模型。它们证明框架与平台行为，不能替代真实模型 API 和浏览器完整任务验收。最终模型相关检查仍未完成，8.1 保持未勾选，变更未归档。
+自动测试使用真实 PostgreSQL，以及真实 Eino + 可控模型。2026-10-23 已补齐真实模型 API 和浏览器任务验收，详见 real-model-acceptance.md。Linux race 尚无结果，8.1 保持未勾选，变更未归档。
 
 ## 身份与会话：8 个场景
 
@@ -23,7 +23,7 @@
 
 | 场景 | 代码/测试证据 | 当前结果 |
 | --- | --- | --- |
-| 工具调用 | TestEinoChatPersistsToolsAndCompletedOutput、TestExecutionEmitsActualStreamChunks | 框架与数据库通过；真实模型待验收 |
+| 工具调用 | TestEinoChatPersistsToolsAndCompletedOutput、TestExecutionEmitsActualStreamChunks；model-smoke.ps1 与浏览器工具结果 | 框架、数据库和真实模型通过 |
 | 不支持的工具 | TestUnknownToolDenied | 自动测试通过 |
 | 并发重复提交 | TestConcurrentIdempotentAdmission、TestSubmitIdempotentStartsOnce | 真实数据库并发通过 |
 | 幂等键误用 | TestSameKeyDifferentBody、TestSameKeyDifferentPageReturnsOriginalOwner | 自动测试通过 |
@@ -37,8 +37,8 @@
 | 场景 | 代码/测试证据 | 当前结果 |
 | --- | --- | --- |
 | 页面内切换 | TestPageSwitchKeepsRun、testPageSwitchKeepsHeartbeat、TestSSEDisconnectDoesNotPause | 自动测试通过 |
-| 关闭发起页面 | TestOwnerPageExpiryPauses、TestOtherPageCannotHeartbeatOwner、TestNewDocumentGetsDistinctPageIdentity | 租约逻辑通过；真实模型浏览器关闭验收待执行 |
-| 成功暂停 | TestCheckpointResumeAcrossExecutionInstances、TestStreamingSafeCheckpointResume、TestRecoveryEinoAcrossPostgresInstances、TestHTTPPageLeaseAndManualRecovery | 真实框架与数据库通过 |
+| 关闭发起页面 | TestOwnerPageExpiryPauses、TestOtherPageCannotHeartbeatOwner、TestNewDocumentGetsDistinctPageIdentity；真实 pagehide→paused、实际关闭后 completed/interrupted 两条结果 | 自动与实际浏览器检查通过；不保证任意停止都有安全断点 |
+| 成功暂停 | TestCheckpointResumeAcrossExecutionInstances、TestStreamingSafeCheckpointResume、TestRecoveryEinoAcrossPostgresInstances、TestHTTPPageLeaseAndManualRecovery；真实模型 API/界面手动恢复 | 真实框架、数据库和模型安全边界通过 |
 | 保存失败 | TestCheckpointSaveFailureNotResumable、TestPauseCheckpointFailureInterrupted、TestPauseMissingSavedCheckpointInterrupted、TestFinalizePauseRequiresCheckpoint、TestStreamingEscalationNotResumable | 不虚报 paused、不保存强制截流不安全断点的检查通过 |
 | 重开会话 | testPausedOpenDoesNotResume、reopensLastConversationWithoutStartingTask、TestHTTPPageLeaseAndManualRecovery | GET 不执行与前端显示通过 |
 | 重复继续 | TestResumeCASOnlyStartsOnce、TestResumeTransfersPageOwner | CAS 与页面转移通过 |
@@ -50,7 +50,7 @@
 
 | 场景 | 代码/测试证据 | 当前结果 |
 | --- | --- | --- |
-| 发问而非继续 | TestSupersedeAtomicity、TestSupersedeRollbackPreservesOldTask、testNewQuestionSupersedesPausedRun | 自动测试通过 |
+| 发问而非继续 | TestSupersedeAtomicity、TestSupersedeRollbackPreservesOldTask、testNewQuestionSupersedesPausedRun；真实界面新问与数据库旧 Run cancelled/断点无效 | 自动与真实模型浏览器检查通过 |
 | 上下文隔离 | TestSupersededRunVisibleButExcluded、TestLateOldRunCannotPolluteNew | 历史可见、模型输入排除通过 |
 | 保留更早的有效历史 | TestSupersededRunVisibleButExcluded | 自动测试通过 |
 | 迟到写入 | TestOldAttemptCheckpointWriteRejected、TestLateOldRunCannotPolluteNew、ignoresDeltasFromPreviousAttempt | 存储与前端围栏通过 |
@@ -69,8 +69,6 @@
 
 ## 尚未取得的证据
 
-- 实际模型 API 的回答、工具调用及暂停恢复结果。
-- 使用实际模型的完整浏览器关闭、重开、手动继续、新问替代演示。
 - Linux CI race 结果与 Compose/镜像实际构建。已提供配置，当前没有执行证据。
 
-以上检查未完成前，不运行 archive、不进入合并收尾，也不将测试夹具响应展示为产品真实模型回答。
+Linux race 按 design D11 和实施计划仍需取得实际结果后才归档；Compose 属于本轮不安装 Docker 的可选路径，继续明确未验证。测试夹具响应不作为产品真实模型回答。

@@ -137,7 +137,7 @@
 - [x] 先写组件测试：testSwitchEntryCreatesConversation、testHistoryOpensOriginalAgent、testPausedOpenDoesNotResume、testResumeRequiresClick、testNewQuestionSupersedesPausedRun、testPageSwitchKeepsHeartbeat、testTravelHasNoFakePlan。
 - [x] 在 frontend 执行 `npm run test -- --run` 确认缺失交互红灯。
 - [x] 最小实现左侧历史和右侧入口/工作区、登录与设置、流式文字及工具状态、暂停/继续/结束按钮和页面级租约；切换 SSE 订阅不撤销页面归属。
-- [ ] 执行 `npm run test -- --run` 与 `npm run build` 通过；在真实后端验证登录→聊天→切换→关闭→重开→继续→新问替代的完整操作。
+- [x] 执行 `npm run test -- --run` 与 `npm run build` 通过；真实模型浏览器验证聊天、切换、pagehide 自动暂停、关闭/重开已暂停任务、手动继续和新问替代。关闭通知未送达时可能自然完成或 interrupted，详见 docs/real-model-acceptance.md。
 - [x] 更新 7.1、记录并提交。
 
 ## Task 8: 运行交付、最终验证与归档
@@ -148,8 +148,9 @@
 
 - [x] 先写发布验收检查：缺数据库配置明确失败、迁移后 health ready、平台不静默用内存；未配置模型时 model_unavailable。
 - [x] 实现启动配置与脚本，执行 backend 的 `go test ./...`、`go vet ./...`，frontend 的 `npm ci`、`npm run test -- --run`、`npm run build`。
-- [ ] 提供真实 PostgreSQL 后运行 `go test ./tests/integration -v -count=1` 和要求数据库必备的发布验收；分项保存输出。Windows race 工具链不可用时在 Linux CI 验证，不能称本机 race 已通过。
-- [ ] 配置真实模型后记录真实聊天/工具/暂停恢复冒烟；无 Key 时保持此检查未完成，不要求用户将 Key 发到聊天。
+- [x] 提供真实 PostgreSQL 后运行完整 `go test ./... -v -count=1`，包含全部集成和数据库必备的发布验收；84 PASS、0 FAIL、0 SKIP，分项保存输出。
+- [ ] Windows race 工具链不可用，需在 Linux CI 实际验证，不将未执行工作流记为通过。
+- [x] 配置真实模型后完成真实聊天/工具/安全边界暂停恢复与浏览器验收，证据见 docs/real-model-acceptance.md；Key 仅本地保存。
 - [x] 按所选单/多代理方式做代码审核；对 specs 每个 Scenario 建立测试或人工证据映射，核对 tasks 不是只看勾选框。
 - [x] 运行 `openspec validate build-agent-platform-mvp --strict`；检查是否提供 verify 工作流。当前 CLI 无 verify 子命令：若未启用额外 verify 技能，使用人工规格核对并明确标注，不把 validate 当实现 verify。
 - [ ] 仅在全部交付和真实验证满足完成条件后执行 `openspec archive build-agent-platform-mvp`，确认归档与主规格同步；之后进入分支收尾，按用户选择保留分支、合并或创建 PR。
@@ -157,7 +158,7 @@
 
 ## Execution Record
 
-2026-10-23：用户选择单代理执行；当前 feat/agent-platform-mvp。任务 1–7 已实现，本机最终 84 项后端测试、13 项前端测试、vet 与构建通过；详细审查和 36 个 Scenario 证据见 docs/code-review.md 与 docs/spec-verification.md。Task 7 中真实模型浏览器完整操作与 Task 8 的真实模型验收仍待本地配置，8.1 保持未完成。PostgreSQL 已安装注册；Docker 与 race 无运行通过证据。
+2026-10-23：用户选择单代理执行；当前 feat/agent-platform-mvp。任务 1–7 已实现，本机最终 84 项后端测试、13 项前端测试、vet 与构建通过；详细审查和 36 个 Scenario 证据见 docs/code-review.md 与 docs/spec-verification.md。真实模型与浏览器验收已于同日补齐，8.1 当前等待 Linux race CI。PostgreSQL 已安装注册；Docker 为可选且未运行，race 无通过证据。用户已授权创建公开 GitHub 仓库运行 CI。
 
 开始实施前记录用户审阅结论和执行方式，读取 OpenSpec apply 指导，再按任务实施。每项记录红灯命令/原因、绿灯命令/输出、受影响任务、提交及遗留限制；完成证据写入 docs/verification.md，并同步 OpenSpec tasks。
 

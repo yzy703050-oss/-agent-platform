@@ -56,3 +56,11 @@ Task 8 Ruling: 详细计划中的部分模块文件按实际职责合并，不�
 Task 8 final review: 作者整体自审（用户选定单代理方式，未派独立评审）；发现及修复见 docs/code-review.md。App 协调/渲染文件偏长作为小项留待后续 UI 变更。
 Task 8 spec audit: docs/spec-verification.md 对应全部 36 个 Scenario；openspec validate build-agent-platform-mvp --strict 通过。CLI 无 verify 子命令，项目无额外 verify 工作流，采用人工逐项核对，不冒称运行 verify。
 Task 8 pending: .env 三个 LLM 配置项仍为空；model-smoke.ps1 按预期拒绝运行，未调用真实模型。真实模型与完整浏览器恢复验收待配置；Linux race 和 Docker/镜像尚无运行证据。8.1 保持未完成，不归档、不合并、不推送。
+
+Task 8 real model: 2026-10-23 本地三个 LLM 配置齐全。查明旧 PID 968 占用 8080、记录 PID 已失效；核实旧进程路径后替换为最终构建。初次 readiness 不能证明新进程成功，改为以实际模型工具响应验证。model-smoke.ps1 及 -ExerciseRecovery 实际通过，未打印配置值。
+Task 8 acceptance Ruling: 原三千字长流中途暂停触发不安全流取消，按设计返回 interrupted；将成功恢复探针改为短工具步骤启动后暂停，实测通过，不修改产品行为。长流失败保留在 real-model-acceptance.md，不能声称任意 Token 恢复。代价：需要在支持的边界暂停，普通长回答不保证可继续。
+Task 8 browser: 真实回答/工具结果、页面内切换仍执行、pagehide leave→paused、重开不执行、显式恢复 attempt=2 完成、新问替代与旧历史保留均通过。实际关闭页面未及时通知时可能先完成或中断，未虚报恢复成功；合成任务数据库核对旧 Run cancelled/context_eligible=false/checkpoint.valid=false。
+Task 8 final regression: pwsh -NoProfile -File scripts/verify.ps1 -SkipNpmInstall 于 15:34 通过；真实 PostgreSQL 84 PASS/0 FAIL/0 SKIP，前端 13 PASS，vet 与后端/前端构建通过。启动最终 API 恢复本地服务。
+Task 8 public repository: 用户授权新建 GitHub 仓库并明确公开。发布前扫描全部历史 247 个 blob，未发现已配置模型密钥、数据库 DSN/密码或私钥；.env、.env.postgres、.cache 报告被忽略。GitHub 连接器无建仓能力；网页已登录，但后续操作因自动审批网络故障没有执行，已请用户手动建空仓并提供链接，随后继续 Git 推送与 Linux CI。
+Task 8 pending (supersedes prior model-config pending): 真实模型验收已完成，8.1.4 已勾选。design D11/实施计划要求的 Linux race CI 尚无结果；本机 WSL 未安装、Windows race 既有工具链错误，不安装更多系统组件。8.1.5 与归档保持未完成；Docker 仅为可选路径并明确未验证。
+Task 8 repository update: 用户已手动创建公开仓库 https://github.com/yzy703050-oss/-agent-platform（名称保留开头连字符）。GitHub 只读连接器确认 public、空仓、default_branch=main。后续 git add/commit 因自动审批服务连接断开没有执行，重试单独 git add 仍未执行；不是权限或代码安全拒绝。当前没有 origin、没有新验收提交、没有推送或 CI 运行，HEAD 仍为 840f456。所有真实模型验收文档和截图保留在工作区，等待审批服务恢复后继续。

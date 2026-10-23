@@ -106,4 +106,4 @@ docker compose up --build
 
 ## 交付状态
 
-代码和基础自动化验证已落地。最终状态以 [验证记录](verification.md)、[任务表](../openspec/changes/build-agent-platform-mvp/tasks.md) 为准；真实模型与完整浏览器恢复没有证据前，不归档变更、不宣称全部验收完成。
+代码、自动化验证、真实模型与浏览器恢复已取得证据，见 [真实模型验收](real-model-acceptance.md)。最终状态以 [验证记录](verification.md)、[任务表](../openspec/changes/build-agent-platform-mvp/tasks.md) 为准；当前等待 Linux race CI 后归档。Docker 可选路径继续明确未验证。

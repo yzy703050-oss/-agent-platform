@@ -1,6 +1,6 @@
 ## Context
 
-参见 proposal.md 与 specs/。2026-10-22 检查时项目仅有目录骨架。2026-10-23 用户选择单代理执行，并后续授权安装注册本机 PostgreSQL；现有 Go 1.27.2、Node 24.20.0、PostgreSQL 17.11、OpenSpec 1.12.0，代码保存在 feat/agent-platform-mvp 分支。任务 1–7 已落地，任务 8 的真实模型验收仍待本地配置。Docker 未安装，部署文件提供为可选路径。
+参见 proposal.md 与 specs/。2026-10-22 检查时项目仅有目录骨架。2026-10-23 用户选择单代理执行，并后续授权安装注册本机 PostgreSQL；现有 Go 1.27.2、Node 24.20.0、PostgreSQL 17.11、OpenSpec 1.12.0，代码保存在 feat/agent-platform-mvp 分支。任务 1–7 已落地，任务 8 的真实模型与浏览器验收已通过，当前等待 Linux race CI。Docker 未安装，部署文件提供为可选路径。
 
 选定参考：[chatwitheino](https://github.com/cloudwego/eino-examples/tree/main/quickstart/chatwitheino)。读取的 go.mod 使用 Eino v0.9.0-beta.1、Go 1.24.9；agent.go 构建 DeepAgent，server/server.go 使用 TurnLoop，main.go 的 CheckpointStore 是内存实现，mem/store.go 使用 JSONL。这些不能作为平台持久化方案直接保留。
 

@@ -39,8 +39,11 @@ try{
  $recoveryVerified=$false
  if($ExerciseRecovery){
   $conversation=Invoke-Platform 'POST' '/conversations' @{agent_type='general';title='真实模型恢复验收'}
-  $run=Invoke-Platform 'POST' ('/conversations/'+$conversation.id+'/runs') @{content='先调用 get_my_settings 读取设置，然后写一篇至少三千字的中文旅行随笔。不要调用其他工具。';page_id=$page.page_id} $page ([guid]::NewGuid().ToString())
-  $timer.Restart();do{Start-Sleep -Milliseconds 200;$state=Invoke-Platform 'GET' ('/runs/'+$run.id)}while($state.status -eq 'running' -and -not $state.partial_output -and $timer.Elapsed.TotalSeconds -lt 6)
+  # Pause while the first short model/tool step is in flight. A long final
+  # answer may require forced stream cancellation and is deliberately unsafe
+  # to resume; it is not a suitable successful-checkpoint smoke boundary.
+  $run=Invoke-Platform 'POST' ('/conversations/'+$conversation.id+'/runs') @{content='请按顺序调用 get_my_settings 三次，每次收到上一次工具结果后再发起下一次调用，不要并行调用。最后用一句话说明主题和回复偏好。';page_id=$page.page_id} $page ([guid]::NewGuid().ToString())
+  $timer.Restart();do{Start-Sleep -Milliseconds 100;$state=Invoke-Platform 'GET' ('/runs/'+$run.id)}while($state.status -eq 'accepted' -and $timer.Elapsed.TotalSeconds -lt 6)
   if($state.status -ne 'running'){throw 'The run ended before the pause boundary. Recovery smoke is not verified.'}
   $paused=Invoke-Platform 'POST' ('/runs/'+$run.id+'/pause') @{}
   if($paused.status -ne 'paused'){throw 'Eino did not produce a valid resumable checkpoint. Recovery smoke is not verified.'}

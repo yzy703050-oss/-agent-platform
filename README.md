@@ -1,6 +1,6 @@
 # Go Agent Platform
 
-Go + React Agent 平台，当前 MVP 进度 7/8：前后端与交付脚本已实现，84 项后端和 13 项前端测试通过；真实模型及完整浏览器恢复验收待本地配置，尚未归档。
+Go + React Agent 平台：前后端、交付脚本、真实模型聊天与安全边界恢复已通过验收，84 项后端和 13 项前端测试通过；当前最后阶段等待 Linux race CI，尚未归档。实际模型与浏览器证据见 [真实模型验收](docs/real-model-acceptance.md)。
 
 ## 正式文档
 

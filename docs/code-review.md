@@ -35,6 +35,6 @@
 ## 暂缓的小项
 
 - App.tsx 协调与工作区渲染仍偏长；可以在后续 UI 变更时提取 ChatWorkspace，当前不增加额外抽象。
-- 模型 API、真实浏览器任务恢复、Linux race 与 Docker 运行验收尚未执行。这些属于明确的验证缺口，不能以代码自审代替。
+- Linux race 与 Docker 运行验收尚未执行；真实模型与浏览器任务恢复已补齐证据，见 real-model-acceptance.md。环境验证不能以代码自审代替。
 
-当前没有已知未解决的重要代码偏差。最终交付验收仍待真实模型证据，OpenSpec 8.1 与归档保持未完成。
+当前没有已知未解决的重要代码偏差。OpenSpec 8.1 与归档等待 Linux race CI 结果；Docker 可选路径继续明确未验证。
