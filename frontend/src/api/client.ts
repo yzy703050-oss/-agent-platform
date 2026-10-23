@@ -57,7 +57,13 @@ export interface RunEvent {
   type: string;
   attempt: number;
   seq: number;
-  payload: { text?: string; name?: string; duration_ms?: number };
+  payload: {
+    text?: string;
+    name?: string;
+    duration_ms?: number;
+    phase?: string;
+    plan_id?: string;
+  };
 }
 export type Action = "pause" | "resume" | "cancel";
 export interface PlatformAPI {

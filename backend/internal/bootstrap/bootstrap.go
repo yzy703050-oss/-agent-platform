@@ -2,11 +2,18 @@ package bootstrap
 
 import (
 	"agent-platform/backend/internal/agent/agents/general"
+	"agent-platform/backend/internal/agent/agents/travel"
 	"agent-platform/backend/internal/agent/contracts"
 	"agent-platform/backend/internal/agent/manager"
 	"agent-platform/backend/internal/agent/memory"
 	chatapp "agent-platform/backend/internal/application/chat"
+	"agent-platform/backend/internal/client/hotel"
 	"agent-platform/backend/internal/client/llm"
+	ragmcp "agent-platform/backend/internal/client/mcp"
+	"agent-platform/backend/internal/client/train"
+	"agent-platform/backend/internal/client/weather"
+	prefsvc "agent-platform/backend/internal/service/travelpreference"
+	tripsvc "agent-platform/backend/internal/service/trip"
 	"context"
 	"errors"
 	"github.com/cloudwego/eino/adk"
@@ -62,12 +69,33 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	settings := settingssvc.New(repo)
 	conversations := convsvc.New(repo)
 	registry := manager.NewRegistry()
+	var rag *ragmcp.Client
+	var retriever tripsvc.PolicyRetriever
+	if cfg.RAGMCPCommand != "" && cfg.RAGMCPDir != "" && cfg.RAGCollection != "" {
+		rag, _ = ragmcp.New(ragmcp.StdioConfig{Command: cfg.RAGMCPCommand, Directory: cfg.RAGMCPDir, Args: cfg.RAGMCPArgs, Collection: cfg.RAGCollection})
+		if rag != nil {
+			retriever = rag
+		}
+	}
+	providers := tripsvc.Providers{"weather": weather.New(nil, time.Now)}
+	if cfg.TrainAPIKey != "" {
+		providers["train"] = train.New(cfg.TrainAPIKey, nil, time.Now)
+	}
+	if cfg.AMAPAPIKey != "" {
+		providers["hotel"] = hotel.New(cfg.AMAPAPIKey, nil, time.Now)
+	}
+	trips := tripsvc.NewWithQueries(repo, providers, time.Now)
+	preferences := prefsvc.New(repo)
 	if modelClient, err := llm.New(ctx, cfg.ModelBaseURL, cfg.ModelID, cfg.ModelAPIKey); err == nil {
 		var a *general.Agent
 		a = general.NewAgent(modelClient, settings, func(in contracts.RunInput) adk.CheckPointStore {
 			return &general.RepositoryStore{Store: repo, Input: in, Fingerprint: a.Fingerprint()}
 		}, cfg.ModelBaseURL+"/"+cfg.ModelID, time.Duration(cfg.PauseSeconds)*time.Second)
 		registry.Register("general", a)
+		tripAgent, err := travel.NewAgent(travel.Config{Model: modelClient, Trips: trips, Preferences: preferences, Policy: tripsvc.NewPolicyService(retriever), Decisions: repo, Checkpoints: repo, Context: memory.NewTravelContext(preferences, repo, 32000), Identity: cfg.ModelBaseURL + "/" + cfg.ModelID})
+		if err == nil {
+			registry.Register("travel", tripAgent)
+		}
 	}
 	m := manager.New(repo, memory.New(repo, 32000), registry, contracts.Limits{Iterations: cfg.MaxIterations, ExecutionTimeout: time.Duration(cfg.RunSeconds) * time.Second, ToolTimeout: time.Duration(cfg.ToolSeconds) * time.Second, PauseTimeout: time.Duration(cfg.PauseSeconds) * time.Second})
 	if err = m.ReconcileInterrupted(ctx); err != nil {
@@ -80,5 +108,13 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	leaseDone := make(chan struct{})
 	go func() { defer close(leaseDone); pages.Run(leaseCtx) }()
 	h := router.New(router.Dependencies{Manager: m, Pages: pages, Chat: chatapp.New(conversations, m), Auth: authsvc.New(repo), Users: usersvc.New(repo), Conversations: conversations, Settings: settings, SecureCookies: cfg.CookieSecure, AllowedOrigin: cfg.PublicOrigin, Ready: pool.Ping})
-	return &App{Handler: h, close: func() { stopLeases(); <-leaseDone; m.Close(); closeApp() }}, nil
+	return &App{Handler: h, close: func() {
+		stopLeases()
+		<-leaseDone
+		m.Close()
+		if rag != nil {
+			_ = rag.Close()
+		}
+		closeApp()
+	}}, nil
 }

@@ -73,3 +73,9 @@
 真实 TestPolicyMCPReal 从给定项目启动并连接成功，default 集合返回 no_knowledge、0 fragments（.cache/reports/travel-task7-mcp-real.log）。连接协议已通，含真实文档的命中验收仍未完成；不向 RAG 导入或修改文档。非密钥连接位置已补入本地忽略的 .env，配置模板只保留占位。
 
 官方 SDK 连接依据：https://github.com/modelcontextprotocol/go-sdk/blob/main/README.md 。
+
+### Task 8 — 双入口与阶段展示（浏览器验收前）
+
+Bootstrap 注册独立 General/Travel，两个入口共用模型连接与平台底座，缺查询凭据时只把对应供应方报告为 unavailable。Application/Handler 按会话 Agent 判断就绪；不再硬编码拒绝 travel。前端按当前入口启用输入，切换仍新建会话，差旅历史继续可见；工具结果以行程、候选、未知价格和缺口展示。
+
+新增 travel.phase 白名单事件，Manager 与 Repository 校验阶段/业务ID/大小并持久化，禁止提示词等任意字段；前端显示阶段。TestChatAgentReadiness、TestTravelPhaseEvents、现有未就绪/页面恢复及差旅工作流检查通过（travel-task8-api.log）。App 14 个现有及扩展场景通过，TypeScript/Vite 构建通过（travel-task8-ui.log、travel-task8-ui-build.log）。真实浏览器验收尚未进行；不得由组件测试代替。

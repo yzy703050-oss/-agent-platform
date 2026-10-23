@@ -27,6 +27,7 @@ import { useRunEvents } from "./hooks/useRunEvents";
 import { AuthForm } from "./components/AuthForm";
 import { ConversationSidebar } from "./components/ConversationSidebar";
 import { AgentPicker } from "./components/AgentPicker";
+import { TravelResult } from "./components/TravelResult";
 import { RunControls, activeStatuses } from "./components/RunControls";
 import "./styles.css";
 
@@ -214,12 +215,24 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
       else if (event.type.startsWith("tool."))
         setToolState(
           event.type === "tool.started"
-            ? "正在读取个人设置…"
+            ? event.payload.name === "get_my_settings"
+              ? "正在读取个人设置…"
+              : "正在执行差旅工具…"
             : event.type === "tool.completed"
-              ? "已读取个人设置"
+              ? event.payload.name === "get_my_settings"
+                ? "已读取个人设置"
+                : "差旅工具已返回结果"
               : "工具执行失败",
         );
-      else if (event.type.startsWith("run.")) void refresh();
+      else if (event.type === "travel.phase") {
+        const labels: Record<string, string> = {
+          planning: "正在规划行程…",
+          querying: "正在查询差旅信息…",
+          validating: "正在校验行程…",
+          reply: "正在整理已确认的结果…",
+        };
+        setToolState(labels[event.payload.phase || ""] || "正在处理差旅任务…");
+      } else if (event.type.startsWith("run.")) void refresh();
     },
     [refresh],
   );
@@ -361,7 +374,9 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
       </>
     );
   const travel = selected?.agent_type === "travel",
-    modelReady = agents.some((a) => a.id === "general" && a.available);
+    modelReady = agents.some(
+      (a) => a.id === (selected?.agent_type || "general") && a.available,
+    );
   const running = !!run && activeStatuses.has(run.status);
   const partialInHistory = messages.some(
     (m) => m.run_id === run?.id && m.display_status === "partial",
@@ -414,6 +429,7 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
           <AgentPicker
             selected={selected?.agent_type}
             busy={busy}
+            travelReady={agents.some((a) => a.id === "travel" && a.available)}
             onSelect={(a) => void choose(a)}
           />
           {error && (
@@ -442,19 +458,27 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
             >
               {loading ? (
                 <p className="muted">正在加载历史…</p>
-              ) : travel ? (
+              ) : travel && !modelReady && messages.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon">↗</div>
-                  <h2>差旅助手尚未接入</h2>
-                  <p>入口已预留。接入已有助手后，在这里开始规划旅程。</p>
+                  <h2>差旅助手暂不可用</h2>
+                  <p>请联系管理员检查模型配置。已有历史仍可查看。</p>
                 </div>
               ) : messages.length === 0 && !run ? (
                 <div className="empty-state">
                   <div className="empty-icon">✳</div>
-                  <h2>今天，想一起做点什么？</h2>
-                  <p>可以聊一个问题，也可以让我读取你的回复偏好。</p>
+                  <h2>
+                    {travel ? "开始规划一次差旅" : "今天，想一起做点什么？"}
+                  </h2>
+                  <p>
+                    {travel
+                      ? "提供出发地、目的地、日期和预算。缺少的条件会继续向你确认。"
+                      : "可以聊一个问题，也可以让我读取你的回复偏好。"}
+                  </p>
                   <div className="suggestion">
-                    试试：“查看我的主题和回复偏好”
+                    {travel
+                      ? "试试：10月25日从上海去杭州，单程，当天返回不住宿。"
+                      : "试试：“查看我的主题和回复偏好”"}
                   </div>
                 </div>
               ) : (
@@ -471,15 +495,18 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
                           <small>已保存的部分输出</small>
                         )}
                       </div>
-                      {m.content && (
-                        <p>
-                          {m.display_status === "partial" &&
-                          m.run_id === run?.id &&
-                          running
-                            ? live || m.content
-                            : m.content}
-                        </p>
-                      )}
+                      {m.content &&
+                        (travel && m.role === "tool" ? (
+                          <TravelResult content={m.content} />
+                        ) : (
+                          <p>
+                            {m.display_status === "partial" &&
+                            m.run_id === run?.id &&
+                            running
+                              ? live || m.content
+                              : m.content}
+                          </p>
+                        ))}
                       {m.tool_calls?.map((t) => (
                         <details key={t.id}>
                           <summary>调用 {t.name}</summary>
@@ -511,24 +538,24 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
             {run?.error_code && run.status !== "cancelled" && (
               <div className="run-error">原因：{run.error_code}</div>
             )}
-            {!modelReady && !travel && (
-              <div className="notice">聊天暂不可用，请联系管理员配置模型。</div>
+            {!modelReady && (
+              <div className="notice">
+                {travel ? "差旅助手" : "聊天"}暂不可用，请联系管理员配置模型。
+              </div>
             )}
             <form className="composer" onSubmit={submit}>
               <textarea
                 aria-label="输入消息"
                 placeholder={
-                  travel
-                    ? "差旅助手即将接入"
-                    : !selected
-                      ? "先选择上方的通用聊天"
-                      : run?.status === "paused"
-                        ? "输入新问题，开始新任务…"
-                        : "输入你的问题…"
+                  !selected
+                    ? "先选择上方的助手"
+                    : run?.status === "paused"
+                      ? "输入新问题，开始新任务…"
+                      : "输入你的问题…"
                 }
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                disabled={travel || !selected || running || !modelReady}
+                disabled={!selected || running || !modelReady}
                 maxLength={16000}
               />
               <div className="composer-footer">
@@ -547,7 +574,6 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
                     loading ||
                     !page ||
                     !selected ||
-                    travel ||
                     running ||
                     !modelReady ||
                     !text.trim()

@@ -39,6 +39,35 @@ func TestPartialOutputSavedOnPause(t *testing.T) {
 		t.Fatal("partial not in display history")
 	}
 }
+
+func TestTravelPhaseEvents(t *testing.T) {
+	f, ref, _ := travelFixture(t)
+	ctx := context.Background()
+	valid := contracts.Event{RunID: ref.RunID, Attempt: ref.Attempt, Type: "travel.phase", Payload: []byte(`{"phase":"validating"}`)}
+	if err := f.repo.AppendRunEvent(ctx, f.scope, valid); err != nil {
+		t.Fatal(err)
+	}
+	for _, payload := range []string{`{"phase":"arbitrary"}`, `{"phase":"planning","prompt":"must not persist"}`, `{"phase":"querying","plan_id":"forged"}`} {
+		bad := valid
+		bad.Payload = []byte(payload)
+		if err := f.repo.AppendRunEvent(ctx, f.scope, bad); !errors.Is(err, model.ErrInvalidInput) {
+			t.Fatalf("invalid event accepted: %v", err)
+		}
+	}
+	rows, err := f.repo.ListRunEvents(ctx, f.scope, ref.RunID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, row := range rows {
+		if row.Type == "travel.phase" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("unexpected phase event count %d", count)
+	}
+}
 func TestCompletedAnswerAdvancesPartialHistoryCursor(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()

@@ -218,12 +218,12 @@ func (a *API) SubmitRun(c *gin.Context) {
 		failure(c, err)
 		return
 	}
-	if conv.AgentType == "travel" {
-		middleware.Reject(c, 503, "agent_unavailable")
-		return
-	}
-	if a.Chat == nil || !a.Chat.Available() {
-		middleware.Reject(c, 503, "model_unavailable")
+	if a.Chat == nil || !a.Chat.Available(conv.AgentType) {
+		code := "agent_unavailable"
+		if conv.AgentType == "general" {
+			code = "model_unavailable"
+		}
+		middleware.Reject(c, 503, code)
 		return
 	}
 	var in chatapp.SubmitInput
@@ -249,10 +249,14 @@ func (a *API) SubmitRun(c *gin.Context) {
 	slog.Info("run_submitted", "request_id", c.GetString("request_id"), "run_id", run.ID, "attempt", run.Attempt)
 }
 func (a *API) Agents(c *gin.Context) {
-	available := a.Chat != nil && a.Chat.Available()
-	reason := ""
-	if !available {
-		reason = "model_not_connected"
+	items := []gin.H{}
+	for _, kind := range []string{"general", "travel"} {
+		available := a.Chat != nil && a.Chat.Available(kind)
+		reason := ""
+		if !available {
+			reason = "model_not_connected"
+		}
+		items = append(items, gin.H{"id": kind, "available": available, "reason": reason})
 	}
-	c.JSON(200, gin.H{"items": []gin.H{{"id": "general", "available": available, "reason": reason}, {"id": "travel", "available": false, "reason": "not_connected"}}})
+	c.JSON(200, gin.H{"items": items})
 }

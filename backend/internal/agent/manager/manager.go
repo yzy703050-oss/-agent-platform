@@ -192,12 +192,17 @@ func (m *Manager) launch(run model.Run, s model.Scope, exec contracts.Execution)
 				m.hub.Publish(e)
 				return nil
 			}
-			if e.Type == "tool.started" || e.Type == "tool.completed" || e.Type == "tool.failed" {
+			if e.Type == "travel.phase" {
+				if err := contracts.ValidateTravelPhase(e.Payload); err != nil {
+					return err
+				}
+			}
+			if e.Type == "tool.started" || e.Type == "tool.completed" || e.Type == "tool.failed" || e.Type == "travel.phase" {
 				if err := m.store.AppendRunEvent(ctx, s, e); err != nil {
 					return err
 				}
 				m.notify(run)
-				if e.Type != "tool.started" {
+				if e.Type == "tool.completed" || e.Type == "tool.failed" {
 					var info struct {
 						DurationMS int64 `json:"duration_ms"`
 					}

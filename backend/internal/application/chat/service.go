@@ -24,7 +24,7 @@ type SubmitInput struct {
 }
 
 func New(c Conversations, m *manager.Manager) *Application { return &Application{c, m} }
-func (a *Application) Available() bool                     { return a.manager.Available("general") }
+func (a *Application) Available(agent string) bool         { return a.manager.Available(agent) }
 func (a *Application) Submit(ctx context.Context, s model.Scope, in SubmitInput) (model.Run, error) {
 	if strings.TrimSpace(in.Content) == "" || len(in.Content) > 16000 || in.IdempotencyKey == "" || len(in.IdempotencyKey) > 200 || in.PageID == "" {
 		return model.Run{}, model.ErrInvalidInput
@@ -32,9 +32,6 @@ func (a *Application) Submit(ctx context.Context, s model.Scope, in SubmitInput)
 	conv, e := a.conversations.RequireAccess(ctx, s, in.ConversationID)
 	if e != nil {
 		return model.Run{}, e
-	}
-	if conv.AgentType == "travel" {
-		return model.Run{}, model.ErrAgentUnavailable
 	}
 	sum := sha256.Sum256([]byte(in.Content))
 	s.PageID = in.PageID

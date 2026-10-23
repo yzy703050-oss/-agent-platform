@@ -102,6 +102,43 @@ async function openPaused(client: PlatformAPI) {
   await screen.findByRole("button", { name: "继续任务" });
 }
 describe("平台交互", () => {
+  it("readyTravelWorksWithoutGeneral", async () => {
+    const { client } = fixture();
+    vi.mocked(client.agents).mockResolvedValue({
+      items: [
+        { id: "general", available: false },
+        { id: "travel", available: true },
+      ],
+    });
+    render(<App client={client} />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "差旅助手" }),
+    );
+    const input = screen.getByRole("textbox", { name: "输入消息" });
+    await waitFor(() => expect(input).toBeEnabled());
+    await userEvent.type(input, "明天去杭州出差");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+    await waitFor(() =>
+      expect(client.submit).toHaveBeenCalledWith(
+        "new-travel",
+        "明天去杭州出差",
+        expect.anything(),
+        expect.any(String),
+      ),
+    );
+    await waitFor(() => expect(client.subscribe).toHaveBeenCalled());
+    const listener = vi.mocked(client.subscribe).mock.calls[0][1];
+    act(() =>
+      listener({
+        run_id: "new-run",
+        attempt: 1,
+        seq: 1,
+        type: "travel.phase",
+        payload: { phase: "validating", plan_id: "p1" },
+      }),
+    );
+    expect(await screen.findByText(/正在校验行程/)).toBeInTheDocument();
+  });
   it("usesServerHeartbeatInterval", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const { client } = fixture();
@@ -202,7 +239,7 @@ describe("平台交互", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: "差旅历史" }),
     );
-    expect(await screen.findByText("差旅助手尚未接入")).toBeInTheDocument();
+    expect(await screen.findByText("差旅助手暂不可用")).toBeInTheDocument();
     expect(client.createConversation).not.toHaveBeenCalled();
   });
   it("testPausedOpenDoesNotResume", async () => {
@@ -248,7 +285,7 @@ describe("平台交互", () => {
     render(<App client={client} />);
     await waitFor(() => expect(client.registerPage).toHaveBeenCalledTimes(1));
     fireEvent.click(await screen.findByRole("button", { name: "差旅历史" }));
-    await screen.findByText("差旅助手尚未接入");
+    await screen.findByText("差旅助手暂不可用");
     await act(async () => {
       vi.advanceTimersByTime(5001);
     });
@@ -262,7 +299,7 @@ describe("平台交互", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: "差旅历史" }),
     );
-    expect(await screen.findByText("差旅助手尚未接入")).toBeInTheDocument();
+    expect(await screen.findByText("差旅助手暂不可用")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "输入消息" })).toBeDisabled();
     expect(client.submit).not.toHaveBeenCalled();
   });

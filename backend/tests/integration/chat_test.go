@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -14,7 +15,11 @@ import (
 	"agent-platform/backend/internal/agent/memory"
 	chatapp "agent-platform/backend/internal/application/chat"
 	"agent-platform/backend/internal/model"
+	"agent-platform/backend/internal/router"
+	authsvc "agent-platform/backend/internal/service/auth"
 	convsvc "agent-platform/backend/internal/service/conversation"
+	settingssvc "agent-platform/backend/internal/service/settings"
+	usersvc "agent-platform/backend/internal/service/user"
 	"github.com/google/uuid"
 )
 
@@ -96,6 +101,59 @@ func TestSubmitIdempotentStartsOnce(t *testing.T) {
 	takeInput(t, a)
 	if a.starts.Load() != 1 {
 		t.Fatalf("starts: %d", a.starts.Load())
+	}
+}
+
+func TestChatAgentReadiness(t *testing.T) {
+	for _, ready := range []string{"general", "travel"} {
+		t.Run(ready, func(t *testing.T) {
+			ctx := context.Background()
+			f := setup(t)
+			a := &heldAgent{inputs: make(chan contracts.RunInput, 2), release: make(chan struct{})}
+			reg := manager.NewRegistry()
+			reg.Register(ready, a)
+			m := manager.New(f.repo, memory.New(f.repo, 32000), reg, contracts.Limits{Iterations: 8, ExecutionTimeout: time.Minute})
+			defer m.Close()
+			defer close(a.release)
+			convs := convsvc.New(f.repo)
+			app := chatapp.New(convs, m)
+			for _, kind := range []string{"general", "travel"} {
+				c, err := convs.Create(ctx, f.scope, kind, "entry")
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = app.Submit(ctx, f.scope, chatapp.SubmitInput{ConversationID: c.ID, Content: "new task", PageID: f.scope.PageID, IdempotencyKey: kind})
+				if kind == ready {
+					if err != nil {
+						t.Fatalf("ready %s rejected: %v", kind, err)
+					}
+					takeInput(t, a)
+				} else if err == nil {
+					t.Fatalf("unavailable %s executed", kind)
+				}
+			}
+			auth := authsvc.New(f.repo)
+			if _, err := auth.Register(ctx, "web-user", "password-123"); err != nil {
+				t.Fatal(err)
+			}
+			h := router.New(router.Dependencies{Auth: auth, Users: usersvc.New(f.repo), Conversations: convs, Settings: settingssvc.New(f.repo), Manager: m, Chat: app})
+			cookie, _ := webLogin(t, h)
+			w := request(h, "GET", "/api/v1/agents", "", cookie, "")
+			var out struct {
+				Items []struct {
+					ID        string `json:"id"`
+					Available bool   `json:"available"`
+				}
+			}
+			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &out) != nil {
+				t.Fatal(w.Body.String())
+			}
+			for _, item := range out.Items {
+				if item.Available != (item.ID == ready) {
+					t.Fatalf("wrong per-agent readiness: %s", w.Body.String())
+				}
+			}
+		})
 	}
 }
 func TestConcurrentConversationConflict(t *testing.T) {

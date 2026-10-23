@@ -2,10 +2,12 @@ import type { AgentType } from "../api/client";
 export function AgentPicker({
   selected,
   busy,
+  travelReady,
   onSelect,
 }: {
   selected?: AgentType;
   busy: boolean;
+  travelReady: boolean;
   onSelect: (a: AgentType) => void;
 }) {
   return (
@@ -24,7 +26,8 @@ export function AgentPicker({
         aria-label="差旅助手"
         onClick={() => onSelect("travel")}
       >
-        <span>↗</span>差旅助手<small>即将接入</small>
+        <span>↗</span>差旅助手
+        <small>{travelReady ? "行程规划与真实查询" : "暂不可用"}</small>
       </button>
     </div>
   );

@@ -27,7 +27,7 @@ type Agent struct {
 	pauseTimeout time.Duration
 }
 
-const instruction = "你是平台的通用聊天助手，用中文清晰回答用户。需要了解当前用户的设置时调用 get_my_settings。该工具只读且没有参数。差旅助手尚未接入，不要假装执行差旅操作。"
+const instruction = "你是平台的通用聊天助手，用中文清晰回答用户。需要了解当前用户的设置时调用 get_my_settings。该工具只读且没有参数。差旅规划由独立的差旅助手入口提供，用户可切换入口新建会话；不要假装执行差旅操作或自动委派。"
 
 func NewAgent(m model.ToolCallingChatModel, s agenttools.SettingsReader, store func(contracts.RunInput) adkStore, identity string, pause time.Duration) *Agent {
 	sum := sha256.Sum256([]byte(identity + instruction + "eino-v0.9.0-beta.1:settings-v1"))
