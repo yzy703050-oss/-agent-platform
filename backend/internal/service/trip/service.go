@@ -48,30 +48,11 @@ func (s *Service) Apply(ctx context.Context, ref model.TravelExecution, operatio
 	if result, ok, err := s.store.FindTripReceipt(ctx, ref, operationID, requestHash); err != nil || ok {
 		return result, err
 	}
-	var previous *model.TripPlan
-	if cmd.Operation != "propose" {
-		p, err := s.store.GetTrip(ctx, ref.Scope, cmd.PlanID)
-		if err != nil {
-			return model.TripResult{}, err
-		}
-		if p.ConversationID != ref.ConversationID {
-			return model.TripResult{}, model.ErrNotFound
-		}
-		previous = &p
-	}
-	refs := make([]model.TravelCandidateRef, 0, len(cmd.Selections))
-	for _, sel := range cmd.Selections {
-		refs = append(refs, sel.Ref)
-	}
-	evidence, err := s.store.LoadTravelEvidence(ctx, ref, refs)
+	result, evidence, err := s.prepare(ctx, ref, cmd)
 	if err != nil {
 		return model.TripResult{}, err
 	}
-	result, err := Preview(previous, cmd, evidence, s.now())
-	if err != nil {
-		return model.TripResult{}, err
-	}
-	if previous == nil {
+	if cmd.Operation == "propose" {
 		result.Plan.ID = uuid.NewString()
 		result.Plan.UserID = ref.Scope.UserID
 		result.Plan.ConversationID = ref.ConversationID
@@ -82,6 +63,42 @@ func (s *Service) Apply(ctx context.Context, ref model.TravelExecution, operatio
 		result.Queries[i].PlanRevision = result.Plan.Revision
 	}
 	return s.store.CommitTrip(ctx, model.TripCommit{Execution: ref, OperationID: operationID, RequestHash: requestHash, ExpectedRevision: cmd.ExpectedRevision, Result: result, Evidence: evidence, Now: s.now()})
+}
+
+// Prepare checks the complete business mutation without accepting an action,
+// generating persisted identities, calling suppliers or changing any row.
+func (s *Service) Prepare(ctx context.Context, ref model.TravelExecution, cmd model.TripCommand) (model.TripResult, error) {
+	result, _, err := s.prepare(ctx, ref, cmd)
+	return result, err
+}
+func (s *Service) prepare(ctx context.Context, ref model.TravelExecution, cmd model.TripCommand) (model.TripResult, []model.TravelEvidence, error) {
+	if ref.Scope.UserID == "" || ref.Scope.SessionID == "" || ref.ConversationID == "" || ref.RunID == "" || ref.Attempt <= 0 {
+		return model.TripResult{}, nil, model.ErrInvalidInput
+	}
+	var previous *model.TripPlan
+	if cmd.Operation != "propose" {
+		p, err := s.store.GetTrip(ctx, ref.Scope, cmd.PlanID)
+		if err != nil {
+			return model.TripResult{}, nil, err
+		}
+		if p.ConversationID != ref.ConversationID {
+			return model.TripResult{}, nil, model.ErrNotFound
+		}
+		previous = &p
+	}
+	refs := make([]model.TravelCandidateRef, 0, len(cmd.Selections))
+	for _, sel := range cmd.Selections {
+		refs = append(refs, sel.Ref)
+	}
+	evidence, err := s.store.LoadTravelEvidence(ctx, ref, refs)
+	if err != nil {
+		return model.TripResult{}, nil, err
+	}
+	result, err := Preview(previous, cmd, evidence, s.now())
+	if err != nil {
+		return model.TripResult{}, nil, err
+	}
+	return result, evidence, nil
 }
 
 func clone[T any](in T) (T, error) {

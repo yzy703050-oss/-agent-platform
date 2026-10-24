@@ -19,10 +19,13 @@ var ErrResponse = errors.New("invalid provider response")
 var ErrRequest = fmt.Errorf("provider request failed: %w", model.ErrProviderTransient)
 
 func Default(client Doer) Doer {
-	if client != nil {
+	if _, ok := client.(*Resilient); ok {
 		return client
 	}
-	return &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	}
+	return NewResilient(client, ResilienceOptions{})
 }
 func Decode(ctx context.Context, client Doer, req *http.Request, out any) error {
 	if err := ctx.Err(); err != nil {

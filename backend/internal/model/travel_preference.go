@@ -1,5 +1,24 @@
 package model
 
+type TravelMemoryUpdate struct {
+	Op     string  `json:"op"`
+	Text   *string `json:"text,omitempty"`
+	ID     *string `json:"id,omitempty"`
+	Source string  `json:"-"`
+}
+type TravelMemoryCommand struct {
+	Operation string               `json:"operation"`
+	Updates   []TravelMemoryUpdate `json:"updates"`
+}
+type TravelMemoryApplied struct {
+	Op string `json:"op"`
+	ID string `json:"id"`
+}
+type TravelMemoryResult struct {
+	Applied  []TravelMemoryApplied `json:"applied"`
+	Rejected []TravelMemoryUpdate  `json:"rejected"`
+}
+
 type TravelPreferenceCommand struct {
 	Operation string `json:"operation"`
 	Key       string `json:"key"`

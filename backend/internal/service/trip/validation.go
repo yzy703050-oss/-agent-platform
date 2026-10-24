@@ -72,6 +72,14 @@ func Preview(previous *model.TripPlan, cmd model.TripCommand, evidence []model.T
 	if err = validateConstraints(p.Constraints); err != nil {
 		return model.TripResult{}, err
 	}
+	for _, selection := range cmd.Selections {
+		if selection.ExpectedRevision != nil && previous != nil {
+			index := slices.IndexFunc(previous.Tasks, func(t model.TripTask) bool { return t.ID == selection.TaskID })
+			if index < 0 || *selection.ExpectedRevision != max(previous.Tasks[index].Revision, 1) {
+				return model.TripResult{}, model.ErrConflict
+			}
+		}
+	}
 	seen := map[string]bool{}
 	for _, change := range cmd.Changes {
 		if seen[change.TaskID] {

@@ -19,6 +19,22 @@ func selectCandidate(p model.TripPlan, task model.TripTask, selection model.Trip
 		if (e.Status != "ok" && e.Status != "partial") || e.Source.Provider == "" || e.Source.FetchedAt.IsZero() || e.Source.FetchedAt.After(now) || !e.ExpiresAt.After(now) {
 			return model.TravelSelection{}, invalid("candidate evidence is missing or expired")
 		}
+		if p.SourceVersion > 0 {
+			if e.Query.TaskRevision != max(task.Revision, 1) {
+				return model.TravelSelection{}, invalid("QUERY_REBIND_REQUIRED: candidate belongs to an earlier task revision")
+			}
+			view := CandidateView(e)
+			visible := false
+			for _, c := range view.Candidates {
+				if c.ID == selection.Ref.CandidateID {
+					visible = true
+					break
+				}
+			}
+			if !visible {
+				return model.TravelSelection{}, invalid("candidate was not in the current bounded tool view")
+			}
+		}
 		if selection.Domain == "train" && (e.Query.Origin != task.Origin || e.Query.Destination != task.Destination || e.Query.Date != task.DepartureDate) {
 			return model.TravelSelection{}, invalid("candidate query no longer matches route")
 		}

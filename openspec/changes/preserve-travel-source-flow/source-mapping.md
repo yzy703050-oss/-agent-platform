@@ -32,7 +32,7 @@
 | F07 | trips/activities.py、dependencies.py、patches.py | 目的地活动、粗时段、组件更新、整路线修改、保留未受影响结果 | service/trip | 2、6 |
 | F08 | trips/service.py、validation.py、constraints.py、conflicts.py、state.py | 原子业务操作、硬约束/跨段/逐晚住宿校验、原版部分结果状态 | service/trip＋Repository 事务 | 2、5 |
 | F09 | providers/rail_preferences.py、validation.py、contracts.py、candidates.py、views.py、plan_guard.py、budget.py | 规范车种、候选身份与视图、条件匹配、分页授权和金额未知 | Client 规范化＋Service 证据校验 | 2、3 |
-| F10 | providers/juhe_train.py、amap_hotel.py、arrival_search.py、hotel_places.py、public_query.py、base.py | 供应方能力与错误边界，地点不等于价格/库存 | 既有 client/train、hotel、weather 等，按源码实际文件核对 | 2、6 |
+| F10 | providers/juhe_train.py、amap_hotel.py、arrival_search.py、queries.py、hotel_places.py、public_query.py、base.py | 供应方能力与错误边界，地点不等于价格/库存 | 既有 client/train、hotel、weather 等，按源码实际文件核对 | 2、3、6 |
 | F11 | agents/policy.py、tools/policy.py、providers/modular_rag.py、rag.py | MCP 检索、一次模型提取、引用和适用范围验证、缺口保留 | Travel 政策角色＋Service＋client/mcp | 4、6 |
 | F12 | agents/preference.py、tools/memory_write.py、storage/preferences.py | 明确更新/撤回、用户要求重分析、每 3 个新确认有效行程的低频分析及证据覆盖 | Travel 记忆能力＋service/travelpreference | 4、5 |
 | F13 | memory/planning.py、context.py | 所有行程 review 投影、原请求、候选视图、日历、调整历史、查询和执行结果 | agent/memory 的差旅上下文＋Service 只读快照 | 4 |

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +19,7 @@ func NewWithQueries(store QueryStore, client QueryClient, now func() time.Time) 
 	s := New(store, now)
 	s.queryStore = store
 	s.queries = client
-	s.querySlots = make(chan struct{}, 4)
+	s.querySlots = make(chan struct{}, 3)
 	return s
 }
 
@@ -79,6 +78,9 @@ func (s *Service) Query(ctx context.Context, ref model.TravelExecution, q model.
 	physical.PlanID = ""
 	physical.PlanRevision = 0
 	physical.TaskID = ""
+	if q.SourceVersion > 0 {
+		physical = PhysicalQuery(q)
+	}
 	data, err := json.Marshal(physical)
 	if err != nil {
 		return model.TravelEvidence{}, err
@@ -91,7 +93,7 @@ func (s *Service) Query(ctx context.Context, ref model.TravelExecution, q model.
 		if err != nil {
 			return nil, err
 		}
-		if ok {
+		if ok && !q.Refresh {
 			return cached, nil
 		}
 		queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -102,16 +104,11 @@ func (s *Service) Query(ctx context.Context, ref model.TravelExecution, q model.
 			return nil, queryCtx.Err()
 		}
 		defer func() { <-s.querySlots }()
-		e, err := s.queries.Search(queryCtx, physical)
-		if errors.Is(err, model.ErrProviderTransient) && queryCtx.Err() == nil {
-			timer := time.NewTimer(150 * time.Millisecond)
-			select {
-			case <-timer.C:
-				e, err = s.queries.Search(queryCtx, physical)
-			case <-queryCtx.Done():
-				timer.Stop()
-				err = queryCtx.Err()
-			}
+		var e model.TravelEvidence
+		if q.SourceVersion > 0 {
+			e, err = s.searchSource(queryCtx, physical)
+		} else {
+			e, err = s.queries.Search(queryCtx, physical)
 		}
 		if err != nil {
 			if ctx.Err() != nil {
@@ -128,7 +125,11 @@ func (s *Service) Query(ctx context.Context, ref model.TravelExecution, q model.
 			e.Query = q
 			return e, nil
 		}
-		if e.Source.Provider == "" || e.Source.FetchedAt.IsZero() || e.Source.FetchedAt.After(s.now()) || !e.Source.FetchedAt.Add(queryTTL).After(s.now()) {
+		ttl := queryTTL
+		if q.SourceVersion > 0 {
+			ttl = time.Hour
+		}
+		if e.Source.Provider == "" || e.Source.FetchedAt.IsZero() || e.Source.FetchedAt.After(s.now()) || !e.Source.FetchedAt.Add(ttl).After(s.now()) {
 			return nil, invalid("invalid query source or freshness")
 		}
 		e.ID = uuid.NewString()
@@ -139,7 +140,7 @@ func (s *Service) Query(ctx context.Context, ref model.TravelExecution, q model.
 		e.UserID = ref.Scope.UserID
 		e.ConversationID = ref.ConversationID
 		e.SourceRunID = ref.RunID
-		e.ExpiresAt = e.Source.FetchedAt.Add(queryTTL)
+		e.ExpiresAt = e.Source.FetchedAt.Add(ttl)
 		return s.queryStore.SaveTravelQuery(queryCtx, ref, key, e)
 	})
 	if err != nil {
@@ -156,7 +157,9 @@ func (s *Service) Query(ctx context.Context, ref model.TravelExecution, q model.
 		e.Query = q
 		return e, nil
 	}
-	if e.PlanID != q.PlanID || e.TaskID != q.TaskID || e.Query.PlanRevision != q.PlanRevision || e.SourceRunID != ref.RunID {
+	originalQuery, _ := json.Marshal(e.Query)
+	currentQuery, _ := json.Marshal(q)
+	if e.PlanID != q.PlanID || e.TaskID != q.TaskID || e.Query.PlanRevision != q.PlanRevision || e.SourceRunID != ref.RunID || q.SourceVersion > 0 && string(originalQuery) != string(currentQuery) {
 		e.ID = uuid.NewString()
 		e.ResultRevision = 1
 		e.Query = q
@@ -175,11 +178,15 @@ func normalizeQuery(q *model.TravelQuery) error {
 	q.Keywords = strings.TrimSpace(q.Keywords)
 	switch q.Domain {
 	case "train":
-		if q.Origin == "" || q.Destination == "" || q.Date == "" || q.Origin == q.Destination {
+		if q.Origin == "" || q.Destination == "" || q.Date == "" && (q.SourceVersion == 0 || q.ArrivalDate == "") || q.Origin == q.Destination {
 			return invalid("train query requires route and date")
 		}
-		if _, err := parseDate(q.Date); err != nil {
-			return err
+		for _, day := range []string{q.Date, q.ArrivalDate} {
+			if day != "" {
+				if _, err := parseDate(day); err != nil {
+					return err
+				}
+			}
 		}
 	case "hotel":
 		if q.City == "" {

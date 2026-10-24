@@ -99,15 +99,15 @@
 
 **Interfaces:** 提供 Registry.Profile/Preflight、ProfileRequest、NativeCall/PreparedBatch，保留现有 Config/工具初始化调用兼容到 Task 4 接线。Task 2 的业务函数是唯一业务写入口。
 
-- [ ] 写 `TestTravelSourceBatch` 表驱动：整批第二项非法→handler 总次数零；同计划两写拒绝；不同计划合法独立写允许；政策与受影响规划同批拒绝；偏好与规划同批允许；replan 只许单独调用；review 禁止 propose/偏好，独立重试只许原失败条件；规范错误带字段而非统一候选过期。
-- [ ] 写 `TestTravelEinoBatchGate`，真实 Eino＋脚本模型＋计数工具；证明模型后整批预检先于并发工具执行，拒绝结果与每个 call_id 配对，下一轮模型能看见原因；实际 bound reply 能在工具后结束而不再调用模型。
-- [ ] 写 `TestTravelProviderResilience`，注入时钟/RNG/Doer，覆盖源重试错误集合、最多 extra_retries=2、Retry-After 不越剩余预算、60 秒窗口内 5 次失败开路、60 秒冷却后单个半开探测及 2 次成功恢复、取消释放，拒绝参数不重试；不使用真实 sleep 或付费 API。
-- [ ] 运行 `go test ./internal/agenttools/travel ./internal/agent/agents/travel -run 'TestTravel(SourceBatch|EinoBatchGate)' -count=1`；Expected: RED，现有单项执行和扁平协议无法通过。
-- [ ] 恢复 read/query/write_memory/write_trip/query_policy/request_replan 与源 profile；模型后建立批次门禁，工具包装共同消费预检结果，禁止 Eino 默认并行抢先副作用；保持 journal 模型决策、逐项操作 ID 和回执完整。源 normalize 只转换无歧义表示，不推断硬约束。
-- [ ] 恢复查询地图待查作业、等价缓存、真实依赖与有界并发；拒绝与运行失败分别记录。单批多个计划不是跨计划原子事务，每项实际结果必须独立可恢复。
-- [ ] 在 Client 边界实现源端点级熔断和单一重试负责人，工具不额外叠加重试；沿用原参数和取消语义，不改变凭据保护。先运行 `go test ./internal/client/providerhttp -run TestTravelProviderResilience -count=1` 观察 RED，完成实现后同命令 GREEN。
-- [ ] 运行上述新用例及 `go test ./internal/agenttools/... ./internal/agent/agents/travel ./internal/client/providerhttp -count=1`；Expected: GREEN。若 Eino 门禁探针失败，先定位实际回调顺序并更新 design 的等价接线，不绕过源预检。
-- [ ] 提交 `fix: restore native travel tools and batch preflight`，完成 3.1/3.2。
+- [x] 写 `TestTravelSourceBatch` 表驱动：整批第二项非法→handler 总次数零；同计划两写拒绝；不同计划合法独立写允许；政策与受影响规划同批拒绝；偏好与规划同批允许；replan 只许单独调用；review 禁止 propose/偏好，独立重试只许原失败条件；规范错误带字段而非统一候选过期。
+- [x] 写 `TestTravelEinoBatchGate`，真实 Eino＋脚本模型＋计数工具；证明模型后整批预检先于并发工具执行，拒绝结果与每个 call_id 配对，下一轮模型能看见原因；实际 bound reply 能在工具后结束而不再调用模型。
+- [x] 写 `TestTravelProviderResilience`，注入时钟/RNG/Doer，覆盖源重试错误集合、最多 extra_retries=2、Retry-After 不越剩余预算、60 秒窗口内 5 次失败开路、60 秒冷却后单个半开探测及 2 次成功恢复、取消释放，拒绝参数不重试；不使用真实 sleep 或付费 API。
+- [x] 运行 `go test ./internal/agenttools/travel ./internal/agent/agents/travel -run 'TestTravel(SourceBatch|EinoBatchGate)' -count=1`；Expected: RED，现有单项执行和扁平协议无法通过。
+- [x] 恢复 read/query/write_memory/write_trip/query_policy/request_replan 与源 profile；模型后建立批次门禁，工具包装共同消费预检结果，禁止 Eino 默认并行抢先副作用；保持 journal 模型决策、逐项操作 ID 和回执完整。源 normalize 只转换无歧义表示，不推断硬约束。
+- [x] 恢复查询地图待查作业、等价缓存、真实依赖与有界并发；拒绝与运行失败分别记录。单批多个计划不是跨计划原子事务，每项实际结果必须独立可恢复。
+- [x] 在 Client 边界实现源端点级熔断和单一重试负责人，工具不额外叠加重试；沿用原参数和取消语义，不改变凭据保护。先运行 `go test ./internal/client/providerhttp -run TestTravelProviderResilience -count=1` 观察 RED，完成实现后同命令 GREEN。
+- [x] 运行上述新用例及 `go test ./internal/agenttools/... ./internal/agent/agents/travel ./internal/client/providerhttp -count=1`；Expected: GREEN。若 Eino 门禁探针失败，先定位实际回调顺序并更新 design 的等价接线，不绕过源预检。
+- [x] 提交 `fix: restore native travel tools and batch preflight`，完成 3.1/3.2。
 
 ### Task 4: 原版角色、上下文和校正闭环
 

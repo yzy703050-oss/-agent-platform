@@ -29,6 +29,8 @@ Model → 模型 Client → 现有模型服务
 
 AgentManager 处理平台生命周期，不理解差旅策略。具体 Agent 适配平台接口并组装内核。Eino 内核承载原版角色和循环；共用 einoruntime 只负责运行/恢复。Service 处理业务是否合法，Repository 落实事务、围栏、证据和回执，Client 实现外部协议。Service 与 Agent 并列，Agent 不是所有数据的拥有者。
 
+2026-10-24 用户补充：不需要单独的 adapter 层。`agent/agents/travel/agent.go` 直接实现平台接口和执行生命周期，`kernel.go` 组装 Eino；工具包的 `commands.go` 做原生参数到业务命令的转换。这些是同包职责拆分，不增加 Adapter 类型、Python 转发服务或新的调用跳数。后续计划中旧的 adapter.go 文件名指向这里的 agent.go。
+
 禁止 Agent 或 agenttools import postgres；禁止 Service import Agent/Eino；禁止模型自行提供平台身份、Run、attempt 或稳定操作 ID；禁止 Repository 决定重规划策略。bootstrap 组装实现。现有内部 package 拆文件即可，只有内核逻辑确实需要独立测试时使用同域小包，不改动顶层目录结构。
 
 ### D2. 同一个 TravelAgent 的角色切换
@@ -43,6 +45,8 @@ AgentManager 处理平台生命周期，不理解差旅策略。具体 Agent 适
 6. 原版有限修正、request_replan、无进展或停止分支继续生效；实际写回执满足绑定回复条件时可同轮收尾，不强制额外模型总结。
 
 优先使用当前 Eino ChatModelAgent middleware、工具包装及 session state，恢复原版批次执行语义。实施前用一项窄探针验证整批预检发生在任何单项副作用之前，以及同轮 bound reply 能可靠停止。如果 Eino 当前接口无法满足，先在 design/计划记录具体限制和等价适配，不能暗改为逐项先写后校验或并行第二套决策循环。
+
+Eino 实测接线：AfterModel 保存整批预检结果，工具 middleware 在 journal 内层业务入口之前共同消费门禁；after-tool hook 汇总已记录结果。ChatModelAgent 在工具后仍会进入下一次模型节点，故对已有实际 bound reply 的分支，由外层模型包装返回该确定性 AssistantMessage，不调用底层模型或新增模型决策。Eino 迭代外壳多留一次节点空间，真实模型次数仍由原宿主上限检查。批次结果和可信角色上下文均序列化；不能依赖不落盘的 Go context 指针恢复权限。该机制已由真实 Eino 和计数模型验证。
 
 ### D3. 原文和工具契约一同保留
 

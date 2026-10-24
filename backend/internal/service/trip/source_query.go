@@ -72,7 +72,7 @@ func sourceQueryRequests(p model.TripPlan, cmd model.TripCommand) ([]model.Trave
 				return nil, err
 			}
 			filters.MaxBudgetFen = nil
-			q := model.TravelQuery{Domain: item.Domain, PlanID: p.ID, PlanRevision: p.Revision, TaskID: t.ID, TaskRevision: t.Revision, Constraints: filters, Passengers: t.Passengers, Guests: t.Guests, Ranking: item.Ranking, Refresh: item.Refresh, DependsOn: slices.Clone(item.DependsOn)}
+			q := model.TravelQuery{SourceVersion: 1, Domain: item.Domain, PlanID: p.ID, PlanRevision: p.Revision, TaskID: t.ID, TaskRevision: t.Revision, Constraints: filters, Passengers: t.Passengers, Guests: t.Guests, Ranking: item.Ranking, Refresh: item.Refresh, DependsOn: slices.Clone(item.DependsOn)}
 			for i, dep := range q.DependsOn {
 				if dep == "previous" {
 					if index == 0 {
@@ -136,8 +136,9 @@ func sourceQueryRequests(p model.TripPlan, cmd model.TripCommand) ([]model.Trave
 			if strings.TrimSpace(q.City) == "" && q.Domain == "hotel" {
 				continue
 			}
+			q.OriginalParameters = mergeConditions(nil, item.Parameters)
 			queries = append(queries, q)
 		}
 	}
-	return queries, nil
+	return queries, ValidateQueryDependencies(queries)
 }

@@ -168,9 +168,10 @@ type TripTaskChange struct {
 }
 
 type TripSelection struct {
-	TaskID string             `json:"task_id"`
-	Domain string             `json:"domain"`
-	Ref    TravelCandidateRef `json:"ref"`
+	ExpectedRevision *int64             `json:"expected_revision,omitempty"`
+	TaskID           string             `json:"task_id"`
+	Domain           string             `json:"domain"`
+	Ref              TravelCandidateRef `json:"ref"`
 }
 
 type TripCommand struct {

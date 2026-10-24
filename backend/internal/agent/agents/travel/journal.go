@@ -22,8 +22,9 @@ type journalStore interface {
 }
 type journal struct {
 	*adk.BaseChatModelAgentMiddleware
-	store journalStore
-	ref   pm.TravelExecution
+	store  journalStore
+	ref    pm.TravelExecution
+	native bool
 }
 
 func decisionKey(n int) string { return fmt.Sprintf("model-%06d", n) }
@@ -85,7 +86,7 @@ func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, op
 			writes++
 		}
 	}
-	if writes > 1 {
+	if writes > 1 && !m.h.native {
 		return nil, pm.ErrInvalidInput
 	}
 	d, err = m.h.store.AcceptTravelDecision(ctx, m.h.ref, pm.TravelDecision{RunID: m.h.ref.RunID, DecisionKey: key, Stage: string(s.Phase), RequestHash: hash, Response: fromEino(response)})
@@ -93,6 +94,44 @@ func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, op
 		return nil, err
 	}
 	return toEino(d.Response), nil
+}
+
+func (h *journal) recordRejected(ctx context.Context, call traveltools.NativeCall, reason *pm.TravelRuleError) (string, error) {
+	s, err := readState(ctx)
+	if err != nil {
+		return "", err
+	}
+	d, ok, err := h.store.FindTravelDecision(ctx, h.ref, decisionKey(s.ModelCalls-1))
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", pm.ErrConflict
+	}
+	id := d.OperationIDs[call.ID]
+	if id == "" {
+		return "", pm.ErrConflict
+	}
+	matched := false
+	for _, accepted := range d.Response.ToolCalls {
+		if accepted.ID == call.ID && accepted.Name == call.Name && accepted.Arguments == string(call.Arguments) {
+			matched = true
+		}
+	}
+	if !matched {
+		return "", pm.ErrIdempotencyConflict
+	}
+	if out, ok, err := h.store.FindTravelToolResult(ctx, h.ref, id); err != nil || ok {
+		return out, err
+	}
+	data, err := json.Marshal(pm.TravelToolResult{CallID: call.ID, Name: call.Name, Status: "rejected", Reason: reason.Message, Error: reason})
+	if err != nil {
+		return "", err
+	}
+	if err = h.store.SaveTravelToolResult(ctx, h.ref, id, string(data)); err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 func (m *journalModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
 	v, err := m.Generate(ctx, input, opts...)
