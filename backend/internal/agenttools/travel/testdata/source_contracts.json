@@ -1,0 +1,4362 @@
+{
+  "main": [
+    {
+      "type": "function",
+      "function": {
+        "name": "read",
+        "description": "读取行程/会话摘要及按ID精读历史；摘要每页5条，不提供候选翻页。参数已知时与其他独立工具同批提交；未知ID须先观察摘要再精读。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "resource": {
+              "enum": [
+                "trip_summaries",
+                "trip",
+                "session_summaries",
+                "session"
+              ],
+              "type": "string"
+            },
+            "session_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "trip_plan_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "offset": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "filters": {
+              "additionalProperties": true,
+              "type": "object"
+            }
+          },
+          "required": [
+            "request_kind",
+            "resource"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query",
+        "description": "独立外部查询入口，只接收query_plan。TripPlan待查item由状态机自动执行，不能在这里重复填写。同批包含行程规划时本工具request_kind也用planning；纯查询才lookup。独立结果与规划结果一起回总结；已覆盖的查询通过有效缓存复用。",
+        "parameters": {
+          "$defs": {
+            "QueryItem": {
+              "additionalProperties": false,
+              "properties": {
+                "domain": {
+                  "enum": [
+                    "train",
+                    "hotel",
+                    "weather",
+                    "web"
+                  ],
+                  "type": "string"
+                },
+                "parameters": {
+                  "additionalProperties": false,
+                  "description": "按domain仅使用对应字段：train:origin,destination,departure_date,start_date,arrival_date,arrival_before,passengers；hotel:city,destination,check_in,check_out,guests,keywords,search_kind；weather:city,date；web:query。train用departure_date，不用date/from/to；席别、车种和预算放constraints。TripPlan items.parameters可为空，由task.conditions继承。",
+                  "properties": {
+                    "origin": {
+                      "type": "string"
+                    },
+                    "destination": {
+                      "type": "string"
+                    },
+                    "departure_date": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "start_date": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "arrival_date": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "arrival_before": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "passengers": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "check_in": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "check_out": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "guests": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "keywords": {
+                      "type": "string"
+                    },
+                    "search_kind": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "description": "预报日期；查询现在实况时省略date",
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "constraints": {
+                  "additionalProperties": false,
+                  "description": "仅填用户或政策明确的硬过滤；软偏好用ranking。未指定车种不要加train_kind。",
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "hotel_max_nightly_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "train_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "description": "来源与强度分离；居住地用preference，模型补齐用proposal",
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "ranking": {
+                  "items": {
+                    "$ref": "#/$defs/Ranking"
+                  },
+                  "type": "array"
+                },
+                "depends_on": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "refresh": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "domain"
+              ],
+              "type": "object"
+            },
+            "Ranking": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "enum": [
+                    "price_cny",
+                    "stay_total_cny",
+                    "nightly_cny",
+                    "departure_at",
+                    "arrival_at",
+                    "duration_minutes",
+                    "train_kind",
+                    "seat_class",
+                    "hotel_name",
+                    "distance_m"
+                  ],
+                  "type": "string"
+                },
+                "direction": {
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "type": "string"
+                },
+                "preferred": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "query_plan": {
+              "description": "仅独立外部查询；TripPlan待查item由状态机自动执行，不在此重复提交。",
+              "items": {
+                "$ref": "#/$defs/QueryItem"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "request_kind",
+            "query_plan"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_memory",
+        "description": "增加、替换、撤回长期偏好；明确偏好更新加规划时与write_trip同次提交，不需先写再读。用户明确要求重新分析时operation=reanalyze委派偏好Agent，不修改TripPlan。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "operation": {
+              "enum": [
+                "update",
+                "reanalyze"
+              ],
+              "type": "string"
+            },
+            "updates": {
+              "items": {
+                "additionalProperties": false,
+                "description": "add需text；replace需id/text；retract需已有id。",
+                "properties": {
+                  "op": {
+                    "enum": [
+                      "add",
+                      "replace",
+                      "retract"
+                    ],
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "op"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "request_kind"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_trip",
+        "description": "创建、选择或原子修改行程。规划同批request_kind统一planning。propose同交全部tasks/items，不填ID、版本、selection_refs或reply；每task一段城际旅程，住宿归抵达段，content只存目的地活动，返程通常为空。default_round_trip默认true，明确单程才false。confirmed_conditions放人数/预算/最晚返回，不填confirmed_conditions.start_date；日期放task.conditions，建议标proposal/soft；旧全局hard边界不可软化。活动date/time须显式，time用上午/下午/晚上或HH:MM，跨时段拆分。默认train查询constraints.train_kind=high_speed；arrival_before只接受用户精确期限、ISO含时区。soft不筛选；同日会后返程的初始item用ranking=[{field:departure_at,direction:desc}]看较晚车次；可重排缓存，不重复soft查询或升级hard。元数据按叶键如field_sources={\"train_kind\":\"proposal\"}，condition_strengths只用hard/soft。select只交计划身份/版本及task_id/selection_refs，candidate_id复制对应items.id，不推算时刻或ID。amend只交变化和必要依赖；只改活动交task_id/components=[content]/content，保留真实活动id，新增不填id；删活动交保留后的完整列表，可空。交通/住宿条件变化须同交领域items，仅conditions/components不查新结果；独立补丁合并tasks，不带变更领域旧引用，查询后再选。QUERY_REBIND_REQUIRED先补当前条件item；selection_saved=false按新版本候选重选。最终select/amend同交reply={}展示保存全貌，局部reply.tasks={任务ID:[\"content\"]}；route_tasks变动用全貌。reply.explanation限无数字取舍/缺口，不另述车次、时间或活动。round_summary记变化原因，不用final_answer。",
+        "parameters": {
+          "$defs": {
+            "ActivityInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "time": {
+                  "maxLength": 80,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": {
+                  "maxLength": 1000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "source": {
+                  "enum": [
+                    "user",
+                    "context",
+                    "preference",
+                    "derived",
+                    "default",
+                    "proposal"
+                  ],
+                  "type": "string"
+                },
+                "strength": {
+                  "enum": [
+                    "hard",
+                    "soft"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "purpose",
+                "description",
+                "source",
+                "strength"
+              ],
+              "type": "object"
+            },
+            "AmendPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "confirmed_conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "route_tasks": {
+                  "items": {
+                    "$ref": "#/$defs/TaskInput"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                },
+                "repair_issue_codes": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "const": "amend",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/TaskInput"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision"
+              ],
+              "type": "object"
+            },
+            "ControlPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "enum": [
+                    "confirm",
+                    "pause",
+                    "cancel"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision",
+                "operation"
+              ],
+              "type": "object"
+            },
+            "CreatePlan": {
+              "additionalProperties": false,
+              "properties": {
+                "confirmed_conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "default_round_trip": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "operation": {
+                  "const": "propose",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/CreateTask"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "tasks"
+              ],
+              "type": "object"
+            },
+            "CreateTask": {
+              "additionalProperties": false,
+              "properties": {
+                "origin": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "destination": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "enum": [
+                    "visit",
+                    "business",
+                    "return",
+                    "transit",
+                    "unspecified"
+                  ],
+                  "type": "string"
+                },
+                "requires_hotel": {
+                  "type": "boolean"
+                },
+                "conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "items": {
+                  "items": {
+                    "$ref": "#/$defs/QueryItem"
+                  },
+                  "type": "array"
+                },
+                "content": {
+                  "items": {
+                    "$ref": "#/$defs/ActivityInput"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "QueryItem": {
+              "additionalProperties": false,
+              "properties": {
+                "domain": {
+                  "enum": [
+                    "train",
+                    "hotel",
+                    "weather",
+                    "web"
+                  ],
+                  "type": "string"
+                },
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "origin": {
+                      "type": "string"
+                    },
+                    "destination": {
+                      "type": "string"
+                    },
+                    "departure_date": {
+                      "type": "string"
+                    },
+                    "start_date": {
+                      "type": "string"
+                    },
+                    "arrival_date": {
+                      "type": "string"
+                    },
+                    "arrival_before": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "passengers": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "check_in": {
+                      "type": "string"
+                    },
+                    "check_out": {
+                      "type": "string"
+                    },
+                    "guests": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "keywords": {
+                      "type": "string"
+                    },
+                    "search_kind": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "constraints": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "hotel_max_nightly_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "train_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "ranking": {
+                  "items": {
+                    "$ref": "#/$defs/Ranking"
+                  },
+                  "type": "array"
+                },
+                "depends_on": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "refresh": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "domain"
+              ],
+              "type": "object"
+            },
+            "Ranking": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "enum": [
+                    "price_cny",
+                    "stay_total_cny",
+                    "nightly_cny",
+                    "departure_at",
+                    "arrival_at",
+                    "duration_minutes",
+                    "train_kind",
+                    "seat_class",
+                    "hotel_name",
+                    "distance_m"
+                  ],
+                  "type": "string"
+                },
+                "direction": {
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "type": "string"
+                },
+                "preferred": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "type": "object"
+            },
+            "SelectPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "const": "select",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/SelectTask"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision"
+              ],
+              "type": "object"
+            },
+            "SelectTask": {
+              "additionalProperties": false,
+              "properties": {
+                "expected_revision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "selection_refs": {
+                  "$ref": "#/$defs/Shared1"
+                },
+                "components": {
+                  "items": {
+                    "enum": [
+                      "train",
+                      "hotel",
+                      "schedule",
+                      "content"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "task_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "task_id"
+              ],
+              "type": "object"
+            },
+            "TaskInput": {
+              "additionalProperties": false,
+              "properties": {
+                "task_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "expected_revision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "origin": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "destination": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "enum": [
+                    "visit",
+                    "business",
+                    "return",
+                    "transit",
+                    "unspecified"
+                  ],
+                  "type": "string"
+                },
+                "requires_hotel": {
+                  "type": "boolean"
+                },
+                "conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "items": {
+                  "items": {
+                    "$ref": "#/$defs/QueryItem"
+                  },
+                  "type": "array"
+                },
+                "content": {
+                  "items": {
+                    "$ref": "#/$defs/ActivityInput"
+                  },
+                  "type": "array"
+                },
+                "selection_refs": {
+                  "$ref": "#/$defs/Shared1"
+                },
+                "components": {
+                  "items": {
+                    "enum": [
+                      "train",
+                      "hotel",
+                      "schedule",
+                      "content"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "TripReply": {
+              "additionalProperties": false,
+              "properties": {
+                "tasks": {
+                  "additionalProperties": {
+                    "items": {
+                      "enum": [
+                        "train",
+                        "hotel",
+                        "content"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": "object"
+                },
+                "explanation": {
+                  "maxLength": 600,
+                  "pattern": "^[^\\d]*$",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "PlanningConditions": {
+              "type": "object",
+              "properties": {
+                "start_date": {
+                  "type": "string"
+                },
+                "end_date": {
+                  "type": "string"
+                },
+                "departure_date": {
+                  "type": "string"
+                },
+                "arrival_date": {
+                  "type": "string"
+                },
+                "arrival_before": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "check_in": {
+                  "type": "string"
+                },
+                "check_out": {
+                  "type": "string"
+                },
+                "nights": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "passengers": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "guests": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "hotel_keywords": {
+                  "type": "string"
+                },
+                "flexible_dates": {
+                  "type": "boolean"
+                },
+                "hotel_quote_required": {
+                  "type": "boolean"
+                },
+                "constraints": {
+                  "type": "object",
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "hotel_max_nightly_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "train_max_total_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "type": "string",
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ]
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    },
+                    "total_budget_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "Shared0": {
+              "additionalProperties": false,
+              "properties": {
+                "candidate_id": {
+                  "type": "string"
+                },
+                "query_id": {
+                  "type": "string"
+                },
+                "result_revision": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "query_id",
+                "result_revision",
+                "candidate_id"
+              ],
+              "type": "object"
+            },
+            "Shared1": {
+              "additionalProperties": false,
+              "properties": {
+                "hotel": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "query_id": {
+                      "type": "string"
+                    },
+                    "result_revision": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "query_id",
+                    "result_revision",
+                    "candidate_id"
+                  ],
+                  "type": "object"
+                },
+                "train": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "query_id": {
+                      "type": "string"
+                    },
+                    "result_revision": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "query_id",
+                    "result_revision",
+                    "candidate_id"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "tripplan": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/CreatePlan"
+                },
+                {
+                  "$ref": "#/$defs/SelectPlan"
+                },
+                {
+                  "$ref": "#/$defs/AmendPlan"
+                },
+                {
+                  "$ref": "#/$defs/ControlPlan"
+                }
+              ]
+            },
+            "reply": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/TripReply"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "round_summary": {
+              "maxLength": 300,
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "request_kind",
+            "tripplan"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query_policy",
+        "description": "仅用户明确出差或明确要求政策时使用；普通旅游/默认旅游/普通查询禁止调用。取得适用政策小结、强制约束及证据，与参数已知且不依赖政策的必要读查同批提交。收到整批结果后再生成TripPlan，不与行程规划/选择/修改/确认同批。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "context": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "trip_plan_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "request_kind"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "pre_policy": [
+    {
+      "type": "function",
+      "function": {
+        "name": "read",
+        "description": "读取行程/会话摘要及按ID精读历史；摘要每页5条，不提供候选翻页。参数已知时与其他独立工具同批提交；未知ID须先观察摘要再精读。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "resource": {
+              "enum": [
+                "trip_summaries",
+                "trip",
+                "session_summaries",
+                "session"
+              ],
+              "type": "string"
+            },
+            "session_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "trip_plan_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "offset": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "filters": {
+              "additionalProperties": true,
+              "type": "object"
+            }
+          },
+          "required": [
+            "request_kind",
+            "resource"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query",
+        "description": "独立外部查询入口，只接收query_plan。TripPlan待查item由状态机自动执行，不能在这里重复填写。同批包含行程规划时本工具request_kind也用planning；纯查询才lookup。独立结果与规划结果一起回总结；已覆盖的查询通过有效缓存复用。",
+        "parameters": {
+          "$defs": {
+            "QueryItem": {
+              "additionalProperties": false,
+              "properties": {
+                "domain": {
+                  "enum": [
+                    "train",
+                    "hotel",
+                    "weather",
+                    "web"
+                  ],
+                  "type": "string"
+                },
+                "parameters": {
+                  "additionalProperties": false,
+                  "description": "按domain仅使用对应字段：train:origin,destination,departure_date,start_date,arrival_date,arrival_before,passengers；hotel:city,destination,check_in,check_out,guests,keywords,search_kind；weather:city,date；web:query。train用departure_date，不用date/from/to；席别、车种和预算放constraints。TripPlan items.parameters可为空，由task.conditions继承。",
+                  "properties": {
+                    "origin": {
+                      "type": "string"
+                    },
+                    "destination": {
+                      "type": "string"
+                    },
+                    "departure_date": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "start_date": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "arrival_date": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "arrival_before": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "passengers": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "check_in": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "check_out": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "guests": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "keywords": {
+                      "type": "string"
+                    },
+                    "search_kind": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "description": "预报日期；查询现在实况时省略date",
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "constraints": {
+                  "additionalProperties": false,
+                  "description": "仅填用户或政策明确的硬过滤；软偏好用ranking。未指定车种不要加train_kind。",
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "hotel_max_nightly_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "train_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "description": "来源与强度分离；居住地用preference，模型补齐用proposal",
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "ranking": {
+                  "items": {
+                    "$ref": "#/$defs/Ranking"
+                  },
+                  "type": "array"
+                },
+                "depends_on": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "refresh": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "domain"
+              ],
+              "type": "object"
+            },
+            "Ranking": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "enum": [
+                    "price_cny",
+                    "stay_total_cny",
+                    "nightly_cny",
+                    "departure_at",
+                    "arrival_at",
+                    "duration_minutes",
+                    "train_kind",
+                    "seat_class",
+                    "hotel_name",
+                    "distance_m"
+                  ],
+                  "type": "string"
+                },
+                "direction": {
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "type": "string"
+                },
+                "preferred": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "query_plan": {
+              "description": "仅独立外部查询；TripPlan待查item由状态机自动执行，不在此重复提交。",
+              "items": {
+                "$ref": "#/$defs/QueryItem"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "request_kind",
+            "query_plan"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_memory",
+        "description": "增加、替换、撤回长期偏好；明确偏好更新加规划时与write_trip同次提交，不需先写再读。用户明确要求重新分析时operation=reanalyze委派偏好Agent，不修改TripPlan。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "operation": {
+              "enum": [
+                "update",
+                "reanalyze"
+              ],
+              "type": "string"
+            },
+            "updates": {
+              "items": {
+                "additionalProperties": false,
+                "description": "add需text；replace需id/text；retract需已有id。",
+                "properties": {
+                  "op": {
+                    "enum": [
+                      "add",
+                      "replace",
+                      "retract"
+                    ],
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "op"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "request_kind"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_trip",
+        "description": "当前仅可新建无需新政策的旅游等行程；business尚不可创建。用户出差须先单独query_policy，观察返回后才开放business。不要将出差改标旅游；政策查询可与独立读查同批，不能与write_trip同批。首次propose不带reply，观察候选后才在select/amend提交绑定回复。原有行程按ID修改；select只选引用，内容变化用amend。arrival_before仅用于用户明确给出的精确截止时间，须完整ISO日期时间；上午会议只记content.time=上午，不能推成09:00硬期限。规划同批request_kind统一planning。propose同交全部tasks/items，不填ID、版本、selection_refs或reply；每task一段城际旅程，住宿归抵达段，content只存目的地活动，返程通常为空。default_round_trip默认true，明确单程才false。confirmed_conditions放人数/预算/最晚返回，不填confirmed_conditions.start_date；日期放task.conditions，建议标proposal/soft；旧全局hard边界不可软化。活动date/time须显式，time用上午/下午/晚上或HH:MM，跨时段拆分。默认train查询constraints.train_kind=high_speed；arrival_before只接受用户精确期限、ISO含时区。soft不筛选；同日会后返程的初始item用ranking=[{field:departure_at,direction:desc}]看较晚车次；可重排缓存，不重复soft查询或升级hard。元数据按叶键如field_sources={\"train_kind\":\"proposal\"}，condition_strengths只用hard/soft。select只交计划身份/版本及task_id/selection_refs，candidate_id复制对应items.id，不推算时刻或ID。amend只交变化和必要依赖；只改活动交task_id/components=[content]/content，保留真实活动id，新增不填id；删活动交保留后的完整列表，可空。交通/住宿条件变化须同交领域items，仅conditions/components不查新结果；独立补丁合并tasks，不带变更领域旧引用，查询后再选。QUERY_REBIND_REQUIRED先补当前条件item；selection_saved=false按新版本候选重选。最终select/amend同交reply={}展示保存全貌，局部reply.tasks={任务ID:[\"content\"]}；route_tasks变动用全貌。reply.explanation限无数字取舍/缺口，不另述车次、时间或活动。round_summary记变化原因，不用final_answer。",
+        "parameters": {
+          "$defs": {
+            "ActivityInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "time": {
+                  "maxLength": 80,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": {
+                  "maxLength": 1000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "source": {
+                  "enum": [
+                    "user",
+                    "context",
+                    "preference",
+                    "derived",
+                    "default",
+                    "proposal"
+                  ],
+                  "type": "string"
+                },
+                "strength": {
+                  "enum": [
+                    "hard",
+                    "soft"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "purpose",
+                "description",
+                "source",
+                "strength"
+              ],
+              "type": "object"
+            },
+            "AmendPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "confirmed_conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "route_tasks": {
+                  "items": {
+                    "$ref": "#/$defs/TaskInput"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                },
+                "repair_issue_codes": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "const": "amend",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/TaskInput"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision"
+              ],
+              "type": "object"
+            },
+            "ControlPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "enum": [
+                    "confirm",
+                    "pause",
+                    "cancel"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision",
+                "operation"
+              ],
+              "type": "object"
+            },
+            "PrePolicyCreatePlan": {
+              "additionalProperties": false,
+              "properties": {
+                "confirmed_conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "default_round_trip": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "operation": {
+                  "const": "propose",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/PrePolicyCreateTask"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "tasks"
+              ],
+              "type": "object"
+            },
+            "PrePolicyCreateTask": {
+              "additionalProperties": false,
+              "properties": {
+                "origin": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "destination": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "enum": [
+                    "visit",
+                    "return",
+                    "transit",
+                    "unspecified"
+                  ],
+                  "type": "string"
+                },
+                "requires_hotel": {
+                  "type": "boolean"
+                },
+                "conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "items": {
+                  "items": {
+                    "$ref": "#/$defs/QueryItem"
+                  },
+                  "type": "array"
+                },
+                "content": {
+                  "items": {
+                    "$ref": "#/$defs/ActivityInput"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "QueryItem": {
+              "additionalProperties": false,
+              "properties": {
+                "domain": {
+                  "enum": [
+                    "train",
+                    "hotel",
+                    "weather",
+                    "web"
+                  ],
+                  "type": "string"
+                },
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "origin": {
+                      "type": "string"
+                    },
+                    "destination": {
+                      "type": "string"
+                    },
+                    "departure_date": {
+                      "type": "string"
+                    },
+                    "start_date": {
+                      "type": "string"
+                    },
+                    "arrival_date": {
+                      "type": "string"
+                    },
+                    "arrival_before": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "passengers": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "check_in": {
+                      "type": "string"
+                    },
+                    "check_out": {
+                      "type": "string"
+                    },
+                    "guests": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "keywords": {
+                      "type": "string"
+                    },
+                    "search_kind": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "constraints": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "hotel_max_nightly_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "train_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "ranking": {
+                  "items": {
+                    "$ref": "#/$defs/Ranking"
+                  },
+                  "type": "array"
+                },
+                "depends_on": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "refresh": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "domain"
+              ],
+              "type": "object"
+            },
+            "Ranking": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "enum": [
+                    "price_cny",
+                    "stay_total_cny",
+                    "nightly_cny",
+                    "departure_at",
+                    "arrival_at",
+                    "duration_minutes",
+                    "train_kind",
+                    "seat_class",
+                    "hotel_name",
+                    "distance_m"
+                  ],
+                  "type": "string"
+                },
+                "direction": {
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "type": "string"
+                },
+                "preferred": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "type": "object"
+            },
+            "SelectPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "const": "select",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/SelectTask"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision"
+              ],
+              "type": "object"
+            },
+            "SelectTask": {
+              "additionalProperties": false,
+              "properties": {
+                "expected_revision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "selection_refs": {
+                  "$ref": "#/$defs/Shared1"
+                },
+                "components": {
+                  "items": {
+                    "enum": [
+                      "train",
+                      "hotel",
+                      "schedule",
+                      "content"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "task_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "task_id"
+              ],
+              "type": "object"
+            },
+            "TaskInput": {
+              "additionalProperties": false,
+              "properties": {
+                "task_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "expected_revision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "origin": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "destination": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "enum": [
+                    "visit",
+                    "business",
+                    "return",
+                    "transit",
+                    "unspecified"
+                  ],
+                  "type": "string"
+                },
+                "requires_hotel": {
+                  "type": "boolean"
+                },
+                "conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "items": {
+                  "items": {
+                    "$ref": "#/$defs/QueryItem"
+                  },
+                  "type": "array"
+                },
+                "content": {
+                  "items": {
+                    "$ref": "#/$defs/ActivityInput"
+                  },
+                  "type": "array"
+                },
+                "selection_refs": {
+                  "$ref": "#/$defs/Shared1"
+                },
+                "components": {
+                  "items": {
+                    "enum": [
+                      "train",
+                      "hotel",
+                      "schedule",
+                      "content"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "TripReply": {
+              "additionalProperties": false,
+              "properties": {
+                "tasks": {
+                  "additionalProperties": {
+                    "items": {
+                      "enum": [
+                        "train",
+                        "hotel",
+                        "content"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": "object"
+                },
+                "explanation": {
+                  "maxLength": 600,
+                  "pattern": "^[^\\d]*$",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "PlanningConditions": {
+              "type": "object",
+              "properties": {
+                "start_date": {
+                  "type": "string"
+                },
+                "end_date": {
+                  "type": "string"
+                },
+                "departure_date": {
+                  "type": "string"
+                },
+                "arrival_date": {
+                  "type": "string"
+                },
+                "arrival_before": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "check_in": {
+                  "type": "string"
+                },
+                "check_out": {
+                  "type": "string"
+                },
+                "nights": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "passengers": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "guests": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "hotel_keywords": {
+                  "type": "string"
+                },
+                "flexible_dates": {
+                  "type": "boolean"
+                },
+                "hotel_quote_required": {
+                  "type": "boolean"
+                },
+                "constraints": {
+                  "type": "object",
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "hotel_max_nightly_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "train_max_total_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "type": "string",
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ]
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    },
+                    "total_budget_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "Shared0": {
+              "additionalProperties": false,
+              "properties": {
+                "candidate_id": {
+                  "type": "string"
+                },
+                "query_id": {
+                  "type": "string"
+                },
+                "result_revision": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "query_id",
+                "result_revision",
+                "candidate_id"
+              ],
+              "type": "object"
+            },
+            "Shared1": {
+              "additionalProperties": false,
+              "properties": {
+                "hotel": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "query_id": {
+                      "type": "string"
+                    },
+                    "result_revision": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "query_id",
+                    "result_revision",
+                    "candidate_id"
+                  ],
+                  "type": "object"
+                },
+                "train": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "query_id": {
+                      "type": "string"
+                    },
+                    "result_revision": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "query_id",
+                    "result_revision",
+                    "candidate_id"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "tripplan": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/PrePolicyCreatePlan"
+                },
+                {
+                  "$ref": "#/$defs/SelectPlan"
+                },
+                {
+                  "$ref": "#/$defs/AmendPlan"
+                },
+                {
+                  "$ref": "#/$defs/ControlPlan"
+                }
+              ]
+            },
+            "reply": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/TripReply"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "round_summary": {
+              "maxLength": 300,
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "request_kind",
+            "tripplan"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query_policy",
+        "description": "仅用户明确出差或明确要求政策时使用；普通旅游/默认旅游/普通查询禁止调用。取得适用政策小结、强制约束及证据，与参数已知且不依赖政策的必要读查同批提交。收到整批结果后再生成TripPlan，不与行程规划/选择/修改/确认同批。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "context": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "trip_plan_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "request_kind"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "review": [
+    {
+      "type": "function",
+      "function": {
+        "name": "write_trip",
+        "description": "局部修复或选择当前TripPlan。amend同次提交全部关联变化和受影响查询items，程序批量执行，无需另调query；观察结果再select。content只存目的地活动，自行补充的退房等辅助软活动可提交content=[]删除。reply引用实际保存内容。规划同批request_kind统一planning。propose同交全部tasks/items，不填ID、版本、selection_refs或reply；每task一段城际旅程，住宿归抵达段，content只存目的地活动，返程通常为空。default_round_trip默认true，明确单程才false。confirmed_conditions放人数/预算/最晚返回，不填confirmed_conditions.start_date；日期放task.conditions，建议标proposal/soft；旧全局hard边界不可软化。活动date/time须显式，time用上午/下午/晚上或HH:MM，跨时段拆分。默认train查询constraints.train_kind=high_speed；arrival_before只接受用户精确期限、ISO含时区。soft不筛选；同日会后返程的初始item用ranking=[{field:departure_at,direction:desc}]看较晚车次；可重排缓存，不重复soft查询或升级hard。元数据按叶键如field_sources={\"train_kind\":\"proposal\"}，condition_strengths只用hard/soft。select只交计划身份/版本及task_id/selection_refs，candidate_id复制对应items.id，不推算时刻或ID。amend只交变化和必要依赖；只改活动交task_id/components=[content]/content，保留真实活动id，新增不填id；删活动交保留后的完整列表，可空。交通/住宿条件变化须同交领域items，仅conditions/components不查新结果；独立补丁合并tasks，不带变更领域旧引用，查询后再选。QUERY_REBIND_REQUIRED先补当前条件item；selection_saved=false按新版本候选重选。最终select/amend同交reply={}展示保存全貌，局部reply.tasks={任务ID:[\"content\"]}；route_tasks变动用全貌。reply.explanation限无数字取舍/缺口，不另述车次、时间或活动。round_summary记变化原因，不用final_answer。",
+        "parameters": {
+          "$defs": {
+            "ActivityInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "time": {
+                  "maxLength": 80,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": {
+                  "maxLength": 1000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "source": {
+                  "enum": [
+                    "user",
+                    "context",
+                    "preference",
+                    "derived",
+                    "default",
+                    "proposal"
+                  ],
+                  "type": "string"
+                },
+                "strength": {
+                  "enum": [
+                    "hard",
+                    "soft"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "purpose",
+                "description",
+                "source",
+                "strength"
+              ],
+              "type": "object"
+            },
+            "AmendPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "confirmed_conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "route_tasks": {
+                  "items": {
+                    "$ref": "#/$defs/TaskInput"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                },
+                "repair_issue_codes": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "const": "amend",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/TaskInput"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision"
+              ],
+              "type": "object"
+            },
+            "QueryItem": {
+              "additionalProperties": false,
+              "properties": {
+                "domain": {
+                  "enum": [
+                    "train",
+                    "hotel",
+                    "weather",
+                    "web"
+                  ],
+                  "type": "string"
+                },
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "origin": {
+                      "type": "string"
+                    },
+                    "destination": {
+                      "type": "string"
+                    },
+                    "departure_date": {
+                      "type": "string"
+                    },
+                    "start_date": {
+                      "type": "string"
+                    },
+                    "arrival_date": {
+                      "type": "string"
+                    },
+                    "arrival_before": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "passengers": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "check_in": {
+                      "type": "string"
+                    },
+                    "check_out": {
+                      "type": "string"
+                    },
+                    "guests": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "keywords": {
+                      "type": "string"
+                    },
+                    "search_kind": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "constraints": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "hotel_max_nightly_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "train_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "ranking": {
+                  "items": {
+                    "$ref": "#/$defs/Ranking"
+                  },
+                  "type": "array"
+                },
+                "depends_on": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "refresh": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "domain"
+              ],
+              "type": "object"
+            },
+            "Ranking": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "enum": [
+                    "price_cny",
+                    "stay_total_cny",
+                    "nightly_cny",
+                    "departure_at",
+                    "arrival_at",
+                    "duration_minutes",
+                    "train_kind",
+                    "seat_class",
+                    "hotel_name",
+                    "distance_m"
+                  ],
+                  "type": "string"
+                },
+                "direction": {
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "type": "string"
+                },
+                "preferred": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "type": "object"
+            },
+            "SelectPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "const": "select",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/SelectTask"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision"
+              ],
+              "type": "object"
+            },
+            "SelectTask": {
+              "additionalProperties": false,
+              "properties": {
+                "expected_revision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "selection_refs": {
+                  "$ref": "#/$defs/Shared1"
+                },
+                "components": {
+                  "items": {
+                    "enum": [
+                      "train",
+                      "hotel",
+                      "schedule",
+                      "content"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "task_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "task_id"
+              ],
+              "type": "object"
+            },
+            "TaskInput": {
+              "additionalProperties": false,
+              "properties": {
+                "task_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "expected_revision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "origin": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "destination": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "enum": [
+                    "visit",
+                    "business",
+                    "return",
+                    "transit",
+                    "unspecified"
+                  ],
+                  "type": "string"
+                },
+                "requires_hotel": {
+                  "type": "boolean"
+                },
+                "conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "items": {
+                  "items": {
+                    "$ref": "#/$defs/QueryItem"
+                  },
+                  "type": "array"
+                },
+                "content": {
+                  "items": {
+                    "$ref": "#/$defs/ActivityInput"
+                  },
+                  "type": "array"
+                },
+                "selection_refs": {
+                  "$ref": "#/$defs/Shared1"
+                },
+                "components": {
+                  "items": {
+                    "enum": [
+                      "train",
+                      "hotel",
+                      "schedule",
+                      "content"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "TripReply": {
+              "additionalProperties": false,
+              "properties": {
+                "tasks": {
+                  "additionalProperties": {
+                    "items": {
+                      "enum": [
+                        "train",
+                        "hotel",
+                        "content"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": "object"
+                },
+                "explanation": {
+                  "maxLength": 600,
+                  "pattern": "^[^\\d]*$",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "PlanningConditions": {
+              "type": "object",
+              "properties": {
+                "start_date": {
+                  "type": "string"
+                },
+                "end_date": {
+                  "type": "string"
+                },
+                "departure_date": {
+                  "type": "string"
+                },
+                "arrival_date": {
+                  "type": "string"
+                },
+                "arrival_before": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "check_in": {
+                  "type": "string"
+                },
+                "check_out": {
+                  "type": "string"
+                },
+                "nights": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "passengers": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "guests": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "hotel_keywords": {
+                  "type": "string"
+                },
+                "flexible_dates": {
+                  "type": "boolean"
+                },
+                "hotel_quote_required": {
+                  "type": "boolean"
+                },
+                "constraints": {
+                  "type": "object",
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "hotel_max_nightly_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "train_max_total_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "type": "string",
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ]
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    },
+                    "total_budget_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "Shared0": {
+              "additionalProperties": false,
+              "properties": {
+                "candidate_id": {
+                  "type": "string"
+                },
+                "query_id": {
+                  "type": "string"
+                },
+                "result_revision": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "query_id",
+                "result_revision",
+                "candidate_id"
+              ],
+              "type": "object"
+            },
+            "Shared1": {
+              "additionalProperties": false,
+              "properties": {
+                "hotel": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "query_id": {
+                      "type": "string"
+                    },
+                    "result_revision": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "query_id",
+                    "result_revision",
+                    "candidate_id"
+                  ],
+                  "type": "object"
+                },
+                "train": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "query_id": {
+                      "type": "string"
+                    },
+                    "result_revision": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "query_id",
+                    "result_revision",
+                    "candidate_id"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "tripplan": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/SelectPlan"
+                },
+                {
+                  "$ref": "#/$defs/AmendPlan"
+                }
+              ]
+            },
+            "reply": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/TripReply"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "round_summary": {
+              "maxLength": 300,
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "request_kind",
+            "tripplan"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "request_replan",
+        "description": "仅需要整体策略变化或新的独立查询时交回主规划。填写当前行程ID及原因，单独提交；不修改方案、不放宽硬条件、不重置预算。局部软修复继续write_trip.amend。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "trip_plan_ids": {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "reason": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "request_kind",
+            "trip_plan_ids",
+            "reason"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "review_retry": [
+    {
+      "type": "function",
+      "function": {
+        "name": "write_trip",
+        "description": "局部修复或选择当前TripPlan。amend同次提交全部关联变化和受影响查询items，程序批量执行，无需另调query；观察结果再select。content只存目的地活动，自行补充的退房等辅助软活动可提交content=[]删除。reply引用实际保存内容。规划同批request_kind统一planning。propose同交全部tasks/items，不填ID、版本、selection_refs或reply；每task一段城际旅程，住宿归抵达段，content只存目的地活动，返程通常为空。default_round_trip默认true，明确单程才false。confirmed_conditions放人数/预算/最晚返回，不填confirmed_conditions.start_date；日期放task.conditions，建议标proposal/soft；旧全局hard边界不可软化。活动date/time须显式，time用上午/下午/晚上或HH:MM，跨时段拆分。默认train查询constraints.train_kind=high_speed；arrival_before只接受用户精确期限、ISO含时区。soft不筛选；同日会后返程的初始item用ranking=[{field:departure_at,direction:desc}]看较晚车次；可重排缓存，不重复soft查询或升级hard。元数据按叶键如field_sources={\"train_kind\":\"proposal\"}，condition_strengths只用hard/soft。select只交计划身份/版本及task_id/selection_refs，candidate_id复制对应items.id，不推算时刻或ID。amend只交变化和必要依赖；只改活动交task_id/components=[content]/content，保留真实活动id，新增不填id；删活动交保留后的完整列表，可空。交通/住宿条件变化须同交领域items，仅conditions/components不查新结果；独立补丁合并tasks，不带变更领域旧引用，查询后再选。QUERY_REBIND_REQUIRED先补当前条件item；selection_saved=false按新版本候选重选。最终select/amend同交reply={}展示保存全貌，局部reply.tasks={任务ID:[\"content\"]}；route_tasks变动用全貌。reply.explanation限无数字取舍/缺口，不另述车次、时间或活动。round_summary记变化原因，不用final_answer。",
+        "parameters": {
+          "$defs": {
+            "ActivityInput": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "time": {
+                  "maxLength": 80,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": {
+                  "maxLength": 1000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "source": {
+                  "enum": [
+                    "user",
+                    "context",
+                    "preference",
+                    "derived",
+                    "default",
+                    "proposal"
+                  ],
+                  "type": "string"
+                },
+                "strength": {
+                  "enum": [
+                    "hard",
+                    "soft"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "purpose",
+                "description",
+                "source",
+                "strength"
+              ],
+              "type": "object"
+            },
+            "AmendPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "confirmed_conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "route_tasks": {
+                  "items": {
+                    "$ref": "#/$defs/TaskInput"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                },
+                "repair_issue_codes": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "const": "amend",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/TaskInput"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision"
+              ],
+              "type": "object"
+            },
+            "QueryItem": {
+              "additionalProperties": false,
+              "properties": {
+                "domain": {
+                  "enum": [
+                    "train",
+                    "hotel",
+                    "weather",
+                    "web"
+                  ],
+                  "type": "string"
+                },
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "origin": {
+                      "type": "string"
+                    },
+                    "destination": {
+                      "type": "string"
+                    },
+                    "departure_date": {
+                      "type": "string"
+                    },
+                    "start_date": {
+                      "type": "string"
+                    },
+                    "arrival_date": {
+                      "type": "string"
+                    },
+                    "arrival_before": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "passengers": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "check_in": {
+                      "type": "string"
+                    },
+                    "check_out": {
+                      "type": "string"
+                    },
+                    "guests": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "keywords": {
+                      "type": "string"
+                    },
+                    "search_kind": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "constraints": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "hotel_max_nightly_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "train_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "ranking": {
+                  "items": {
+                    "$ref": "#/$defs/Ranking"
+                  },
+                  "type": "array"
+                },
+                "depends_on": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "refresh": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "domain"
+              ],
+              "type": "object"
+            },
+            "Ranking": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "enum": [
+                    "price_cny",
+                    "stay_total_cny",
+                    "nightly_cny",
+                    "departure_at",
+                    "arrival_at",
+                    "duration_minutes",
+                    "train_kind",
+                    "seat_class",
+                    "hotel_name",
+                    "distance_m"
+                  ],
+                  "type": "string"
+                },
+                "direction": {
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "type": "string"
+                },
+                "preferred": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "type": "object"
+            },
+            "SelectPlan": {
+              "additionalProperties": false,
+              "properties": {
+                "trip_plan_id": {
+                  "type": "string"
+                },
+                "expected_revision": {
+                  "type": "integer"
+                },
+                "allow_repair": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operation": {
+                  "const": "select",
+                  "type": "string"
+                },
+                "tasks": {
+                  "items": {
+                    "$ref": "#/$defs/SelectTask"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "trip_plan_id",
+                "expected_revision"
+              ],
+              "type": "object"
+            },
+            "SelectTask": {
+              "additionalProperties": false,
+              "properties": {
+                "expected_revision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "selection_refs": {
+                  "$ref": "#/$defs/Shared1"
+                },
+                "components": {
+                  "items": {
+                    "enum": [
+                      "train",
+                      "hotel",
+                      "schedule",
+                      "content"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "task_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "task_id"
+              ],
+              "type": "object"
+            },
+            "TaskInput": {
+              "additionalProperties": false,
+              "properties": {
+                "task_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "expected_revision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "origin": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "destination": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "enum": [
+                    "visit",
+                    "business",
+                    "return",
+                    "transit",
+                    "unspecified"
+                  ],
+                  "type": "string"
+                },
+                "requires_hotel": {
+                  "type": "boolean"
+                },
+                "conditions": {
+                  "$ref": "#/$defs/PlanningConditions"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "items": {
+                  "items": {
+                    "$ref": "#/$defs/QueryItem"
+                  },
+                  "type": "array"
+                },
+                "content": {
+                  "items": {
+                    "$ref": "#/$defs/ActivityInput"
+                  },
+                  "type": "array"
+                },
+                "selection_refs": {
+                  "$ref": "#/$defs/Shared1"
+                },
+                "components": {
+                  "items": {
+                    "enum": [
+                      "train",
+                      "hotel",
+                      "schedule",
+                      "content"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "TripReply": {
+              "additionalProperties": false,
+              "properties": {
+                "tasks": {
+                  "additionalProperties": {
+                    "items": {
+                      "enum": [
+                        "train",
+                        "hotel",
+                        "content"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": "object"
+                },
+                "explanation": {
+                  "maxLength": 600,
+                  "pattern": "^[^\\d]*$",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "PlanningConditions": {
+              "type": "object",
+              "properties": {
+                "start_date": {
+                  "type": "string"
+                },
+                "end_date": {
+                  "type": "string"
+                },
+                "departure_date": {
+                  "type": "string"
+                },
+                "arrival_date": {
+                  "type": "string"
+                },
+                "arrival_before": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "check_in": {
+                  "type": "string"
+                },
+                "check_out": {
+                  "type": "string"
+                },
+                "nights": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "passengers": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "guests": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "hotel_keywords": {
+                  "type": "string"
+                },
+                "flexible_dates": {
+                  "type": "boolean"
+                },
+                "hotel_quote_required": {
+                  "type": "boolean"
+                },
+                "constraints": {
+                  "type": "object",
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "hotel_max_nightly_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "train_max_total_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "type": "string",
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ]
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    },
+                    "total_budget_cny": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "Shared0": {
+              "additionalProperties": false,
+              "properties": {
+                "candidate_id": {
+                  "type": "string"
+                },
+                "query_id": {
+                  "type": "string"
+                },
+                "result_revision": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "query_id",
+                "result_revision",
+                "candidate_id"
+              ],
+              "type": "object"
+            },
+            "Shared1": {
+              "additionalProperties": false,
+              "properties": {
+                "hotel": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "query_id": {
+                      "type": "string"
+                    },
+                    "result_revision": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "query_id",
+                    "result_revision",
+                    "candidate_id"
+                  ],
+                  "type": "object"
+                },
+                "train": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "query_id": {
+                      "type": "string"
+                    },
+                    "result_revision": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "query_id",
+                    "result_revision",
+                    "candidate_id"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "tripplan": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/SelectPlan"
+                },
+                {
+                  "$ref": "#/$defs/AmendPlan"
+                }
+              ]
+            },
+            "reply": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/TripReply"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "round_summary": {
+              "maxLength": 300,
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "request_kind",
+            "tripplan"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "request_replan",
+        "description": "仅需要整体策略变化或新的独立查询时交回主规划。填写当前行程ID及原因，单独提交；不修改方案、不放宽硬条件、不重置预算。局部软修复继续write_trip.amend。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "trip_plan_ids": {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "reason": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "request_kind",
+            "trip_plan_ids",
+            "reason"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query",
+        "description": "只重试本轮已失败的原独立query_plan，条件不变，可设置refresh=true；行程待查项由状态机执行。",
+        "parameters": {
+          "$defs": {
+            "QueryItem": {
+              "additionalProperties": false,
+              "properties": {
+                "domain": {
+                  "enum": [
+                    "train",
+                    "hotel",
+                    "weather",
+                    "web"
+                  ],
+                  "type": "string"
+                },
+                "parameters": {
+                  "additionalProperties": false,
+                  "description": "按domain仅使用对应字段：train:origin,destination,departure_date,start_date,arrival_date,arrival_before,passengers；hotel:city,destination,check_in,check_out,guests,keywords,search_kind；weather:city,date；web:query。train用departure_date，不用date/from/to；席别、车种和预算放constraints。TripPlan items.parameters可为空，由task.conditions继承。",
+                  "properties": {
+                    "origin": {
+                      "type": "string"
+                    },
+                    "destination": {
+                      "type": "string"
+                    },
+                    "departure_date": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "start_date": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "arrival_date": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "arrival_before": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "passengers": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "check_in": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "check_out": {
+                      "description": "YYYY-MM-DD",
+                      "type": "string"
+                    },
+                    "guests": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "keywords": {
+                      "type": "string"
+                    },
+                    "search_kind": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "description": "预报日期；查询现在实况时省略date",
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "constraints": {
+                  "additionalProperties": false,
+                  "description": "仅填用户或政策明确的硬过滤；软偏好用ranking。未指定车种不要加train_kind。",
+                  "properties": {
+                    "hotel_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "hotel_max_nightly_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "train_max_total_cny": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "seat_class": {
+                      "type": "string"
+                    },
+                    "train_kind": {
+                      "enum": [
+                        "high_speed",
+                        "emu",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "departure_time_after": {
+                      "type": "string"
+                    },
+                    "departure_time_before": {
+                      "type": "string"
+                    },
+                    "available_only": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "field_sources": {
+                  "additionalProperties": {
+                    "enum": [
+                      "user",
+                      "context",
+                      "preference",
+                      "derived",
+                      "default",
+                      "proposal"
+                    ],
+                    "type": "string"
+                  },
+                  "description": "来源与强度分离；居住地用preference，模型补齐用proposal",
+                  "type": "object"
+                },
+                "condition_strengths": {
+                  "additionalProperties": {
+                    "enum": [
+                      "hard",
+                      "soft"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "ranking": {
+                  "items": {
+                    "$ref": "#/$defs/Ranking"
+                  },
+                  "type": "array"
+                },
+                "depends_on": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "refresh": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "domain"
+              ],
+              "type": "object"
+            },
+            "Ranking": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "enum": [
+                    "price_cny",
+                    "stay_total_cny",
+                    "nightly_cny",
+                    "departure_at",
+                    "arrival_at",
+                    "duration_minutes",
+                    "train_kind",
+                    "seat_class",
+                    "hotel_name",
+                    "distance_m"
+                  ],
+                  "type": "string"
+                },
+                "direction": {
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "type": "string"
+                },
+                "preferred": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "properties": {
+            "request_kind": {
+              "enum": [
+                "lookup",
+                "planning"
+              ],
+              "type": "string"
+            },
+            "query_plan": {
+              "description": "仅独立外部查询；TripPlan待查item由状态机自动执行，不在此重复提交。",
+              "items": {
+                "$ref": "#/$defs/QueryItem"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "request_kind",
+            "query_plan"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "summary": []
+}

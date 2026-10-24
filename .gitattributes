@@ -1,1 +1,6 @@
 *.sh text eol=lf
+# Source prompt and contract hashes cover exact UTF-8 bytes on every platform.
+backend/internal/agent/agents/travel/prompts/*.txt -text
+backend/internal/agent/agents/travel/testdata/source_auxiliary_prompts.json -text
+backend/internal/agenttools/travel/schemas/* -text
+backend/internal/agenttools/travel/testdata/source_contracts.json -text
