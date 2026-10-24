@@ -4,7 +4,7 @@
 
 当前包含两个独立入口：**通用聊天**和**Go 原生差旅助手**。点击入口新建会话，历史保持原 Agent 归属。主 Agent 自动委派差旅尚未实现。
 
-> 当前差旅变更仍在验收中，尚未归档。基础平台 MVP 的历史验收不能替代这次重构的验收。最新证据与未完成项见 [差旅实施记录](docs/travel-refactor-execution.md) 和 [当前验收](docs/travel-refactor-verification.md)。
+> Go 差旅重构已完成本次范围验收并归档，当前代码已通过真实数据库、本地完整检查和 Linux race CI。能力边界与后续事项见 [差旅实施记录](docs/travel-refactor-execution.md) 和 [当前验收](docs/travel-refactor-verification.md)。
 
 ## 已实现的能力
 
@@ -285,13 +285,13 @@ Linux race 在 GitHub Actions 执行；本机 Windows 没有有效 race 工具�
 | RAG 产品能力 | 没有知识上传/索引管理界面；复用已有 RAG，不在平台重建 RAG |
 | 部署与规模 | 单实例，未实现 Redis、队列、多实例调度；Docker 未实测 |
 | 恢复范围 | 支持已验证安全点；强制中断、未知结果或不兼容断点不保证继续 |
-| 本次交付 | 最终浏览器覆盖、当前 Linux race 和外部能力缺口以验收记录为准；未完成不归档 |
+| 本次交付 | 浏览器恢复、替代任务和最终多查询通过；Linux race CI 通过；正式企业政策、网页供应方及部署缺口见验收记录 |
 
 ## 文档与后端能力展示
 
-- 正式范围：[OpenSpec 当前变更](openspec/changes/refactor-travel-agent-go/)。
-- 技术决定：[design.md](openspec/changes/refactor-travel-agent-go/design.md)。
-- 原系统行为映射：[source-assessment.md](openspec/changes/refactor-travel-agent-go/source-assessment.md)。
+- 正式范围：[OpenSpec 当前变更](openspec/changes/archive/2026-10-23-refactor-travel-agent-go/)。
+- 技术决定：[design.md](openspec/changes/archive/2026-10-23-refactor-travel-agent-go/design.md)。
+- 原系统行为映射：[source-assessment.md](openspec/changes/archive/2026-10-23-refactor-travel-agent-go/source-assessment.md)。
 - 实施计划：[2026-10-23-travel-agent-go.md](docs/superpowers/plans/2026-10-23-travel-agent-go.md)。
 - 实施及验证：[实施记录](docs/travel-refactor-execution.md)、[验收记录](docs/travel-refactor-verification.md)。
 

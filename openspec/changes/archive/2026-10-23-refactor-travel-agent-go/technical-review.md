@@ -1,3 +1,5 @@
+> 本文件为实施前技术复核历史；下述探针、事务和真实依赖门槛均已按实施计划验证，最终证据见 docs/travel-refactor-verification.md。
+
 # 实施前技术复核
 
 日期：2026-10-23。执行方式：用户明确选择单代理。复核依据为本 change 的 proposal、全部六份 delta specs、design、tasks、源码迁移映射，以及现有 Go/Eino/Python 实现。本文记录工程发现，不重新定义需求。

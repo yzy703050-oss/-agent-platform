@@ -1,6 +1,6 @@
 # Go 差旅重构验收记录
 
-日期：2026-10-23。对应 change：`refactor-travel-agent-go`；单代理实施及整体自审。当前仍在交付核对中，未归档；本记录不把历史 MVP CI 当成本次提交的通过证据。
+日期：2026-10-23。对应 change：`refactor-travel-agent-go`；单代理实施及整体自审。本次范围已完成验收并归档；本记录不把历史 MVP CI 当成本次提交的通过证据。
 
 ## 实现与验证映射
 
@@ -12,7 +12,7 @@
 | B08–B10 编排、事实及断点 | `TestTravelWorkflow`、`TestTravelWorkflowRecovery`：决策先保存、选择真实证据、跨实例/attempt恢复、旧有效断点重放不增加修订、累计迭代不重置、未知结果拒绝自动重放 |
 | B11 页面生命周期 | 平台既有租约、恢复、SSE 检查复用；差旅页面内切换继续已在实际浏览器验证，页面离开/重开显示 paused，手动继续同一 Run 的 attempt2并完成，开发库状态一致 |
 | B12–B14 任务隔离与记忆 | `TestTravelMemoryIsolation`、`TestTravelContextBudget`、`TestTravelMemoryMaintenance`：来源过滤、混合摘要失效、有效版本回退、明确撤回保护、保守推断和完整工具配对 |
-| B15 原平台回归 | 完整 Go/真实 PostgreSQL、vet/build 和前端检查通过；Linux race 仍需当前提交 CI 结果 |
+| B15 原平台回归 | 完整 Go/真实 PostgreSQL、vet/build、前端和最终代码043c61d的Linux race CI全部通过 |
 | 用户新增演示模式 | `TestDemoFactsRemainLabelled`、`TestTravelDemoQueries`、TravelResult 组件检查：演示标识贯穿保存选择和输出，live/demo 缓存隔离，酒店价格/库存未知 |
 
 这些场景组合复用现有 fixture，没有搬入旧 Python 的上千个测试。新增测试针对业务和一致性边界，不为每个源函数另建测试。
@@ -44,18 +44,31 @@
 ## 最终验证状态
 
 - `scripts/verify.ps1 -SkipNpmInstall`：完整 Go / 真实 PostgreSQL、vet/build、前端测试和构建 PASS。
-- 实际浏览器：已验证独立差旅入口、真实行程保存与选择、页面内切换继续；已验证政策无命中。最新演示模式及关页恢复待最终验收。
-- Linux race CI：提交 f1db682 的 [Actions](https://github.com/yzy703050-oss/-agent-platform/actions/runs/39962470618) 已通过，含真实 PostgreSQL race/vet/build 和前端；后续批量事实输出修正等待最终 CI。
+- 实际浏览器：已验证独立差旅入口、真实行程保存与选择、页面内切换继续；已验证政策无命中。最终演示同时显示车次、天气、政策来源及演示标识；页面离开/手动继续和新问题替代均已与开发库核对。
+- Linux race CI：最终代码提交 043c61d 的 [Actions](https://github.com/yzy703050-oss/-agent-platform/actions/runs/39963716906) 已通过，含真实 PostgreSQL race/vet/build 和前端。
 - OpenSpec：CLI 1.12 未提供 verify 工作流，采用人工逐项核对需求、设计、任务与证据；不声称运行了 OpenSpec verify。
 
 ## 尚未实现及部署限制
 
 主 Agent 委派、真实订票/酒店预订/支付/报销审批、正式企业政策接入和自动完整合规判断、网页搜索供应方、Redis/队列/多实例、动态 Agent/MCP 管理均未实现。天气客户端已有协议验证，真实天气外网冒烟未取得证据，演示模式天气可用。Docker/Compose 尚未实际运行，本机走原生 PostgreSQL。
 
-框架版本、工具或模型变化可使旧断点不兼容，历史仍保留；强制取消、超时或未知业务结果不会承诺继续。正常关闭页面请求安全点暂停，不能保证任意模型 Token 处无损停止。当前变更在剩余验收完成前保持未归档。
+框架版本、工具或模型变化可使旧断点不兼容，历史仍保留；强制取消、超时或未知业务结果不会承诺继续。正常关闭页面请求安全点暂停，不能保证任意模型 Token 处无损停止。本次变更已同步主规格并归档，外部能力和部署限制不变。
 
 浏览器补充：恢复任务B在重开时为 paused/attempt1/有效断点，手动继续后 succeeded/attempt2/断点失效，保存行程修订1→2，演示标识保留。一次冷启动政策长工具关闭和一次查询边界竞争未形成安全断点，均显示 interrupted 而非伪造继续，符合已确认的保守恢复边界。最终回复汇总多个独立查询的修正已先失败后通过相关工作流检查。任务完成后隐藏陈旧阶段提示的前端修正也已验证15/15通过并构建成功。
 
 新问题替代浏览器证据：四段规划任务处于 paused 时直接发送新问题，旧 Run 变为 cancelled/context_eligible=false/断点valid=false；历史仍可见，新 Run 独立查询北京至天津。实际数据库与界面一致。
 
 复现知识导入：在已有 RAG 项目目录，用该项目 Python 执行其 src.ingestion.pipeline.IngestionPipeline(load_settings('config/travel_policy.yaml'), collection='agent_platform_demo').run('本平台绝对路径/docs/fixtures/demo-travel-policy.txt')。使用原有本地 BGE 配置；CLI 的 dry_run 缺失不在本次修改范围，实际调用的是相同摄入内核而非另建索引实现。
+
+最终证据：代码提交043c61d本地完整verify与Linux CI均通过，数据库集成未跳过，前端15/15。合成浏览器请求同时返回车次100/150元、杭州演示天气22°C及演示政策片段来源，查询和政策互不覆盖。截图位于本地忽略的 .cache/reports/travel-demo-final.png，页面保留可查看。已完成六份delta需求、设计D1–D12及B01–B15人工核对；采用作者整体自审，无独立子代理评审。默认live、显式demo和未配置网页不可用的边界均已说明。
+
+归档：openspec archive refactor-travel-agent-go --yes 成功，创建 openspec/changes/archive/2026-10-23-refactor-travel-agent-go 并同步六份主规格。归档时唯一未勾选项为归档自身，完成后更新为32/32；没有忽略失败测试或未完成产品任务。保持现有 feat/agent-platform-mvp 分支及当前工作目录，按已授权范围推送，不合并main。
+
+## 实施取舍与影响
+
+- 本机没有可用 Bash，以 PowerShell 等价记录任务 brief、BASE 和实际验证结果；任务状态已人工核对，未为流程安装额外 shell。
+- Eino 恢复首先执行已接受的未完成工具，再请求下一次模型，不重新生成旧决策。恢复验证按真实边界设置，避免重复副作用。
+- 通用与差旅共享 Runner 和原停止断言，保留少量 General fixture；框架升级需同步回归两个 Agent。
+- 在途模型决策元数据可于 pausing 落库，业务写入仍严格验证 running/attempt；强制升级或不能确认安全点时明确中断，不承诺每个时刻都能继续。
+- 使用 RAG 已存在的本地 BGE 配置，通过可信绝对路径传入子进程；部署须提供该配置及本地模型，未创建新 RAG 或复用旧用户数据。
+- 原 RAG CLI 引用缺失的 dry_run 参数，改用它自身 IngestionPipeline 接口摄入，未修改外部源码；复现需使用本文列明的接口。网页供应方未提供时保持 unavailable，不新增空实现或假装真实接通。

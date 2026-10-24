@@ -16,7 +16,7 @@ LLM_MODEL=YOUR_MODEL_ID
 LLM_API_KEY=YOUR_LOCAL_KEY
 ```
 
-模型须兼容 OpenAI Chat Completions 和工具调用。Base URL 取服务商给出的完整 API 前缀，通常含 `/v1`。配置在进程启动时读取，修改后需要重启 API。无模型配置时仍可注册、管理会话和设置；聊天返回 `model_unavailable`。
+模型须兼容 OpenAI Chat Completions 和工具调用。Base URL 取服务商给出的完整 API 前缀，通常含 `/v1`。配置在进程启动时读取，修改后需要重启 API。无模型配置时仍可注册、管理会话和设置；对应 Agent 不可用，不创建可执行 Run。
 
 两个 PowerShell 7 终端分别执行：
 
@@ -67,7 +67,7 @@ Windows 的 race 工具链当前不可用，本机没有 race 通过证据。Git
 5. 重新打开工作台。仅恢复显示原会话；没有有效断点时显示中断，有有效断点时显示暂停。
 6. 点击“继续任务”才恢复原 Run；attempt 增加，归属转移到新页面。
 7. 再次暂停后直接发送新问题。旧任务结束、旧断点失效、历史仍可查看；新任务上下文排除被替代任务。
-8. 差旅入口应明确未接入，不能产生模拟行程。删除有非终态任务的会话应被拒绝，先结束任务后再删除。
+8. 差旅已就绪时可创建计划、查询并选择候选；未配置模型时明确不可用。演示模式必须标注模拟结果。删除有非终态任务的会话应被拒绝，先结束任务后再删除。
 
 暂停不是逐 Token 无损续写。框架保存可恢复的执行边界；没有有效断点不能继续。恢复时的输出方式由 Eino 断点状态决定，完成结果始终通过状态事件与 GET 取得。
 
@@ -110,4 +110,4 @@ docker compose up --build
 
 ## 交付状态
 
-基础平台 MVP 已归档，历史证据见 [真实模型验收](real-model-acceptance.md)、[验证记录](verification.md)。当前 Go 差旅重构尚未归档，最新验收及缺口见 [差旅验收](travel-refactor-verification.md)。Docker 可选路径继续明确未验证。
+基础平台 MVP 已归档，历史证据见 [真实模型验收](real-model-acceptance.md)、[验证记录](verification.md)。Go 差旅重构已完成本次范围验收并归档，最新验收及缺口见 [差旅验收](travel-refactor-verification.md)。Docker 可选路径继续明确未验证。

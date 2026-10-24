@@ -10,5 +10,5 @@
 
 业务规则、候选校验与事务在 service/trip 和 repository/postgres；本目录不直接 import PostgreSQL。政策调用已有 Python RAG MCP，未迁入旧 Python Agent 或其数据。查询可显式使用演示供应方，标识随证据、保存候选和输出保留。
 
-验证与缺口见仓库根 docs/travel-refactor-verification.md；正式行为见 openspec/changes/refactor-travel-agent-go。
+验证与缺口见仓库根 docs/travel-refactor-verification.md；正式行为见 openspec/changes/archive/2026-10-23-refactor-travel-agent-go。
 

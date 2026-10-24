@@ -1,6 +1,8 @@
 # 差旅 Go 重构实施记录
 
-计划：docs/superpowers/plans/2026-10-23-travel-agent-go.md。正式规格：openspec/changes/refactor-travel-agent-go。2026-10-23 用户批准计划并选择单代理，按精简测试策略实施；本记录不替代 OpenSpec 任务状态。
+计划：docs/superpowers/plans/2026-10-23-travel-agent-go.md。正式规格：openspec/changes/archive/2026-10-23-refactor-travel-agent-go。2026-10-23 用户批准计划并选择单代理，按精简测试策略实施；本记录不替代 OpenSpec 任务状态。
+
+最终状态：代码043c61d已通过本地完整回归、真实PostgreSQL、前端15/15及Linux race/vet/build。最终浏览器验证了演示车次、天气和真实MCP政策来源同时输出，原Run手动继续，以及新问题替代后旧Run和断点失效。六份主规格已同步，变更已归档，32/32任务完成；以下未完成描述是实施中的历史记录，以验收文档和本段为准。采用单代理整体自审，保留已推送功能分支，不合并main。
 
 ## 基线
 

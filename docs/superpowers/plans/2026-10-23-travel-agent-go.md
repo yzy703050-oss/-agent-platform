@@ -8,7 +8,7 @@
 
 **Tech Stack:** 当前 backend Go module（go 1.26.0），Gin v1.12.0，Eino v0.9.0-beta.1，模型扩展 openai v0.1.12，pgx v5.11.0，现有 React/TypeScript/Vite 前端及 PostgreSQL 17.11。
 
-**Spec:** `openspec/changes/refactor-travel-agent-go/` 下的 `specs/`、`design.md` 和 `tasks.md`。正式行为仅以该 OpenSpec 变更为准；源码迁移矩阵 B01–B15 仅用于追踪覆盖。本计划不另立需求。
+**Spec:** `openspec/changes/archive/2026-10-23-refactor-travel-agent-go/` 下的 `specs/`、`design.md` 和 `tasks.md`。正式行为仅以该 OpenSpec 变更为准；源码迁移矩阵 B01–B15 仅用于追踪覆盖。本计划不另立需求。
 
 ## Global Constraints
 
@@ -169,11 +169,11 @@
 
 **Interfaces:** 无新增产品接口；逐项引用实际提交、测试与真实依赖证据，多个场景允许对应同一个关键用例。
 
-- [ ] 自审全部任务与规格，记录已完成实现和未接通的真实依赖。Expected: 能力有对应代码与验证，不以勾选框代替证据，不以测试数量判断完成。
-- [ ] 运行 `scripts/verify.ps1 -SkipNpmInstall` 所覆盖的 Go/真实数据库/vet/build/前端检查，并运行 Linux CI race。Expected: 必需检查均 PASS、数据库不 skip；失败修复后只在相关变更及最终确认确有需要时重跑。
-- [ ] 少量真实模型、供应方和 MCP 冒烟，加浏览器关键路径验收。Expected: 真实服务与持久化结果可追溯，未提供服务不伪装通过。
-- [ ] 单代理整体代码自审及人工规格一致性核对；当前 CLI 无 verify 工作流，明确记录。Expected: 没有重要规格偏差、失败检查或未完项。
-- [ ] 只有上述条件满足才 OpenSpec archive、确认归档纳入分支，再按用户选择收尾。Expected: 不把等待服务接入或仅完成核心阶段的状态描述为全部完成。
+- [x] 自审全部任务与规格，记录已完成实现和未接通的真实依赖。Expected: 能力有对应代码与验证，不以勾选框代替证据，不以测试数量判断完成。
+- [x] 运行 `scripts/verify.ps1 -SkipNpmInstall` 所覆盖的 Go/真实数据库/vet/build/前端检查，并运行 Linux CI race。Expected: 必需检查均 PASS、数据库不 skip；失败修复后只在相关变更及最终确认确有需要时重跑。
+- [x] 少量真实模型、供应方和 MCP 冒烟，加浏览器关键路径验收。Expected: 真实服务与持久化结果可追溯，未提供服务不伪装通过。
+- [x] 单代理整体代码自审及人工规格一致性核对；当前 CLI 无 verify 工作流，明确记录。Expected: 没有重要规格偏差、失败检查或未完项。
+- [x] 只有上述条件满足才 OpenSpec archive、确认归档纳入分支，再按用户选择收尾。Expected: 不把等待服务接入或仅完成核心阶段的状态描述为全部完成。
 
 ## 计划自检与执行状态
 
@@ -187,3 +187,5 @@
 - 执行方式已确定为单代理；2026-10-23 用户明确答复“按计划开始实施（推荐）”。已读取 apply 指导，启动实施并维护本计划执行记录与 OpenSpec tasks。
 
 当前补充证据：TestTravelWorkflowVariants 合并验证往返、活动修正不重复查询、供应方缺失的部分结果；TestTravelDemoQueries 验证演示候选保存及模式缓存隔离。完整本地 verify、Go MCP 演示政策命中已通过。最终浏览器、当前提交 Linux CI 和归档尚未完成，不能整体标记交付完成。
+
+最终状态：Task1–9本次范围完成，最终本地verify与代码提交043c61d的Linux race CI通过；浏览器B手动继续和C新问题替代均与数据库核对，最终三项查询同时输出。六份主规格已同步，change已归档。旧的阶段性未完成描述记录当时状态，以本条及验收文档为准。保留当前功能分支，无main合并。
