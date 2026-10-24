@@ -84,12 +84,12 @@
 
 **Interfaces:** 扩充 model.TripCommand/TripPlan/TripResult 保留源 conditions/source/strength、task revision、route_tasks/components/content、allow_repair 与源选择语义；提供 model.TripReplySpec/TripBoundReply 和上文 BindReply；Inspect 返回足够组装 review 的真实快照。模型参数到业务命令的转换留 Task 3。
 
-- [ ] 写综合 `TestTripSourceRules`：默认往返/明确单程；多城与逐晚住宿；high_speed 与 G 规范匹配；元/分精确及未知；粗时段不捏造；只改活动保留候选且查询数零；日期改动只失效依赖；完整路线修改；硬条件不可降级。按源函数/测试语料提取代表性输入，合并表驱动，不镜像实现。
-- [ ] 写 `TestTripBoundReply`：本次活动 14:00→16:00 后回复来自新修订；未提交/旧回执不能证明新修改；局部 content 展示与整路线完整展示；部分结果不冒充全部满足。
-- [ ] 运行 `go test ./internal/service/trip -run 'TestTrip(SourceRules|BoundReply)' -count=1`；Expected: RED，观察实际缺失业务断言。
-- [ ] 按源 contracts/conditions/strengths/activities/patches/dependencies/validation/constraints 和 trip_reply 逐项实现，保持当前 Apply 的权限、回执和事务契约，返回可定位字段的源语义错误；车种在供应方边界规范，业务层用规范值。
-- [ ] 运行 `go test ./internal/service/trip ./internal/client/train -count=1`；Expected: GREEN，Service 没有 Agent/Eino 依赖；更新 source-mapping 对应证据。
-- [ ] 提交 `fix: preserve original trip rules patches and bound replies`，完成 2.1/2.2。
+- [x] 写综合 `TestTripSourceRules`：默认往返/明确单程；多城与逐晚住宿；high_speed 与 G 规范匹配；元/分精确及未知；粗时段不捏造；只改活动保留候选且查询数零；日期改动只失效依赖；完整路线修改；硬条件不可降级。按源函数/测试语料提取代表性输入，合并表驱动，不镜像实现。
+- [x] 写 `TestTripBoundReply`：本次活动 14:00→16:00 后回复来自新修订；未提交/旧回执不能证明新修改；局部 content 展示与整路线完整展示；部分结果不冒充全部满足。
+- [x] 运行 `go test ./internal/service/trip -run 'TestTrip(SourceRules|BoundReply)' -count=1`；Expected: RED，观察实际缺失业务断言。
+- [x] 按源 contracts/conditions/strengths/activities/patches/dependencies/validation/constraints 和 trip_reply 逐项实现，保持当前 Apply 的权限、回执和事务契约，返回可定位字段的源语义错误；车种在供应方边界规范，业务层用规范值。
+- [x] 运行 `go test ./internal/service/trip ./internal/client/train -count=1`；Expected: GREEN，Service 没有 Agent/Eino 依赖；更新 source-mapping 对应证据。
+- [x] 提交 `fix: preserve original trip rules patches and bound replies`，完成 2.1/2.2。
 
 ### Task 3: 工具协议、批次门禁与自动查询
 

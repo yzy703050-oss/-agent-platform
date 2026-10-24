@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -94,4 +93,18 @@ func clone[T any](in T) (T, error) {
 	err = json.Unmarshal(b, &out)
 	return out, err
 }
-func invalid(detail string) error { return fmt.Errorf("%s: %w", detail, model.ErrInvalidInput) }
+func invalid(detail string) error {
+	code := "INVALID_ARGUMENTS"
+	if head, body, ok := strings.Cut(detail, ": "); ok && slicesContainsCode(head) {
+		code = head
+		detail = body
+	}
+	return &model.TravelRuleError{Code: code, Message: detail}
+}
+func slicesContainsCode(code string) bool {
+	switch code {
+	case "REPLAN_REQUIRED", "QUERY_CONDITION_CONFLICT", "INVALID_REPLY_REFERENCE", "DEPARTURE_IN_PAST", "QUERY_REBIND_REQUIRED":
+		return true
+	}
+	return false
+}

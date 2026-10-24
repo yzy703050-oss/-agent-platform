@@ -3,18 +3,26 @@ package model
 import "time"
 
 type TravelQuery struct {
-	Domain       string          `json:"domain"`
-	PlanID       string          `json:"plan_id,omitempty"`
-	PlanRevision int64           `json:"plan_revision,omitempty"`
-	TaskID       string          `json:"task_id,omitempty"`
-	Origin       string          `json:"origin,omitempty"`
-	Destination  string          `json:"destination,omitempty"`
-	Date         string          `json:"date,omitempty"`
-	City         string          `json:"city,omitempty"`
-	CheckIn      string          `json:"check_in,omitempty"`
-	CheckOut     string          `json:"check_out,omitempty"`
-	Keywords     string          `json:"keywords,omitempty"`
-	Constraints  TripConstraints `json:"constraints,omitempty"`
+	TaskRevision  int64           `json:"task_revision,omitempty"`
+	Domain        string          `json:"domain"`
+	PlanID        string          `json:"plan_id,omitempty"`
+	PlanRevision  int64           `json:"plan_revision,omitempty"`
+	TaskID        string          `json:"task_id,omitempty"`
+	Origin        string          `json:"origin,omitempty"`
+	Destination   string          `json:"destination,omitempty"`
+	Date          string          `json:"date,omitempty"`
+	City          string          `json:"city,omitempty"`
+	CheckIn       string          `json:"check_in,omitempty"`
+	CheckOut      string          `json:"check_out,omitempty"`
+	Keywords      string          `json:"keywords,omitempty"`
+	Constraints   TripConstraints `json:"constraints,omitempty"`
+	Passengers    int             `json:"passengers,omitempty"`
+	Guests        int             `json:"guests,omitempty"`
+	ArrivalDate   string          `json:"arrival_date,omitempty"`
+	ArrivalBefore string          `json:"arrival_before,omitempty"`
+	Ranking       []TripRanking   `json:"ranking,omitempty"`
+	Refresh       bool            `json:"refresh,omitempty"`
+	DependsOn     []string        `json:"depends_on,omitempty"`
 }
 type TravelSource struct {
 	Provider  string    `json:"provider"`

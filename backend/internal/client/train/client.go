@@ -119,10 +119,7 @@ func (c *Client) Search(ctx context.Context, q model.TravelQuery) (model.TravelE
 			identity, _ := json.Marshal([]string{q.Date, row.Number, row.Origin, row.Destination, seat.Code, seat.Name})
 			digest := sha256.Sum256(identity)
 			remaining, availability := inventory(seat.Remaining, row.Booking)
-			kind := ""
-			if len(row.Number) > 0 {
-				kind = string([]rune(row.Number)[0])
-			}
+			kind := sourceTrainKind(row.Number)
 			e.Candidates = append(e.Candidates, model.TravelCandidate{ID: hex.EncodeToString(digest[:]), Name: row.Number, Origin: row.Origin, Destination: row.Destination, DepartureAt: &departure, ArrivalAt: arrival, PriceFen: &price, TrainKind: kind, SeatClass: seat.Name, Availability: availability, Remaining: remaining})
 		}
 	}

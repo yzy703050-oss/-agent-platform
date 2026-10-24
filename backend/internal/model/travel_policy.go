@@ -2,6 +2,28 @@ package model
 
 import "encoding/json"
 
+type SourcePolicyRule struct {
+	ID            string                     `json:"id"`
+	Rule          string                     `json:"rule"`
+	Applicability map[string]json.RawMessage `json:"applicability"`
+	Hard          bool                       `json:"hard"`
+	EvidenceIDs   []string                   `json:"evidence_ids"`
+	Field         string                     `json:"field,omitempty"`
+	Operator      string                     `json:"operator,omitempty"`
+	Value         json.RawMessage            `json:"value,omitempty"`
+	Unit          *string                    `json:"unit"`
+}
+type SourcePolicyContext struct {
+	Status        string                     `json:"status"`
+	Summary       string                     `json:"summary"`
+	Constraints   []SourcePolicyRule         `json:"constraints"`
+	Applicability map[string]json.RawMessage `json:"applicability"`
+	References    []PolicyFragment           `json:"references"`
+	EffectiveDate *string                    `json:"effective_date"`
+	MissingFields []string                   `json:"missing_fields"`
+	Conflicts     []json.RawMessage          `json:"conflicts"`
+}
+
 type PolicyConditions struct {
 	Region        string `json:"region,omitempty"`
 	EmployeeLevel string `json:"employee_level,omitempty"`

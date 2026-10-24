@@ -24,13 +24,28 @@ func validateConstraints(c model.TripConstraints) error {
 }
 
 func matchesTrain(candidate model.TravelCandidate, c model.TripConstraints) bool {
-	if len(c.TrainKinds) > 0 && c.Strengths["train_kinds"] != model.Soft && !slices.Contains(c.TrainKinds, candidate.TrainKind) {
+	if len(c.TrainKinds) > 0 && c.Strengths["train_kinds"] != model.Soft && !slices.ContainsFunc(c.TrainKinds, func(kind string) bool { return canonicalTrainKind(kind) == canonicalTrainKind(candidate.TrainKind) }) {
 		return false
 	}
 	if len(c.SeatClasses) > 0 && c.Strengths["seat_classes"] != model.Soft && !slices.Contains(c.SeatClasses, candidate.SeatClass) {
 		return false
 	}
 	return true
+}
+
+// Older Go snapshots used the supplier's letter. New native contracts use the
+// source enum. Never reinterpret an unknown value as a supported rail kind.
+func canonicalTrainKind(kind string) string {
+	switch kind {
+	case "G", "high_speed":
+		return "high_speed"
+	case "D", "emu":
+		return "emu"
+	case "Z", "T", "K", "other":
+		return "other"
+	default:
+		return kind
+	}
 }
 func protectConstraints(old, next model.TripConstraints) error {
 	if err := validateConstraints(next); err != nil {

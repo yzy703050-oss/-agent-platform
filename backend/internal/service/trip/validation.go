@@ -35,7 +35,7 @@ func Preview(previous *model.TripPlan, cmd model.TripCommand, evidence []model.T
 		if previous == nil || cmd.PlanID != previous.ID || cmd.ExpectedRevision != previous.Revision {
 			return model.TripResult{}, model.ErrConflict
 		}
-		if cmd.Operation != "amend" && cmd.Operation != "select" {
+		if cmd.Operation != "amend" && cmd.Operation != "select" && !(cmd.Context != nil && slices.Contains([]string{"confirm", "pause", "cancel"}, cmd.Operation)) {
 			return model.TripResult{}, invalid("unknown trip operation")
 		}
 		if len(cmd.Tasks) > 0 {
@@ -82,9 +82,16 @@ func Preview(previous *model.TripPlan, cmd model.TripCommand, evidence []model.T
 		if index < 0 {
 			return model.TripResult{}, model.ErrNotFound
 		}
-		if err = applyChange(&p.Tasks[index], change); err != nil {
+		role := ""
+		if cmd.Context != nil {
+			role = cmd.Context.Role
+		}
+		if err = applyChange(&p.Tasks[index], change, role); err != nil {
 			return model.TripResult{}, err
 		}
+	}
+	if err = applySourceMetadata(&p, previous, cmd, now); err != nil {
+		return model.TripResult{}, err
 	}
 	seen = map[string]bool{}
 	for _, selection := range cmd.Selections {
@@ -107,16 +114,42 @@ func Preview(previous *model.TripPlan, cmd model.TripCommand, evidence []model.T
 			p.Tasks[index].Hotel = &chosen
 		}
 	}
+	if p.SourceVersion > 0 {
+		for i := range p.Tasks {
+			if err = projectSourceConditions(&p, &p.Tasks[i]); err != nil {
+				return model.TripResult{}, err
+			}
+		}
+	}
 	v, queries, err := validatePlan(p)
 	if err != nil {
 		return model.TripResult{}, err
 	}
 	p.Validation = v
-	return model.TripResult{Plan: p, Validation: v, Queries: queries}, nil
+	if p.SourceVersion > 0 {
+		queries, err = sourceQueryRequests(p, cmd)
+		if err != nil {
+			return model.TripResult{}, err
+		}
+		finishSourcePlan(&p, cmd)
+	}
+	return model.TripResult{Operation: cmd.Operation, RouteChanged: cmd.RouteTasks != nil, Plan: p, Validation: v, Queries: queries}, nil
 }
 
-func applyChange(task *model.TripTask, c model.TripTaskChange) error {
+func applyChange(task *model.TripTask, c model.TripTaskChange, sourceRole ...string) error {
 	old := *task
+	role := ""
+	if len(sourceRole) > 0 {
+		role = sourceRole[0]
+	}
+	if role != "" {
+		if err := validateSourcePatchScope(old, c); err != nil {
+			return err
+		}
+	}
+	if c.ExpectedRevision != nil && *c.ExpectedRevision != max(task.Revision, 1) {
+		return model.ErrConflict
+	}
 	for _, pair := range []struct {
 		in  *string
 		out *string
@@ -142,21 +175,47 @@ func applyChange(task *model.TripTask, c model.TripTaskChange) error {
 		task.Constraints = value
 	}
 	if c.Activities != nil {
-		for _, activity := range old.Activities {
-			if activity.Strength != model.Hard {
-				continue
+		if role != "" {
+			values, err := applySourceContent(old.Activities, *c.Activities)
+			if err != nil {
+				return err
 			}
-			if !slices.ContainsFunc(*c.Activities, func(next model.TripActivity) bool {
-				return activity.ID == next.ID && activity.Purpose == next.Purpose && activity.Date == next.Date && activity.Time == next.Time && next.Strength == model.Hard
-			}) {
-				return invalid("cannot remove a hard activity")
+			task.Activities = values
+		} else {
+			for _, activity := range old.Activities {
+				if activity.Strength != model.Hard {
+					continue
+				}
+				if !slices.ContainsFunc(*c.Activities, func(next model.TripActivity) bool {
+					return activity.ID == next.ID && activity.Purpose == next.Purpose && activity.Date == next.Date && activity.Time == next.Time && next.Strength == model.Hard
+				}) {
+					return invalid("cannot remove a hard activity")
+				}
 			}
+			values, err := clone(*c.Activities)
+			if err != nil {
+				return err
+			}
+			task.Activities = values
 		}
-		values, err := clone(*c.Activities)
-		if err != nil {
-			return err
+	}
+	if role != "" {
+		task.Conditions = mergeConditions(task.Conditions, c.Conditions)
+		if task.ConditionStrengths == nil {
+			task.ConditionStrengths = map[string]model.ConstraintStrength{}
 		}
-		task.Activities = values
+		for key, level := range c.ConditionStrengths {
+			if level == model.Soft && task.ConditionStrengths[key] == model.Hard {
+				return invalid("cannot soften hard task condition")
+			}
+			task.ConditionStrengths[key] = level
+		}
+		if c.Purpose != nil {
+			task.Purpose = *c.Purpose
+		}
+		if c.Items != nil {
+			task.Items = mergeSourceItems(task.Items, *c.Items)
+		}
 	}
 	if c.FieldSources != nil {
 		if task.FieldSources == nil {
@@ -166,10 +225,10 @@ func applyChange(task *model.TripTask, c model.TripTaskChange) error {
 			task.FieldSources[key] = source
 		}
 	}
-	if old.Origin != task.Origin || old.Destination != task.Destination || old.DepartureDate != task.DepartureDate || old.ArrivalDate != task.ArrivalDate || old.ArrivalBefore != task.ArrivalBefore || !reflect.DeepEqual(old.Constraints, task.Constraints) {
+	if role == "" && (old.Origin != task.Origin || old.Destination != task.Destination || old.DepartureDate != task.DepartureDate || old.ArrivalDate != task.ArrivalDate || old.ArrivalBefore != task.ArrivalBefore || !reflect.DeepEqual(old.Constraints, task.Constraints)) {
 		task.Train = nil
 	}
-	if old.Destination != task.Destination || old.CheckIn != task.CheckIn || old.CheckOut != task.CheckOut || old.Nights != task.Nights || old.RequiresHotel != task.RequiresHotel || !reflect.DeepEqual(old.Constraints, task.Constraints) {
+	if role == "" && (old.Destination != task.Destination || old.CheckIn != task.CheckIn || old.CheckOut != task.CheckOut || old.Nights != task.Nights || old.RequiresHotel != task.RequiresHotel || !reflect.DeepEqual(old.Constraints, task.Constraints)) {
 		task.Hotel = nil
 	}
 	return nil
@@ -267,7 +326,7 @@ func validatePlan(p model.TripPlan) (model.TripValidation, []model.TravelQuery, 
 			if strings.TrimSpace(a.Purpose) == "" || !validSource(a.Source) || (a.Strength != model.Hard && a.Strength != model.Soft) {
 				return v, nil, invalid("invalid activity")
 			}
-			if a.Strength == model.Hard && a.Source != "user" && a.Source != "context" {
+			if p.SourceVersion == 0 && a.Strength == model.Hard && a.Source != "user" && a.Source != "context" {
 				return v, nil, invalid("proposed activity cannot be hard")
 			}
 			if a.Date != "" {
@@ -285,7 +344,7 @@ func validatePlan(p model.TripPlan) (model.TripValidation, []model.TravelQuery, 
 		}
 		var taskTotal int64
 		taskUnknown := t.Train == nil || (t.RequiresHotel && t.Hotel == nil)
-		for _, choice := range []*model.TravelSelection{t.Train, t.Hotel} {
+		for domain, choice := range []*model.TravelSelection{t.Train, t.Hotel} {
 			if choice == nil {
 				continue
 			}
@@ -295,6 +354,13 @@ func validatePlan(p model.TripPlan) (model.TripValidation, []model.TravelQuery, 
 				continue
 			}
 			value := *choice.Candidate.PriceFen
+			if p.SourceVersion > 0 && domain == 0 {
+				party := max(1, t.Passengers)
+				if value < 0 || value > math.MaxInt64/int64(party) {
+					return v, nil, invalid("invalid or overflowing party price")
+				}
+				value *= int64(party)
+			}
 			if value < 0 || total > math.MaxInt64-value {
 				return v, nil, invalid("invalid or overflowing price")
 			}
@@ -311,22 +377,39 @@ func validatePlan(p model.TripPlan) (model.TripValidation, []model.TravelQuery, 
 			}
 		}
 		if t.RequiresHotel && (t.Hotel == nil || t.Hotel.Candidate.PriceFen == nil) {
-			add("hotel_price_unknown", t.ID, "hotel", "酒店地点信息不包含房价和库存。", "partial")
+			required := p.SourceVersion == 0 || t.HotelQuoteRequired || t.Constraints.MaxHotelNightFen != nil || t.Constraints.MaxHotelTotalFen != nil || (p.Constraints.MaxBudgetFen != nil && p.Constraints.BudgetStrength != model.Soft)
+			if required {
+				add("hotel_price_unknown", t.ID, "hotel", "酒店地点信息不包含房价和库存。", "partial")
+			} else {
+				v.Issues = append(v.Issues, model.TripIssue{Code: "hotel_price_unknown", TaskID: t.ID, Field: "hotel", Message: "酒店地点不提供房价、空房或入住规则。", Blocking: false})
+			}
 		}
 	}
 	if p.RoundTrip && len(p.Tasks) > 0 && p.Tasks[len(p.Tasks)-1].Destination != p.Tasks[0].Origin {
 		add("return_missing", "", "round_trip", "往返行程需要明确返程段；单程请明确指定。", "needs_input")
 	}
-	if p.Constraints.MaxBudgetFen != nil {
+	if p.Constraints.MaxBudgetFen != nil && !(p.SourceVersion > 0 && p.Constraints.BudgetStrength == model.Soft) {
+		exceededCode, unknownCode := "budget_exceeded", "budget_unknown"
+		if p.SourceVersion > 0 {
+			exceededCode = "total_budget_exceeded"
+			unknownCode = "total_budget_unknown"
+		}
 		if total > *p.Constraints.MaxBudgetFen && p.Constraints.BudgetStrength != model.Soft {
-			add("budget_exceeded", "", "max_budget_fen", "已知金额超过硬预算。", "conflict")
+			add(exceededCode, "", "max_budget_fen", "已知金额超过硬预算。", "conflict")
 		}
 		if unknownPrice {
-			add("budget_unknown", "", "max_budget_fen", "价格不完整，无法确认总预算。", "partial")
+			add(unknownCode, "", "max_budget_fen", "价格不完整，无法确认总预算。", "partial")
 		}
 	}
-	// Policies are verified separately using source-grounded evidence.
-	add("policy_unverified", "", "policy", "差旅政策尚未核验。", "partial")
+	// Source tourism does not inherit an unrelated corporate-policy blocker.
+	if p.SourceVersion == 0 || (p.PolicyContext != nil && (p.PolicyContext.Status != "ok" || len(p.PolicyContext.MissingFields) > 0 || len(p.PolicyContext.Conflicts) > 0)) || (p.PolicyContext == nil && slices.ContainsFunc(p.Tasks, func(t model.TripTask) bool { return t.Purpose == "business" })) {
+		add("policy_unverified", "", "policy", "差旅政策尚未核验。", "partial")
+	}
+	if p.SourceVersion > 0 {
+		if err := validateSourceTimeline(p, &v); err != nil {
+			return v, nil, err
+		}
+	}
 	if v.Status == "needs_input" || v.Status == "conflict" {
 		queries = nil
 	}
