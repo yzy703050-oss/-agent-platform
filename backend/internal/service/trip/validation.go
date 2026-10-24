@@ -81,6 +81,24 @@ func Preview(previous *model.TripPlan, cmd model.TripCommand, evidence []model.T
 		}
 	}
 	seen := map[string]bool{}
+	if cmd.Context != nil {
+		if p.QueryResults == nil {
+			p.QueryResults = map[string]model.TravelEvidence{}
+		}
+		for _, e := range evidence {
+			if e.PlanID == p.ID && e.ID != "" {
+				p.QueryResults[e.ID] = e
+				if !slices.Contains(p.QueryOrder, e.ID) {
+					p.QueryOrder = append(p.QueryOrder, e.ID)
+				}
+			}
+		}
+		for id, e := range p.QueryResults {
+			if !e.ExpiresAt.IsZero() && !e.ExpiresAt.After(now) {
+				delete(p.QueryResults, id)
+			}
+		}
+	}
 	for _, change := range cmd.Changes {
 		if seen[change.TaskID] {
 			return model.TripResult{}, invalid("duplicate task patch")
@@ -414,6 +432,7 @@ func validatePlan(p model.TripPlan) (model.TripValidation, []model.TravelQuery, 
 		add("policy_unverified", "", "policy", "差旅政策尚未核验。", "partial")
 	}
 	if p.SourceVersion > 0 {
+		validateSourcePolicyRules(p, &v)
 		if err := validateSourceTimeline(p, &v); err != nil {
 			return v, nil, err
 		}

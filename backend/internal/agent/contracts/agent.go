@@ -32,3 +32,6 @@ type Execution interface {
 type Agent interface {
 	NewExecution(context.Context, RunInput) (Execution, error)
 }
+
+type ContextPolicy struct{ PreserveCompleteHistory bool }
+type ContextPolicyProvider interface{ ContextPolicy() ContextPolicy }

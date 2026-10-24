@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -92,7 +93,34 @@ func (s *Service) prepare(ctx context.Context, ref model.TravelExecution, cmd mo
 	}
 	evidence, err := s.store.LoadTravelEvidence(ctx, ref, refs)
 	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			if expired := expiredSelection(previous, cmd.Selections, s.now()); expired != nil {
+				return model.TripResult{}, nil, expired
+			}
+		}
 		return model.TripResult{}, nil, err
+	}
+	if cmd.Context != nil {
+		for _, fact := range cmd.Context.EvidenceRefs {
+			loaded, err := s.store.LoadTravelEvidence(ctx, ref, []model.TravelCandidateRef{fact})
+			if errors.Is(err, model.ErrNotFound) {
+				continue
+			}
+			if err != nil {
+				return model.TripResult{}, nil, err
+			}
+			for _, e := range loaded {
+				duplicate := false
+				for _, old := range evidence {
+					if old.ID == e.ID && old.ResultRevision == e.ResultRevision {
+						duplicate = true
+					}
+				}
+				if !duplicate {
+					evidence = append(evidence, e)
+				}
+			}
+		}
 	}
 	result, err := Preview(previous, cmd, evidence, s.now())
 	if err != nil {

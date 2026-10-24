@@ -1,10 +1,13 @@
 package travel
 
 import (
+	"agent-platform/backend/internal/agent/contracts"
+	"agent-platform/backend/internal/agenttools"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"time"
 
@@ -19,7 +22,7 @@ type NativeMemory interface {
 	Update(context.Context, model.TravelExecution, string, model.TravelMemoryCommand) (model.TravelMemoryResult, error)
 }
 type NativeHistory interface {
-	Read(context.Context, model.TravelExecution, model.TravelHistoryRequest) (json.RawMessage, error)
+	ReadHistory(context.Context, model.TravelExecution, model.TravelHistoryRequest) (json.RawMessage, error)
 }
 type NativePolicy interface {
 	Query(context.Context, model.TravelExecution, model.TravelPolicyQuery) (model.SourcePolicyContext, error)
@@ -36,11 +39,33 @@ type nativeTool struct {
 }
 
 func (t *nativeTool) Info(context.Context) (*schema.ToolInfo, error) { return t.info, nil }
-func (t *nativeTool) InvokableRun(ctx context.Context, args string, _ ...tool.Option) (string, error) {
+func (t *nativeTool) InvokableRun(ctx context.Context, args string, _ ...tool.Option) (out string, err error) {
 	prepared, ok := ctx.Value(preparedCallKey{}).(PreparedCall)
 	if !ok || prepared.Name != t.info.Name || string(prepared.Arguments) != args {
 		return "", model.ErrIdempotencyConflict
 	}
+	started := time.Now()
+	if err = agenttools.Emit(ctx, contracts.Event{Type: "tool.started", Payload: mustJSON(map[string]any{"name": t.info.Name})}); err != nil {
+		return "", err
+	}
+	defer func() {
+		kind := "tool.completed"
+		status := "error"
+		if err == nil {
+			var result model.TravelToolResult
+			if json.Unmarshal([]byte(out), &result) == nil {
+				status = result.Status
+			}
+		}
+		if err != nil || status == "error" || status == "rejected" || status == "unknown" {
+			kind = "tool.failed"
+		}
+		eventErr := agenttools.Emit(ctx, contracts.Event{Type: kind, Payload: mustJSON(map[string]any{"name": t.info.Name, "duration_ms": time.Since(started).Milliseconds(), "status": status})})
+		if err == nil && eventErr != nil {
+			out = ""
+			err = eventErr
+		}
+	}()
 	return t.registry.Execute(ctx, prepared)
 }
 
@@ -96,7 +121,7 @@ func (r *Registry) Execute(ctx context.Context, call PreparedCall) (string, erro
 			if call.Read.TripPlanID != nil {
 				request.TripPlanID = *call.Read.TripPlanID
 			}
-			result.Data, err = r.cfg.History.Read(bounded, r.cfg.Execution, request)
+			result.Data, err = r.cfg.History.ReadHistory(bounded, r.cfg.Execution, request)
 		} else if call.Read.Resource == "trip" && call.Read.TripPlanID != nil {
 			var view model.TripResult
 			view, err = r.cfg.Trips.Inspect(bounded, r.cfg.Execution, *call.Read.TripPlanID)
@@ -142,6 +167,10 @@ func (r *Registry) Execute(ctx context.Context, call PreparedCall) (string, erro
 		if r.cfg.Memory == nil {
 			err = ruleError("MEMORY_UNAVAILABLE", "偏好写入尚未配置。", nil)
 		} else {
+			if call.Memory.Operation == "reanalyze" && (r.cfg.Context == nil || !explicitReanalysis.MatchString(r.cfg.Context(bounded).OriginalQuery)) {
+				err = ruleError("INVALID_ARGUMENTS", "preference reanalysis requires explicit user request", nil)
+				break
+			}
 			command := model.TravelMemoryCommand{Operation: call.Memory.Operation}
 			for _, update := range call.Memory.Updates {
 				command.Updates = append(command.Updates, model.TravelMemoryUpdate{Op: update.Op, Text: update.Text, ID: update.ID, Source: "explicit"})
@@ -157,9 +186,16 @@ func (r *Registry) Execute(ctx context.Context, call PreparedCall) (string, erro
 		if call.Policy == nil {
 			return "", model.ErrInvalidInput
 		}
-		policy := model.SourcePolicyContext{Status: "no_knowledge", Summary: "未取得适用政策资料，不能确认无限制。", Constraints: []model.SourcePolicyRule{}, Applicability: map[string]json.RawMessage{}, References: []model.PolicyFragment{}, MissingFields: []string{"policy_evidence"}, Conflicts: []json.RawMessage{}}
+		policy := model.SourcePolicyContext{Status: "no_knowledge", Summary: "未取得适用政策资料，不能确认无限制。", Constraints: []model.SourcePolicyRule{}, Applicability: map[string]json.RawMessage{}, References: []model.SourcePolicyReference{}, MissingFields: []string{"policy_evidence"}, Conflicts: []json.RawMessage{}}
 		if r.cfg.SourcePolicy != nil {
 			request := model.TravelPolicyQuery{Context: model.TripConditions(call.Policy.Context)}
+			if request.Context == nil {
+				request.Context = model.TripConditions{}
+			}
+			if r.cfg.Context != nil {
+				request.Context["original_query"] = mustJSON(r.cfg.Context(bounded).OriginalQuery)
+			}
+			request.Context["current_time"] = mustJSON(r.cfg.Now().In(sourceBeijing).Format(time.RFC3339))
 			if call.Policy.TripPlanID != nil {
 				request.TripPlanID = *call.Policy.TripPlanID
 			}
@@ -228,6 +264,9 @@ func (r *Registry) Execute(ctx context.Context, call PreparedCall) (string, erro
 		} else if errors.Is(err, model.ErrConflict) {
 			result.Status = "error"
 			result.Error = &model.TravelRuleError{Code: "REVISION_CONFLICT", Message: "行程或任务修订已变化，请读取当前版本后再修改。"}
+		} else if errors.Is(err, model.ErrInvalidInput) {
+			result.Status = "error"
+			result.Error = &model.TravelRuleError{Code: "INVALID_ARGUMENTS", Message: "工具参数或辅助模型结果结构不合法，未确认本次变更完成。"}
 		} else {
 			return "", err
 		}
@@ -235,6 +274,8 @@ func (r *Registry) Execute(ctx context.Context, call PreparedCall) (string, erro
 	data, err := json.Marshal(result)
 	return string(data), err
 }
+
+var explicitReanalysis = regexp.MustCompile(`(?i)分析|总结|重整|reanal|summari`)
 
 func nativeTimeout(value time.Duration) time.Duration {
 	if value <= 0 {
@@ -255,6 +296,22 @@ func NativeTripView(result model.TripResult) map[string]any {
 	rows := []any{}
 	reconstructed := []any{}
 	for _, t := range p.Tasks {
+		content := t.Activities
+		if content == nil {
+			content = []model.TripActivity{}
+		}
+		conditions := t.Conditions
+		if conditions == nil {
+			conditions = model.TripConditions{}
+		}
+		levels := t.ConditionStrengths
+		if levels == nil {
+			levels = map[string]model.ConstraintStrength{}
+		}
+		fieldSources := t.FieldSources
+		if fieldSources == nil {
+			fieldSources = map[string]string{}
+		}
 		var draft any
 		taskStatus := "pending"
 		if t.Train != nil || t.Hotel != nil {
@@ -268,7 +325,7 @@ func NativeTripView(result model.TripResult) map[string]any {
 				d["hotel_selection"] = t.Hotel.Ref
 			}
 		}
-		rows = append(rows, map[string]any{"id": t.ID, "revision": max(t.Revision, 1), "status": taskStatus, "origin": t.Origin, "destination": t.Destination, "purpose": t.Purpose, "requires_hotel": t.RequiresHotel, "conditions": t.Conditions, "content": t.Activities, "condition_strengths": t.ConditionStrengths, "draft_plan": draft})
+		rows = append(rows, map[string]any{"id": t.ID, "revision": max(t.Revision, 1), "status": taskStatus, "origin": t.Origin, "destination": t.Destination, "purpose": t.Purpose, "requires_hotel": t.RequiresHotel, "conditions": conditions, "content": content, "field_sources": fieldSources, "condition_strengths": levels, "draft_plan": draft})
 		facts := map[string]any{"task_id": t.ID, "train": nil, "hotel": nil, "schedule": map[string]any{"departure_at": nil, "arrival_at": nil, "check_in": t.CheckIn, "check_out": t.CheckOut}}
 		if t.Train != nil {
 			facts["train"] = nativeCandidate(t.Train.Candidate, "train")
@@ -343,7 +400,7 @@ func NativeEvidenceView(e model.TravelEvidence) map[string]any {
 	}
 	if e.Query.Domain == "weather" {
 		for _, weather := range e.Weather {
-			items = append(items, weather)
+			items = append(items, map[string]any{"date": weather.Date, "description": weather.Description, "temp_c": weather.TemperatureC, "min_temp_c": weather.MinTemperatureC, "max_temp_c": weather.MaxTemperatureC})
 		}
 	}
 	return map[string]any{"status": view.Status, "data_quality": e.Status, "domain": e.Query.Domain, "query_id": e.ID, "result_revision": e.ResultRevision, "query": NativeQueryParameters(e.Query), "items": items, "candidate_total": view.Total, "excluded_candidate_count": view.Excluded, "view_offset": 0, "has_more": view.HasMore, "source": e.Source, "fetched_at": e.Source.FetchedAt, "is_demo": e.IsDemo, "message": e.Message}
@@ -380,7 +437,7 @@ func nativeCandidate(c model.TravelCandidate, domain string) map[string]any {
 		}
 		out["stay_total_cny"] = price
 	} else {
-		out["name"] = c.Name
+		out["title"] = c.Name
 		out["url"] = c.URL
 	}
 	return out

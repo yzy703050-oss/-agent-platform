@@ -116,7 +116,7 @@ func (m *Manager) Submit(ctx context.Context, in model.AdmitRunInput, agent stri
 		}
 		return model.Run{}, e
 	}
-	messages, e := m.memory.Build(ctx, in.Scope, run.ConversationID, run.ID)
+	messages, e := m.loadContext(ctx, a, in.Scope, run)
 	if e != nil {
 		m.fail(run, in.Scope, "context_limit")
 		return run, e
@@ -132,6 +132,18 @@ func (m *Manager) Submit(ctx context.Context, in model.AdmitRunInput, agent stri
 	}
 	m.launch(run, in.Scope, execution)
 	return run, nil
+}
+func (m *Manager) loadContext(ctx context.Context, a contracts.Agent, scope model.Scope, run model.Run) ([]model.Message, error) {
+	if provider, ok := a.(contracts.ContextPolicyProvider); ok && provider.ContextPolicy().PreserveCompleteHistory {
+		reader, ok := m.memory.(interface {
+			BuildComplete(context.Context, model.Scope, string, string) ([]model.Message, error)
+		})
+		if !ok {
+			return nil, errors.New("complete authorized context reader required")
+		}
+		return reader.BuildComplete(ctx, scope, run.ConversationID, run.ID)
+	}
+	return m.memory.Build(ctx, scope, run.ConversationID, run.ID)
 }
 func (m *Manager) launch(run model.Run, s model.Scope, exec contracts.Execution) {
 	ctx, cancel := context.WithTimeout(m.ctx, m.limits.ExecutionTimeout)

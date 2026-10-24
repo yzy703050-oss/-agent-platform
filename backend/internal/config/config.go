@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	TravelPlanningRounds, TravelTurnSeconds, TravelContextTokens                         int
 	TravelQueryMode                                                                      string
 	TrainAPIKey, AMAPAPIKey                                                              string
 	RAGMCPCommand, RAGMCPDir, RAGCollection                                              string
@@ -70,6 +71,7 @@ func Load(get func(string) string) (Config, error) {
 		target   *int
 	}{
 		{"MAX_ITERATIONS", 8, &c.MaxIterations}, {"RUN_SECONDS", 120, &c.RunSeconds}, {"TOOL_SECONDS", 10, &c.ToolSeconds},
+		{"TRAVEL_PLANNING_ROUNDS", 8, &c.TravelPlanningRounds}, {"TRAVEL_TURN_SECONDS", 600, &c.TravelTurnSeconds}, {"TRAVEL_CONTEXT_TOKENS", 20000, &c.TravelContextTokens},
 		{"HEARTBEAT_SECONDS", 5, &c.HeartbeatSeconds}, {"LEASE_SECONDS", 20, &c.LeaseSeconds}, {"PAUSE_SECONDS", 15, &c.PauseSeconds},
 	}
 	for _, limit := range limits {

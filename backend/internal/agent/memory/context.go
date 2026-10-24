@@ -14,6 +14,12 @@ type ContextBuilder struct {
 
 func New(s ports.MessageStore, maxBytes int) *ContextBuilder { return &ContextBuilder{s, maxBytes} }
 
+// Agents with source-owned compaction need whole authorized turns first. The
+// Repository still filters eligibility; this does not expose display history.
+func (b *ContextBuilder) BuildComplete(ctx context.Context, s model.Scope, conv, run string) ([]model.Message, error) {
+	return b.store.ListContext(ctx, s, conv, run)
+}
+
 // Retain whole runs so tool-call/result groups are never cut in half.
 func (b *ContextBuilder) Build(ctx context.Context, s model.Scope, conv, run string) ([]model.Message, error) {
 	all, e := b.store.ListContext(ctx, s, conv, run)

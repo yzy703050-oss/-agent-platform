@@ -18,10 +18,21 @@ type SourcePolicyContext struct {
 	Summary       string                     `json:"summary"`
 	Constraints   []SourcePolicyRule         `json:"constraints"`
 	Applicability map[string]json.RawMessage `json:"applicability"`
-	References    []PolicyFragment           `json:"references"`
+	References    []SourcePolicyReference    `json:"references"`
 	EffectiveDate *string                    `json:"effective_date"`
 	MissingFields []string                   `json:"missing_fields"`
 	Conflicts     []json.RawMessage          `json:"conflicts"`
+}
+
+type SourcePolicyReference struct {
+	ID            string          `json:"id"`
+	DocumentID    json.RawMessage `json:"document_id,omitempty"`
+	ChunkID       json.RawMessage `json:"chunk_id,omitempty"`
+	Source        string          `json:"source,omitempty"`
+	Location      json.RawMessage `json:"location,omitempty"`
+	Version       json.RawMessage `json:"version,omitempty"`
+	EffectiveDate json.RawMessage `json:"effective_date,omitempty"`
+	Title         json.RawMessage `json:"title,omitempty"`
 }
 
 type PolicyConditions struct {
@@ -31,12 +42,13 @@ type PolicyConditions struct {
 	EffectiveTo   string `json:"effective_to,omitempty"`
 }
 type PolicyFragment struct {
-	ID         string           `json:"id"`
-	Content    string           `json:"content"`
-	Source     string           `json:"source"`
-	Location   json.RawMessage  `json:"location,omitempty"`
-	Score      *float64         `json:"score,omitempty"`
-	Conditions PolicyConditions `json:"conditions"`
+	Metadata   map[string]json.RawMessage `json:"metadata,omitempty"`
+	ID         string                     `json:"id"`
+	Content    string                     `json:"content"`
+	Source     string                     `json:"source"`
+	Location   json.RawMessage            `json:"location,omitempty"`
+	Score      *float64                   `json:"score,omitempty"`
+	Conditions PolicyConditions           `json:"conditions"`
 }
 type PolicyEvidence struct {
 	IsDemo     bool             `json:"is_demo,omitempty"`

@@ -1,6 +1,7 @@
 package providerhttp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -10,6 +11,10 @@ import (
 	"time"
 )
 
+type attemptTransport func(*http.Request) (*http.Response, error)
+
+func (f attemptTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
 type attemptDoer func(*http.Request) (*http.Response, error)
 
 func (f attemptDoer) Do(r *http.Request) (*http.Response, error) { return f(r) }
@@ -18,6 +23,27 @@ func testResponse(status int) *http.Response {
 }
 
 func TestTravelProviderResilience(t *testing.T) {
+	t.Run("model transport owns retries and preserves POST body", func(t *testing.T) {
+		calls := 0
+		transport := NewResilientTransport(attemptTransport(func(req *http.Request) (*http.Response, error) {
+			calls++
+			body, err := io.ReadAll(req.Body)
+			if err != nil || string(body) != `{"model":"fixture"}` {
+				t.Fatal("POST replay changed", err)
+			}
+			status := 500
+			if calls == 3 {
+				status = 200
+			}
+			return testResponse(status), nil
+		}), ResilienceOptions{Sleep: func(context.Context, time.Duration) error { return nil }, Jitter: func(time.Duration) time.Duration { return 0 }})
+		request, _ := http.NewRequest("POST", "https://example.test/v1/chat/completions", bytes.NewBufferString(`{"model":"fixture"}`))
+		response, err := (&http.Client{Transport: transport}).Do(request)
+		if err != nil || calls != 3 || response.StatusCode != 200 {
+			t.Fatal(calls, err)
+		}
+		response.Body.Close()
+	})
 	t.Run("source retry statuses and extra retry limit", func(t *testing.T) {
 		for _, status := range []int{400, 401, 403, 404, 429, 500, 501, 502, 503, 504, 505} {
 			calls := 0

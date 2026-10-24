@@ -113,6 +113,23 @@ func (h *nativeBatchGate) BeforeModelRewriteState(ctx context.Context, state *ad
 	if b.Final == "" && s.ModelCalls >= h.cfg.MaxIterations {
 		return ctx, state, adk.ErrExceedMaxIterations
 	}
+	if b.Final == "" && h.cfg.NativeBeforeModel != nil {
+		var final string
+		state.Messages, final, err = h.cfg.NativeBeforeModel(ctx, state.Messages)
+		if err != nil {
+			return ctx, state, err
+		}
+		if final != "" {
+			b.Final = final
+			if err = saveNativeBatch(ctx, b); err != nil {
+				return ctx, state, err
+			}
+		}
+		s, err = readState(ctx)
+		if err != nil {
+			return ctx, state, err
+		}
+	}
 	profile, err := h.profile(ctx)
 	if err != nil {
 		return ctx, state, err
@@ -154,7 +171,18 @@ func (h *nativeBatchGate) AfterModelRewriteState(ctx context.Context, state *adk
 		return ctx, state, errors.New("empty source model response")
 	}
 	msg := state.Messages[len(state.Messages)-1]
+	if h.cfg.NativeModelObserved != nil {
+		if err = h.cfg.NativeModelObserved(ctx, msg); err != nil {
+			return ctx, state, err
+		}
+	}
 	if len(msg.ToolCalls) == 0 {
+		if h.cfg.NativeFinalize != nil {
+			msg.Content, err = h.cfg.NativeFinalize(ctx, msg.Content)
+			if err != nil {
+				return ctx, state, err
+			}
+		}
 		return ctx, state, nil
 	}
 	profile, err := h.profile(ctx)
@@ -165,7 +193,14 @@ func (h *nativeBatchGate) AfterModelRewriteState(ctx context.Context, state *adk
 	for _, call := range msg.ToolCalls {
 		calls = append(calls, traveltools.NativeCall{ID: call.ID, Name: call.Function.Name, Arguments: json.RawMessage(call.Function.Arguments)})
 	}
-	batch, preflightErr := h.cfg.Registry.Preflight(ctx, profile, calls)
+	var preflightErr error
+	if h.cfg.NativeReserveBatch != nil {
+		preflightErr = h.cfg.NativeReserveBatch(ctx, calls)
+	}
+	batch := traveltools.PreparedBatch{Request: profile}
+	if preflightErr == nil {
+		batch, preflightErr = h.cfg.Registry.Preflight(ctx, profile, calls)
+	}
 	b := nativeBatchState{Sequence: s.ModelCalls, Batch: batch, Calls: calls, Results: map[string]pm.TravelToolResult{}}
 	if preflightErr != nil {
 		b.Rejected = correctableBatchError(preflightErr)
@@ -395,10 +430,13 @@ func (h *nativeBatchGate) afterTools(ctx context.Context) error {
 }
 
 func (h *nativeBatchGate) WrapModel(_ context.Context, inner model.BaseChatModel, _ *adk.ModelContext) (model.BaseChatModel, error) {
-	return &nativeFinalModel{inner: inner}, nil
+	return &nativeFinalModel{inner: inner, finalize: h.cfg.NativeFinalize}, nil
 }
 
-type nativeFinalModel struct{ inner model.BaseChatModel }
+type nativeFinalModel struct {
+	inner    model.BaseChatModel
+	finalize func(context.Context, string) (string, error)
+}
 
 func (m *nativeFinalModel) Generate(ctx context.Context, messages []*schema.Message, opts ...model.Option) (*schema.Message, error) {
 	b, err := loadNativeBatch(ctx)
@@ -406,9 +444,16 @@ func (m *nativeFinalModel) Generate(ctx context.Context, messages []*schema.Mess
 		return nil, err
 	}
 	if b.Final != "" {
-		return schema.AssistantMessage(b.Final, nil), nil
+		final := b.Final
+		if m.finalize != nil {
+			final, err = m.finalize(ctx, final)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return schema.AssistantMessage(final, nil), nil
 	}
-	return m.inner.Generate(ctx, messages, opts...)
+	return m.inner.Generate(withModelStage(ctx, modelStage(ctx)), messages, opts...)
 }
 func (m *nativeFinalModel) Stream(ctx context.Context, messages []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
 	v, err := m.Generate(ctx, messages, opts...)

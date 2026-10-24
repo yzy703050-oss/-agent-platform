@@ -2,6 +2,7 @@ package trip
 
 import (
 	"agent-platform/backend/internal/model"
+	"slices"
 	"time"
 )
 
@@ -17,6 +18,9 @@ func selectCandidate(p model.TripPlan, task model.TripTask, selection model.Trip
 			return model.TravelSelection{}, invalid("candidate scope or binding mismatch")
 		}
 		if (e.Status != "ok" && e.Status != "partial") || e.Source.Provider == "" || e.Source.FetchedAt.IsZero() || e.Source.FetchedAt.After(now) || !e.ExpiresAt.After(now) {
+			if p.SourceVersion > 0 && !e.ExpiresAt.After(now) && slices.ContainsFunc(CandidateView(e).Candidates, func(c model.TravelCandidate) bool { return c.ID == selection.Ref.CandidateID }) {
+				return model.TravelSelection{}, evidenceExpired(p, task.ID, e)
+			}
 			return model.TravelSelection{}, invalid("candidate evidence is missing or expired")
 		}
 		if p.SourceVersion > 0 {

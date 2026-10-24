@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"agent-platform/backend/internal/agent/memory"
 	"agent-platform/backend/internal/agent/ports"
 	traveltools "agent-platform/backend/internal/agenttools/travel"
 	pm "agent-platform/backend/internal/model"
@@ -21,6 +22,8 @@ type journalStore interface {
 	ports.TravelActionStore
 }
 type journal struct {
+	flow          *sourceFlow
+	contextTokens int
 	*adk.BaseChatModelAgentMiddleware
 	store  journalStore
 	ref    pm.TravelExecution
@@ -45,19 +48,10 @@ func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, op
 	}
 	// Ignore ephemeral Eino message IDs. Only semantic input and visible tools
 	// define this accepted decision's request identity.
-	normal := make([]pm.Message, 0, len(input))
-	for _, v := range input {
-		normal = append(normal, fromEino(v))
-	}
-	b, err := json.Marshal(struct {
-		Messages []pm.Message
-		Tools    []*schema.ToolInfo
-	}{normal, m.tools})
+	hash, err := decisionRequestHash(input, m.tools)
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256(b)
-	hash := hex.EncodeToString(sum[:])
 	key := decisionKey(s.ModelCalls)
 	d, ok, err := m.h.store.FindTravelDecision(ctx, m.h.ref, key)
 	if err != nil {
@@ -69,12 +63,33 @@ func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, op
 		}
 		return toEino(d.Response), nil
 	}
-	response, err := m.inner.Generate(ctx, input, opts...)
+	var response *schema.Message
+	if m.h.native {
+		response, input, err = generateSourceTurn(ctx, m.inner, input, m.h.flow, opts...)
+	} else {
+		response, err = m.inner.Generate(ctx, input, opts...)
+	}
 	if err != nil {
 		return nil, err
 	}
+	if m.h.native {
+		batch, readErr := loadNativeBatch(ctx)
+		if readErr != nil {
+			return nil, readErr
+		}
+		if batch.Final != "" {
+			return response, nil
+		}
+		hash, err = decisionRequestHash(input, m.tools)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if response == nil {
 		return nil, pm.ErrInvalidInput
+	}
+	if m.h.native && m.h.contextTokens > 0 && sourceTokenEstimate(append(append([]*schema.Message(nil), input...), response), m.tools) > m.h.contextTokens {
+		return nil, memory.ErrTravelContextBudget
 	}
 	encoded, encodeErr := json.Marshal(fromEino(response))
 	if encodeErr != nil || len(encoded) > 256000 {
@@ -89,11 +104,31 @@ func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, op
 	if writes > 1 && !m.h.native {
 		return nil, pm.ErrInvalidInput
 	}
-	d, err = m.h.store.AcceptTravelDecision(ctx, m.h.ref, pm.TravelDecision{RunID: m.h.ref.RunID, DecisionKey: key, Stage: string(s.Phase), RequestHash: hash, Response: fromEino(response)})
+	stage := string(s.Phase)
+	if m.h.native {
+		stage = modelStage(ctx)
+	}
+	d, err = m.h.store.AcceptTravelDecision(ctx, m.h.ref, pm.TravelDecision{RunID: m.h.ref.RunID, DecisionKey: key, Stage: stage, RequestHash: hash, Response: fromEino(response)})
 	if err != nil {
 		return nil, err
 	}
 	return toEino(d.Response), nil
+}
+
+func decisionRequestHash(input []*schema.Message, tools []*schema.ToolInfo) (string, error) {
+	normal := make([]pm.Message, 0, len(input))
+	for _, msg := range input {
+		normal = append(normal, fromEino(msg))
+	}
+	raw, err := json.Marshal(struct {
+		Messages []pm.Message
+		Tools    []*schema.ToolInfo
+	}{normal, tools})
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func (h *journal) recordRejected(ctx context.Context, call traveltools.NativeCall, reason *pm.TravelRuleError) (string, error) {

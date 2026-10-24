@@ -13,6 +13,26 @@ import (
 
 var ErrProtocol = errors.New("invalid policy evidence response")
 
+type policyMetadata struct {
+	Source        string                     `json:"source"`
+	Location      json.RawMessage            `json:"location"`
+	Region        string                     `json:"region"`
+	EmployeeLevel string                     `json:"employee_level"`
+	EffectiveFrom string                     `json:"effective_from"`
+	EffectiveTo   string                     `json:"effective_to"`
+	Fields        map[string]json.RawMessage `json:"-"`
+}
+
+func (m *policyMetadata) UnmarshalJSON(raw []byte) error {
+	type plain policyMetadata
+	var value plain
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return err
+	}
+	*m = policyMetadata(value)
+	return json.Unmarshal(raw, &m.Fields)
+}
+
 type Caller interface {
 	CallTool(context.Context, *sdk.CallToolParams) (*sdk.CallToolResult, error)
 }
@@ -59,18 +79,11 @@ func decodePolicy(data []byte, collection string) (model.PolicyEvidence, error) 
 		Status     string `json:"status"`
 		Collection string `json:"collection"`
 		Fragments  []struct {
-			ID       string   `json:"id"`
-			ChunkID  string   `json:"chunk_id"`
-			Content  string   `json:"content"`
-			Score    *float64 `json:"score"`
-			Metadata struct {
-				Source        string          `json:"source"`
-				Location      json.RawMessage `json:"location"`
-				Region        string          `json:"region"`
-				EmployeeLevel string          `json:"employee_level"`
-				EffectiveFrom string          `json:"effective_from"`
-				EffectiveTo   string          `json:"effective_to"`
-			} `json:"metadata"`
+			ID       string         `json:"id"`
+			ChunkID  string         `json:"chunk_id"`
+			Content  string         `json:"content"`
+			Score    *float64       `json:"score"`
+			Metadata policyMetadata `json:"metadata"`
 		} `json:"fragments"`
 	}
 	if json.Unmarshal(data, &wire) != nil || wire.Version != 1 || wire.Collection != collection || (wire.Status != "ok" && wire.Status != "no_knowledge") || len(wire.Fragments) > 20 {
@@ -86,7 +99,7 @@ func decodePolicy(data []byte, collection string) (model.PolicyEvidence, error) 
 			return model.PolicyEvidence{}, ErrProtocol
 		}
 		seen[f.ID] = true
-		out.Fragments = append(out.Fragments, model.PolicyFragment{ID: f.ID, Content: f.Content, Source: f.Metadata.Source, Location: f.Metadata.Location, Score: f.Score, Conditions: model.PolicyConditions{Region: f.Metadata.Region, EmployeeLevel: f.Metadata.EmployeeLevel, EffectiveFrom: f.Metadata.EffectiveFrom, EffectiveTo: f.Metadata.EffectiveTo}})
+		out.Fragments = append(out.Fragments, model.PolicyFragment{ID: f.ID, Content: f.Content, Source: f.Metadata.Source, Location: f.Metadata.Location, Score: f.Score, Metadata: f.Metadata.Fields, Conditions: model.PolicyConditions{Region: f.Metadata.Region, EmployeeLevel: f.Metadata.EmployeeLevel, EffectiveFrom: f.Metadata.EffectiveFrom, EffectiveTo: f.Metadata.EffectiveTo}})
 	}
 	return out, nil
 }

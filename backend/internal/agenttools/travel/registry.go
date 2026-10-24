@@ -3,6 +3,7 @@ package travel
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -15,10 +16,11 @@ import (
 )
 
 type ProfileRequest struct {
-	Role           string              `json:"role"`
-	PolicyObserved bool                `json:"policy_observed"`
-	AllowedTripIDs []string            `json:"allowed_trip_ids,omitempty"`
-	RetryQueries   []model.TravelQuery `json:"retry_queries,omitempty"`
+	RefreshedTripIDs []string            `json:"refreshed_trip_ids,omitempty"`
+	Role             string              `json:"role"`
+	PolicyObserved   bool                `json:"policy_observed"`
+	AllowedTripIDs   []string            `json:"allowed_trip_ids,omitempty"`
+	RetryQueries     []model.TravelQuery `json:"retry_queries,omitempty"`
 }
 type NativeCall struct {
 	ID        string          `json:"id"`
@@ -202,6 +204,10 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 			if preparer, ok := r.cfg.Trips.(tripPreparer); ok {
 				preview, err := preparer.Prepare(ctx, r.cfg.Execution, cmd)
 				if err != nil {
+					var rule *model.TravelRuleError
+					if errors.As(err, &rule) && rule.Code == "EVIDENCE_EXPIRED" && slices.Contains(request.RefreshedTripIDs, cmd.PlanID) {
+						return batch, &model.TravelRuleError{Code: "AUTOMATIC_REFRESH_LIMIT", Message: "本轮已更新过候选，未再次自动刷新。", Details: rule.Details}
+					}
 					return batch, err
 				}
 				for _, q := range preview.Queries {

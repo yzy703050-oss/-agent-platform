@@ -15,8 +15,27 @@ type TravelMemoryApplied struct {
 	ID string `json:"id"`
 }
 type TravelMemoryResult struct {
+	Status   string                `json:"status,omitempty"`
+	Reason   string                `json:"reason,omitempty"`
 	Applied  []TravelMemoryApplied `json:"applied"`
 	Rejected []TravelMemoryUpdate  `json:"rejected"`
+}
+
+type TravelMemoryCommit struct {
+	SourceRuns               []string
+	Execution                TravelExecution
+	OperationID, RequestHash string
+	ExpectedVersions         map[string]int64
+	Changes                  []TravelPreferenceCommand
+	Result                   TravelMemoryResult
+}
+
+type TravelPreferenceAnalysis struct {
+	InitialSummaryDone bool     `json:"initial_summary_done"`
+	CoveredTripIDs     []string `json:"covered_trip_ids"`
+	MemoryIDs          []string `json:"memory_ids"`
+	Summary            string   `json:"summary"`
+	Trigger            string   `json:"trigger"`
 }
 
 type TravelPreferenceCommand struct {
@@ -27,12 +46,13 @@ type TravelPreferenceCommand struct {
 	Origin string `json:"-"`
 }
 type TravelPreference struct {
-	Key         string `json:"key"`
-	Value       string `json:"value"`
-	Revision    int64  `json:"revision"`
-	Retracted   bool   `json:"retracted"`
-	Origin      string `json:"origin"`
-	SourceRunID string `json:"source_run_id"`
+	SourceRuns  []string `json:"source_runs,omitempty"`
+	Key         string   `json:"key"`
+	Value       string   `json:"value"`
+	Revision    int64    `json:"revision"`
+	Retracted   bool     `json:"retracted"`
+	Origin      string   `json:"origin"`
+	SourceRunID string   `json:"source_run_id"`
 }
 type TravelPreferenceCommit struct {
 	Execution   TravelExecution

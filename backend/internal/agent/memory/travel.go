@@ -23,6 +23,10 @@ func NewTravelContext(preferences TravelPreferenceReader, summaries TravelSummar
 	return &TravelContext{preferences: preferences, summaries: summaries, maxBytes: maxBytes}
 }
 func (b *TravelContext) WithMaintenance(m *Maintenance) *TravelContext { b.maintenance = m; return b }
+func (b *TravelContext) SourceSummaryStore() SummaryStore {
+	s, _ := b.summaries.(SummaryStore)
+	return s
+}
 func (b *TravelContext) Maintain(ctx context.Context, ref model.TravelExecution, messages []model.Message) error {
 	if b.maintenance == nil {
 		return nil

@@ -117,14 +117,14 @@
 
 **Interfaces:** ExecutionState/DecideRole/BuildReview 消费 Task 2 真实业务快照和 Task 3 Registry；角色动态 ToolInfos 与服务端相同授权。Policy/Preference 辅助角色消费现有模型接口与只读检索/历史接口，确定性验证消费 model 类型，不把模型调用放进 Service/Repository。状态序列化保留业务批次、活跃时间、错误/blocked evidence、review 指纹、重试、交接及待查。
 
-- [ ] 写一个综合 `TestTravelSourceFlow`：Main→propose/自动查询→Verifier→局部 amend/select＋绑定收尾；全局遗漏→独立 replan→Main 修现有行程；纯查询→Summary 不写计划；政策观察后回 Main；多个计划同时进入 review。
-- [ ] 同一表中增加：语义 review 三次相同但回执/文字变化→unchanged_reviews=2 停止；真实修改重置计数；允许 partial 同轮停止；无有效修改不能判成功；预算计数在开始规划后的批次累计且拒绝批次按原版计数，不使用两次 propose/三次 amend 限制。
-- [ ] 为政策/偏好/压缩复用脚本模型固定输入：完整原文与 contract golden；有证据政策仅一次提取且核验引用；资料不足保留缺口；偏好只分析符合源要求的新确认有效行程，模拟/失败行程不参与；压缩仅完整旧轮次、至多三个前缀、80% 触发，工具配对和来源不丢。
-- [ ] 运行 `go test ./internal/agent/agents/travel ./internal/agent/memory ./internal/service/trip ./internal/service/travelpreference -run 'TestTravelSourceFlow|TestTravelSourceAuxiliary|TestTravelContext' -count=1`；Expected: RED，缺角色/审查/辅助行为导致断言失败。
-- [ ] 对照源 loop/state/limits/registry/planning 全量分支接回 Eino，原文与 schema 使用 Task 1 资源，移除缩写指令和额外修改次数限制；注入原版 review/calendar/候选视图及 execution facts。角色切换不经过 AgentManager，不新增独立决策循环。
-- [ ] 实现源等价政策提取/核验、偏好触发、压缩及恢复信息；保留源默认业务限制与明确宿主围栏，配置与停止原因不能混淆。建立所有辅助模型调用的统一阶段标记供 Task 6 统计。
-- [ ] 运行受影响 Agent/Memory/Service/Config 单测；Expected: GREEN，General 的模型输入与默认限制保持现有行为。
-- [ ] 提交 `fix: restore original travel review correction and stopping flow`，完成 4.1/4.2。
+- [x] 写一个综合 `TestTravelSourceFlow`：Main→propose/自动查询→Verifier→局部 amend/select＋绑定收尾；全局遗漏→独立 replan→Main 修现有行程；纯查询→Summary 不写计划；政策观察后回 Main；多个计划同时进入 review。
+- [x] 同一表中增加：语义 review 三次相同但回执/文字变化→unchanged_reviews=2 停止；真实修改重置计数；允许 partial 同轮停止；无有效修改不能判成功；预算计数在开始规划后的批次累计且拒绝批次按原版计数，不使用两次 propose/三次 amend 限制。
+- [x] 为政策/偏好/压缩复用脚本模型固定输入：完整原文与 contract golden；有证据政策仅一次提取且核验引用；资料不足保留缺口；偏好只分析符合源要求的新确认有效行程，模拟/失败行程不参与；压缩仅完整旧轮次、至多三个前缀、80% 触发，工具配对和来源不丢。
+- [x] 运行 `go test ./internal/agent/agents/travel ./internal/agent/memory ./internal/service/trip ./internal/service/travelpreference -run 'TestTravelSourceFlow|TestTravelSourceAuxiliary|TestTravelContext' -count=1`；Expected: RED，缺角色/审查/辅助行为导致断言失败。
+- [x] 对照源 loop/state/limits/registry/planning 全量分支接回 Eino，原文与 schema 使用 Task 1 资源，移除缩写指令和额外修改次数限制；注入原版 review/calendar/候选视图及 execution facts。角色切换不经过 AgentManager，不新增独立决策循环。
+- [x] 实现源等价政策提取/核验、偏好触发、压缩及恢复信息；保留源默认业务限制与明确宿主围栏，配置与停止原因不能混淆。建立所有辅助模型调用的统一阶段标记供 Task 6 统计。
+- [x] 运行受影响 Agent/Memory/Service/Config 单测；Expected: GREEN，General 的模型输入与默认限制保持现有行为。
+- [x] 提交 `fix: restore original travel review correction and stopping flow`，完成 4.1/4.2。
 
 ### Task 5: 真实事务、断点与平台隔离
 

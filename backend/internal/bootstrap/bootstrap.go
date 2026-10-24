@@ -97,9 +97,9 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 			return &general.RepositoryStore{Store: repo, Input: in, Fingerprint: a.Fingerprint()}
 		}, cfg.ModelBaseURL+"/"+cfg.ModelID, time.Duration(cfg.PauseSeconds)*time.Second)
 		registry.Register("general", a)
-		tripAgent, err := travel.NewAgent(travel.Config{Model: modelClient, Trips: trips, Preferences: preferences, Policy: tripsvc.NewPolicyService(retriever), Decisions: repo, Checkpoints: repo, Context: memory.NewTravelContext(preferences, repo, 32000).WithMaintenance(memory.NewMaintenance(repo, preferences)), Identity: cfg.ModelBaseURL + "/" + cfg.ModelID})
-		if err == nil {
-			registry.Register("travel", tripAgent)
+		if travelModel,err:=llm.NewTravel(ctx,cfg.ModelBaseURL,cfg.ModelID,cfg.ModelAPIKey);err==nil{
+			tripAgent, err := travel.NewAgent(travel.Config{Model: travelModel, Trips: trips, Preferences: preferences, Retriever: retriever, PlanningRounds: cfg.TravelPlanningRounds, ContextTokens: cfg.TravelContextTokens, TurnTimeout: time.Duration(cfg.TravelTurnSeconds) * time.Second, Decisions: repo, Checkpoints: repo, Context: memory.NewTravelContext(preferences, repo, cfg.TravelContextTokens*4), Identity: cfg.ModelBaseURL + "/" + cfg.ModelID})
+			if err == nil { registry.Register("travel", tripAgent) }
 		}
 	}
 	m := manager.New(repo, memory.New(repo, 32000), registry, contracts.Limits{Iterations: cfg.MaxIterations, ExecutionTimeout: time.Duration(cfg.RunSeconds) * time.Second, ToolTimeout: time.Duration(cfg.ToolSeconds) * time.Second, PauseTimeout: time.Duration(cfg.PauseSeconds) * time.Second})

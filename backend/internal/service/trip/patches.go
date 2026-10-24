@@ -314,6 +314,13 @@ func applySourceMetadata(p *model.TripPlan, previous *model.TripPlan, cmd model.
 			}
 		}
 	}
+	if p.PolicyContext != nil {
+		resolved, err := ResolveSourcePolicyForPlan(*p.PolicyContext, *p, cmd.Context.PolicyScope)
+		if err != nil {
+			return err
+		}
+		p.PolicyContext = &resolved
+	}
 	snapshot, err := sourceConstraintSnapshot(*p)
 	if err != nil {
 		return err

@@ -46,7 +46,9 @@ AgentManager 处理平台生命周期，不理解差旅策略。具体 Agent 适
 
 优先使用当前 Eino ChatModelAgent middleware、工具包装及 session state，恢复原版批次执行语义。实施前用一项窄探针验证整批预检发生在任何单项副作用之前，以及同轮 bound reply 能可靠停止。如果 Eino 当前接口无法满足，先在 design/计划记录具体限制和等价适配，不能暗改为逐项先写后校验或并行第二套决策循环。
 
-Eino 实测接线：AfterModel 保存整批预检结果，工具 middleware 在 journal 内层业务入口之前共同消费门禁；after-tool hook 汇总已记录结果。ChatModelAgent 在工具后仍会进入下一次模型节点，故对已有实际 bound reply 的分支，由外层模型包装返回该确定性 AssistantMessage，不调用底层模型或新增模型决策。Eino 迭代外壳多留一次节点空间，真实模型次数仍由原宿主上限检查。批次结果和可信角色上下文均序列化；不能依赖不落盘的 Go context 指针恢复权限。该机制已由真实 Eino 和计数模型验证。
+Eino 实测接线：AfterModel 保存整批预检结果，工具 middleware 在 journal 内层业务入口之前共同消费门禁；after-tool hook 汇总已记录结果。ChatModelAgent 在工具后仍会进入下一次模型节点，故对已有实际 bound reply 的分支，由外层模型包装返回该确定性 AssistantMessage，不调用底层模型或新增模型决策。Eino 迭代外壳多留一次节点空间，主决策迭代仍由原宿主上限检查；原版响应再生成全程最多额外两次实际 Generate，辅助角色另计，并全部纳入总调用与 Token 指标。批次结果和可信角色上下文均序列化；不能依赖不落盘的 Go context 指针恢复权限。该机制已由真实 Eino 和计数模型验证。
+
+源码复核修正：runtime/loop.py 的普通查询 Summary 提示仍使用 creation_registry；只有 observation_only 停止状态禁用工具。提示角色与工具执行权限须分开：普通 Summary 使用 Main 的执行权限及 pre-policy/main profile，继续允许合法补查；工具 profile 中空的 summary 只用于停止后的无工具观察。不得把普通 Summary 固定成无工具阶段。源码的空/不完整响应最多再生成两次，Verifier 每次重入的无进展检查仍保留；重试后的完整输入及 hash 一起保存，半截响应不形成 accepted 决策。
 
 ### D3. 原文和工具契约一同保留
 

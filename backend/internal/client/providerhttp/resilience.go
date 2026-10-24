@@ -21,9 +21,10 @@ var (
 )
 
 type ResilienceOptions struct {
-	Now    func() time.Time
-	Sleep  func(context.Context, time.Duration) error
-	Jitter func(time.Duration) time.Duration
+	RequestTimeout time.Duration
+	Now            func() time.Time
+	Sleep          func(context.Context, time.Duration) error
+	Jitter         func(time.Duration) time.Duration
 }
 type circuitLease struct {
 	state      string

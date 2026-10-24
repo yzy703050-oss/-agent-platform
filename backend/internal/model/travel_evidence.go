@@ -26,6 +26,13 @@ type TravelQuery struct {
 	Refresh            bool            `json:"refresh,omitempty"`
 	DependsOn          []string        `json:"depends_on,omitempty"`
 }
+
+type TripRefreshPlan struct {
+	PlanID           string               `json:"trip_plan_id"`
+	ExpectedRevision int64                `json:"expected_revision"`
+	Queries          []TravelQuery        `json:"queries"`
+	Invalidated      []TravelCandidateRef `json:"invalidated_evidence"`
+}
 type TravelSource struct {
 	Provider  string    `json:"provider"`
 	URL       string    `json:"url,omitempty"`

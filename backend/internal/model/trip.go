@@ -26,6 +26,8 @@ type TripQueryItem struct {
 
 // Supplied by the authorized runtime, never by tool JSON.
 type TripDecisionContext struct {
+	PolicyScope   TripConditions
+	EvidenceRefs  []TravelCandidateRef
 	Role          string
 	OriginalQuery string
 	Policy        *SourcePolicyContext
@@ -122,6 +124,7 @@ type TripValidation struct {
 }
 
 type TripPlan struct {
+	QueryOrder          []string                      `json:"query_order,omitempty"`
 	ID                  string                        `json:"id"`
 	UserID              string                        `json:"user_id"`
 	ConversationID      string                        `json:"conversation_id"`

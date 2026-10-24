@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"agent-platform/backend/internal/agent/contracts"
 	"agent-platform/backend/internal/agent/einoruntime"
@@ -17,58 +18,119 @@ import (
 	"agent-platform/backend/internal/agenttools"
 	traveltools "agent-platform/backend/internal/agenttools/travel"
 	pm "agent-platform/backend/internal/model"
+	tripsvc "agent-platform/backend/internal/service/trip"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
 
 type Config struct {
-	Model       model.ToolCallingChatModel
-	Trips       traveltools.Trips
-	Preferences traveltools.Preferences
-	Policy      traveltools.Policy
-	Decisions   journalStore
-	Checkpoints ports.CheckpointStore
-	Context     *memory.TravelContext
-	Identity    string
+	Memory         traveltools.NativeMemory
+	Retriever      tripsvc.PolicyRetriever
+	SourcePolicy   traveltools.NativePolicy
+	History        traveltools.NativeHistory
+	PlanningRounds int
+	ContextTokens  int
+	TurnTimeout    time.Duration
+	Model          model.ToolCallingChatModel
+	Trips          traveltools.Trips
+	Preferences    traveltools.Preferences
+	Policy         traveltools.Policy
+	Decisions      journalStore
+	Checkpoints    ports.CheckpointStore
+	Context        *memory.TravelContext
+	Identity       string
 }
 type Agent struct {
+	preference  *PreferenceAgent
 	cfg         Config
 	fingerprint string
 }
 
 func NewAgent(cfg Config) (*Agent, error) {
+	if cfg.ContextTokens <= 0 {
+		cfg.ContextTokens = 20000
+	}
 	if cfg.Model == nil || cfg.Trips == nil || cfg.Preferences == nil || cfg.Decisions == nil || cfg.Checkpoints == nil || cfg.Identity == "" {
 		return nil, errors.New("travel dependencies unavailable")
 	}
-	sum := sha256.Sum256([]byte(cfg.Identity + instruction + "travel-workflow-v2:tools-v2:eino-v0.9.0-beta.1"))
-	return &Agent{cfg: cfg, fingerprint: hex.EncodeToString(sum[:])}, nil
-}
-func (a *Agent) Fingerprint() string { return a.fingerprint }
-func (a *Agent) NewExecution(ctx context.Context, in contracts.RunInput) (contracts.Execution, error) {
-	ref := pm.TravelExecution{Scope: in.Scope, ConversationID: in.Run.ConversationID, RunID: in.Run.ID, Attempt: in.Run.Attempt}
-	exec := &execution{agent: a, input: in, done: make(chan struct{})}
-	tools, err := traveltools.New(traveltools.Config{Trips: a.cfg.Trips, Preferences: a.cfg.Preferences, Policy: a.cfg.Policy, Execution: ref, Timeout: in.Limits.ToolTimeout})
+	if cfg.SourcePolicy == nil {
+		cfg.SourcePolicy = NewPolicyAgent(cfg.Model, cfg.Retriever)
+	}
+	if cfg.History == nil {
+		cfg.History, _ = cfg.Trips.(traveltools.NativeHistory)
+	}
+	var preference *PreferenceAgent
+	if history, ok := cfg.Trips.(preferenceHistory); ok {
+		if mem, ok := cfg.Preferences.(preferenceMemory); ok {
+			preference = &PreferenceAgent{model: cfg.Model, history: history, memory: mem}
+			if cfg.Memory == nil {
+				cfg.Memory = preference
+			}
+		}
+	}
+	if cfg.Memory == nil {
+		cfg.Memory, _ = cfg.Preferences.(traveltools.NativeMemory)
+	}
+	profiles := map[string]any{}
+	for _, name := range []string{"main", "pre_policy", "review", "review_retry", "summary"} {
+		profile, err := traveltools.SourceProfile(name)
+		if err != nil {
+			return nil, err
+		}
+		profiles[name] = profile
+	}
+	contractsJSON, err := json.Marshal(profiles)
 	if err != nil {
 		return nil, err
 	}
-	h := &journal{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}, store: a.cfg.Decisions, ref: ref}
-	kernel, err := NewKernel(ctx, KernelConfig{Model: a.cfg.Model, Tools: tools, MaxIterations: in.Limits.Iterations, Handlers: []adk.ChatModelAgentMiddleware{h}, OnState: func(ctx context.Context, s State) error {
+	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + string(contractsJSON) + "travel-source-flow-v1:batch-v1:eino-v0.9.0-beta.1"))
+	return &Agent{cfg: cfg, preference: preference, fingerprint: hex.EncodeToString(sum[:])}, nil
+}
+func (a *Agent) Fingerprint() string { return a.fingerprint }
+func (a *Agent) ContextPolicy() contracts.ContextPolicy {
+	return contracts.ContextPolicy{PreserveCompleteHistory: true}
+}
+func (a *Agent) NewExecution(ctx context.Context, in contracts.RunInput) (contracts.Execution, error) {
+	ref := pm.TravelExecution{Scope: in.Scope, ConversationID: in.Run.ConversationID, RunID: in.Run.ID, Attempt: in.Run.Attempt}
+	exec := &execution{agent: a, input: in, done: make(chan struct{})}
+	query, initialPlans := sourceInput(in)
+	flow := newSourceFlow(flowConfig{Trips: a.cfg.Trips, Execution: ref, OriginalQuery: query, InitialPlanIDs: initialPlans, PlanningRounds: a.cfg.PlanningRounds, Timeout: a.cfg.TurnTimeout, Snapshot: func(s FlowState) {
 		exec.mu.Lock()
-		exec.planID = s.PlanID
+		exec.source = s
+		if len(s.Plans) > 0 {
+			exec.planID = s.planIDs()[0]
+		}
+		exec.mu.Unlock()
+	}})
+	flow.cfg.Model = a.cfg.Model
+	flow.cfg.Preference = a.preference
+	flow.cfg.History = in.Messages
+	flow.cfg.ContextTokens = a.cfg.ContextTokens
+	if flow.cfg.ContextTokens <= 0 {
+		flow.cfg.ContextTokens = 20000
+	}
+	if a.cfg.Context != nil {
+		flow.cfg.Summaries = a.cfg.Context.SourceSummaryStore()
+	}
+	if reader, ok := a.cfg.Preferences.(memory.TravelPreferenceReader); ok {
+		flow.cfg.ReadPreferences = func(ctx context.Context) ([]pm.TravelPreference, error) {
+			return reader.ReadEffective(ctx, ref.Scope, ref.RunID)
+		}
+	}
+	registry, err := traveltools.NewRegistry(traveltools.NativeConfig{Config: traveltools.Config{Trips: a.cfg.Trips, Execution: ref, Timeout: in.Limits.ToolTimeout}, Context: flow.decision, Memory: a.cfg.Memory, History: a.cfg.History, SourcePolicy: a.cfg.SourcePolicy, OnNativeTrip: flow.recordTrip})
+	if err != nil {
+		return nil, err
+	}
+	flow.registry = registry
+	h := &journal{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}, store: a.cfg.Decisions, ref: ref, native: true, flow: flow, contextTokens: a.cfg.ContextTokens}
+	kernel, err := NewKernel(ctx, KernelConfig{Model: a.cfg.Model, Registry: registry, NativeFinalize: flow.finalize, NativeBeforeModel: flow.beforeModel, NativeModelObserved: flow.modelObserved, NativeReserveBatch: flow.reserve, NativeProfile: flow.profile, NativeAfterBatch: flow.afterBatch, NativeRejected: h.recordRejected, MaxIterations: in.Limits.Iterations, Handlers: []adk.ChatModelAgentMiddleware{h}, OnState: func(ctx context.Context, s State) error {
+		exec.mu.Lock()
+		if s.PlanID != "" {
+			exec.planID = s.PlanID
+		}
 		exec.state = s
 		exec.mu.Unlock()
-		if s.PlanID != "" {
-			inspection, err := a.cfg.Trips.Inspect(ctx, ref, s.PlanID)
-			if err != nil {
-				return err
-			}
-			for _, issue := range inspection.Validation.Issues {
-				if issue.Code == "selection_expired" {
-					return pm.ErrTravelEvidenceExpired
-				}
-			}
-		}
 		b, _ := json.Marshal(map[string]any{"phase": s.Phase, "plan_id": s.PlanID})
 		return agenttools.Emit(ctx, contracts.Event{Type: "travel.phase", Payload: b})
 	}})
@@ -96,6 +158,7 @@ type execution struct {
 	cancelRequested bool
 	planID          string
 	state           State
+	source          FlowState
 }
 
 func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error) (contracts.ExecutionResult, error) {
@@ -109,165 +172,39 @@ func (e *execution) Start(ctx context.Context, emit func(contracts.Event) error)
 		cancel()
 	}
 	e.mu.Unlock()
-	var err error
-	defer func() { e.mu.Lock(); e.err = err; e.mu.Unlock() }()
+	var resultErr error
+	defer func() { e.mu.Lock(); e.err = resultErr; e.mu.Unlock() }()
 	if ctx.Err() != nil {
-		err = ctx.Err()
-		return contracts.ExecutionResult{}, err
+		resultErr = ctx.Err()
+		return contracts.ExecutionResult{}, resultErr
 	}
 	messages := e.input.Messages
-	if !e.input.Resume && e.agent.cfg.Context != nil {
-		ref := pm.TravelExecution{Scope: e.input.Scope, ConversationID: e.input.Run.ConversationID, RunID: e.input.Run.ID, Attempt: e.input.Run.Attempt}
-		if err = e.agent.cfg.Context.Maintain(ctx, ref, messages); err != nil {
-			return contracts.ExecutionResult{}, err
-		}
-		messages, err = e.agent.cfg.Context.Build(ctx, e.input.Scope, e.input.Run.ConversationID, e.input.Run.ID, messages)
-		if err != nil {
-			return contracts.ExecutionResult{}, err
-		}
-	}
 	input := make([]*schema.Message, 0, len(messages))
-	for _, m := range messages {
-		input = append(input, toEino(m))
+	for _, msg := range messages {
+		input = append(input, toEino(msg))
 	}
-	var finalPlanID string
-	var queryEvidence []pm.TravelEvidence
-	seenQueries := map[string]bool{}
-	var policyAssessment *pm.PolicyAssessment
-	var savedPreference *pm.TravelPreference
-	observe := func(content string) {
-		var out traveltools.TripObservation
-		if json.Unmarshal([]byte(content), &out) == nil && out.Trip.Plan.ID != "" {
-			finalPlanID = out.Trip.Plan.ID
-		}
-		var fields map[string]json.RawMessage
-		if json.Unmarshal([]byte(content), &fields) != nil {
-			return
-		}
-		if fields["query"] != nil {
-			var q pm.TravelEvidence
-			if json.Unmarshal([]byte(content), &q) == nil {
-				key := q.ID
-				if key == "" {
-					raw, _ := json.Marshal(q.Query)
-					key = string(raw)
-				}
-				if !seenQueries[key] {
-					seenQueries[key] = true
-					queryEvidence = append(queryEvidence, q)
-				}
-			}
-		}
-		if fields["compliance"] != nil {
-			var p pm.PolicyAssessment
-			if json.Unmarshal([]byte(content), &p) == nil {
-				policyAssessment = &p
-			}
-		}
-		if fields["key"] != nil {
-			var p pm.TravelPreference
-			if json.Unmarshal([]byte(content), &p) == nil {
-				savedPreference = &p
-			}
-		}
-	}
-	// Replay display facts only from this run; excluded/earlier runs must never
-	// become fresh query evidence merely because their messages remain visible.
-	if e.input.Resume {
-		for _, m := range e.input.Messages {
-			if m.RunID == e.input.Run.ID && m.Role == "tool" {
-				observe(m.Content)
-			}
-		}
-	}
-	err = e.runner.Run(ctx, input, func(v *schema.Message) error {
-		if v.Role == schema.Tool {
-			observe(v.Content)
-		}
-		if emit == nil || (v.Role != schema.Tool && len(v.ToolCalls) == 0) {
+	resultErr = e.runner.Run(ctx, input, func(msg *schema.Message) error {
+		if emit == nil || (msg.Role != schema.Tool && len(msg.ToolCalls) == 0) {
 			return nil
 		}
-		b, _ := json.Marshal(fromEino(v))
-		return emit(contracts.Event{Type: "message", Payload: b})
+		data, _ := json.Marshal(fromEino(msg))
+		return emit(contracts.Event{Type: "message", Payload: data})
 	})
 	code := ""
-	if errors.Is(err, adk.ErrExceedMaxIterations) {
+	switch {
+	case errors.Is(resultErr, adk.ErrExceedMaxIterations):
 		code = "iteration_limit"
-	}
-	if errors.Is(err, agenttools.ErrToolTimeout) {
+	case errors.Is(resultErr, agenttools.ErrToolTimeout):
 		code = "tool_timeout"
-	}
-	if errors.Is(err, pm.ErrTravelOutcomeUnknown) {
+	case errors.Is(resultErr, pm.ErrTravelOutcomeUnknown):
 		code = "travel_result_unknown"
-	}
-	if errors.Is(err, pm.ErrTravelEvidenceExpired) {
-		code = "travel_evidence_expired"
+	case errors.Is(resultErr, memory.ErrTravelContextBudget):
+		code = "context_budget_exceeded"
+	case errors.Is(resultErr, ErrSourceModelProtocol):
+		code = "invalid_model_response"
 	}
 	text := e.runner.Result().FinalText
-	if err == nil && !e.runner.Result().Resumable && finalPlanID == "" && len(queryEvidence) == 0 && policyAssessment == nil && savedPreference == nil {
-		e.mu.Lock()
-		s := e.state
-		e.mu.Unlock()
-		if s.LastToolCallID != "" {
-			ref := pm.TravelExecution{Scope: e.input.Scope, ConversationID: e.input.Run.ConversationID, RunID: e.input.Run.ID, Attempt: e.input.Run.Attempt}
-			d, ok, readErr := e.agent.cfg.Decisions.FindTravelDecision(ctx, ref, decisionKey(s.LastDecision))
-			if readErr != nil {
-				err = readErr
-			} else if !ok {
-				err = pm.ErrConflict
-			} else {
-				out, found, readErr := e.agent.cfg.Decisions.FindTravelToolResult(ctx, ref, d.OperationIDs[s.LastToolCallID])
-				if readErr != nil {
-					err = readErr
-				} else if !found {
-					err = pm.ErrConflict
-				} else {
-					observe(out)
-				}
-			}
-		}
-	}
-	if finalPlanID == "" {
-		e.mu.Lock()
-		finalPlanID = e.planID
-		e.mu.Unlock()
-	}
-	if err == nil && !e.runner.Result().Resumable && finalPlanID != "" {
-		var inspected pm.TripResult
-		inspected, err = e.agent.cfg.Trips.Inspect(ctx, pm.TravelExecution{Scope: e.input.Scope, ConversationID: e.input.Run.ConversationID, RunID: e.input.Run.ID, Attempt: e.input.Run.Attempt}, finalPlanID)
-		if err == nil {
-			text = renderTrip(inspected.Plan)
-		}
-	}
-	if err == nil && !e.runner.Result().Resumable {
-		var parts []string
-		if finalPlanID != "" {
-			parts = append(parts, text)
-		}
-		for _, q := range queryEvidence {
-			if finalPlanID == "" || q.PlanID == "" {
-				parts = append(parts, renderEvidence(q))
-			}
-		}
-		if policyAssessment != nil {
-			policyText := policyAssessment.Reason
-			for _, f := range policyAssessment.Evidence.Fragments {
-				policyText += "\n政策来源：" + f.Source + "（片段 " + f.ID + "）"
-			}
-			parts = append(parts, policyText)
-		}
-		if savedPreference != nil {
-			prefText := "已保存偏好：" + savedPreference.Key
-			if savedPreference.Retracted {
-				prefText = "已撤回偏好：" + savedPreference.Key
-			}
-			parts = append(parts, prefText)
-		}
-		if len(parts) > 0 {
-			text = strings.Join(parts, "\n\n")
-		}
-	}
-	return contracts.ExecutionResult{FinalText: text, ErrorCode: code}, err
+	return contracts.ExecutionResult{FinalText: text, ErrorCode: code}, resultErr
 }
 func (e *execution) Pause(ctx context.Context) (contracts.PauseResult, error) {
 	if !e.runner.RequestPause() {
