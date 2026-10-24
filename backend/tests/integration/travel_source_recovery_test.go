@@ -64,6 +64,25 @@ func TestTravelSourceRecoveryMemory(t *testing.T) {
 	if err != nil || !strings.Contains(string(history), p.Plan.ID) {
 		t.Fatal("authorized history", string(history), err)
 	}
+	registry, err := traveltools.NewRegistry(traveltools.NativeConfig{Config: traveltools.Config{Trips: trips, Execution: ref}, History: trips})
+	if err != nil {
+		t.Fatal(err)
+	}
+	args, _ := json.Marshal(map[string]any{"request_kind": "planning", "resource": "trip", "trip_plan_id": p.Plan.ID})
+	batch, err := registry.Preflight(ctx, traveltools.ProfileRequest{Role: "main"}, []traveltools.NativeCall{{ID: "read-source", Name: "read", Arguments: args}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := registry.Execute(traveltools.WithOperationID(ctx, "read-source"), batch.Calls[0])
+	var observation struct {
+		Data struct {
+			ID string `json:"trip_plan_id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal([]byte(view), &observation)
+	if err != nil || observation.Data.ID != p.Plan.ID {
+		t.Fatal("native read exposed Go storage snapshot instead of source contract", view, err)
+	}
 	for _, resource := range []string{"session_summaries", "session"} {
 		data, err := trips.ReadHistory(ctx, ref, model.TravelHistoryRequest{Resource: resource, ConversationID: ref.ConversationID})
 		if err != nil || len(data) == 0 {
@@ -233,6 +252,9 @@ func TestTravelSourceRecoveryJobs(t *testing.T) {
 	current, err := fresh.Inspect(ctx, ref, p.Plan.ID)
 	if err != nil || current.Plan.Revision <= p.Plan.Revision || len(current.Plan.QueryResults) != 1 {
 		t.Fatal("query business observation not saved", current, err)
+	}
+	if len(current.Queries) != 0 {
+		t.Fatal("inspection invented pending requests despite current persisted evidence", current.Queries)
 	}
 	if _, err = f.pool.Exec(ctx, "UPDATE travel_query_jobs SET status='running',result=NULL WHERE id=$1", jobs[0].ID); err != nil {
 		t.Fatal(err)

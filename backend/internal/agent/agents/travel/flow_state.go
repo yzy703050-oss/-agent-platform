@@ -15,6 +15,8 @@ import (
 // FlowState belongs to this Travel execution, not to the platform Run or a
 // business TripPlan. Every field needed by the next decision is serializable.
 type FlowState struct {
+	LastBatchCalls       []traveltools.NativeCall `json:"last_batch_calls,omitempty"`
+	LastBatchResults     []pm.TravelToolResult    `json:"last_batch_results,omitempty"`
 	FinalText            string                   `json:"final_text,omitempty"`
 	AuxiliaryErrors      []string                 `json:"auxiliary_errors,omitempty"`
 	RefreshedPlans       map[string]bool          `json:"refreshed_plans,omitempty"`
@@ -136,7 +138,9 @@ func (s *FlowState) ObserveReview() {
 		}
 		states = append(states, map[string]any{"trip_plan_id": id, "tasks": tasks, "conditions": view["confirmed_conditions"], "policy": plan.Plan.PolicyContext, "candidates": view["candidates"], "pending_queries": view["pending_queries"], "issues": issues})
 	}
-	raw, _ := json.Marshal(states)
+	// Python sorts nested JSON keys, including condition dictionaries. RawMessage
+	// preserves PostgreSQL JSONB's different key order until decoded explicitly.
+	raw, _ := json.Marshal(sourceObject(map[string]any{"states": states}))
 	sum := sha256.Sum256(raw)
 	fingerprint := hex.EncodeToString(sum[:])
 	if fingerprint == s.ReviewFingerprint {

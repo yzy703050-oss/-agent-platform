@@ -358,6 +358,8 @@ func applySourceMetadata(p *model.TripPlan, previous *model.TripPlan, cmd model.
 }
 
 func sameTrainConstraints(a, b model.TripConstraints) bool {
+	a = canonicalLegacyConstraints(a)
+	b = canonicalLegacyConstraints(b)
 	a.MaxBudgetFen = nil
 	b.MaxBudgetFen = nil
 	a.MaxHotelNightFen = nil

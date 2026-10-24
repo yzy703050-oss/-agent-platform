@@ -3,6 +3,7 @@ package trip
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"agent-platform/backend/internal/model"
 )
@@ -40,6 +41,25 @@ func (s *Service) Inspect(ctx context.Context, ref model.TravelExecution, id str
 	v, queries, err := validatePlan(p)
 	if err != nil {
 		return model.TripResult{}, err
+	}
+	if p.SourceVersion > 0 {
+		queries, err = sourceQueryRequests(p, model.TripCommand{Operation: "propose"})
+		if err != nil {
+			return model.TripResult{}, err
+		}
+		queries = slices.DeleteFunc(queries, func(q model.TravelQuery) bool {
+			for _, t := range p.Tasks {
+				if t.ID == q.TaskID && (q.Domain == "train" && t.Train != nil || q.Domain == "hotel" && t.Hotel != nil) {
+					return true
+				}
+			}
+			for _, e := range p.QueryResults {
+				if e.TaskID == q.TaskID && e.Query.Domain == q.Domain && e.Query.TaskRevision == q.TaskRevision && e.ExpiresAt.After(s.now()) {
+					return true
+				}
+			}
+			return false
+		})
 	}
 	v.Issues = append(v.Issues, expired...)
 	if len(expired) > 0 && v.Status == "complete" {

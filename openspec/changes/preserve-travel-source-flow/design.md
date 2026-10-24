@@ -82,11 +82,15 @@ Eino 实测接线：AfterModel 保存整批预检结果，工具 middleware 在 
 
 review 使用原版字段与来源投影：original_query、全部 tripplans、calendar 所需条件、reply_facts、query_results、observations、memory_results、previous_round_summary、adjustment_history、execution_results。候选视图带当前结果/任务修订，过时结果不冒充新结果。压缩前过滤任务来源，保留完整工具配对。
 
+模型 review 不重复传输持久化审计：execution_results 只投影系统查询作业的状态和失败摘要；previous_round_summary 保留上一批摘要/逐调用结果对象，预检拒绝仍保留 attempted tripplan。已有计划的首次 propose changes 使用当前快照引用，同计划 read、相同政策和相同候选按原版引用去重，保留候选身份及顺序。完整原始观察继续存放于 journal/FlowState；不通过抬高上下文上限掩盖重复投影。
+
 政策仍走既有 RAG MCP：保留原版检索→模型提取一次→程序验证引用、适用范围、金额/席别规则→形成政策上下文，不把检索命中替代规则理解。提取模型角色放在差旅 Agent 域，确定性验证留 Service，模型调用不能塞入 Repository。偏好分析和压缩同样沿用原版触发条件与提示，使用 Go 平台允许的新数据；被替代任务的数据继续排除。这是宿主平台已确认的限制，不恢复 Python 的旧身份/存储体系。
 
 ### D7. 原版停止与绑定回复
 
 使用原版业务投影指纹检测无进展，忽略回执/叙述变化；原版 unchanged_reviews >= 2 时停止。保留可用 partial 收尾判断，policy_unverified 不是让所有场景永远循环的统一阻断条件。Verifier 要实际 select/amend，不能靠“已检查”文字证明修改。
+
+业务投影内嵌 JSON 字典按原版排序参与指纹，PostgreSQL JSONB 的键顺序变化不是进展。达到宿主模型轮数时先执行原版安全点的确定性停止/已有结果收尾，再拦截任何新的真实模型调用；此收尾不消耗额外模型调用。flow-v4/batch-v4 指纹拒绝恢复此前不兼容的执行断点。
 
 绑定回复从本次实际回执中的快照生成，支持 train/hotel/content 投影、局部修改及整条路线回复，活动必须可见。未知报价、地点数据和演示证据保持原边界，不创造出票/支付能力。独立查询保留所有所问结果，不能被行程渲染覆盖。
 
@@ -97,6 +101,8 @@ review 使用原版字段与来源投影：original_query、全部 tripplans、c
 供应方沿用原版端点级滑动窗口熔断与单一重试负责人：failure_window=60 秒、failure_threshold=5、cooldown=60 秒、half_open_concurrency=1、recovery_successes=2。重试遵守原可重试错误集合、Retry-After 和剩余期限，不在 SDK、工具和 Client 叠加三套重试；取消释放所属作业。证据默认有效期 3600 秒，绑定及刷新仍由 Service 校验，不能恢复后自动延寿。
 
 保留平台现有默认 MAX_ITERATIONS=8、RUN_SECONDS=120、TOOL_SECONDS=10 作为宿主限制，明确区分实际命中的限制原因；不偷偷扩大全平台预算。为 Travel 引入明确可配置的原版业务预算，并在验收记录宿主实际配置。若宿主限制先到，返回真实停止和可用结果，不宣称原版完整预算已执行。固定预算的执行/恢复测试证明原版计数语义，不能通过无限调大上限掩盖行为缺失。
+
+实际模型复核：query_policy 和显式偏好分析中的 LLM 是原版辅助模型阶段，不能继承普通工具 I/O 的五秒测试截止时间。检索 I/O 使用 ToolTimeout，政策/偏好 LLM 使用 ModelClient 原版单请求三十秒及 Run 的剩余期限，计入全部模型调用。行程/偏好确定性写入和普通查询仍遵守原工具期限。此项区分超时负责人，不增加主循环次数、Run 期限或原版 request_timeout。
 
 ### D9. 验证与交付
 

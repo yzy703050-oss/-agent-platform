@@ -16,6 +16,16 @@ var beijing = time.FixedZone("Asia/Shanghai", 8*60*60)
 func Preview(previous *model.TripPlan, cmd model.TripCommand, evidence []model.TravelEvidence, now time.Time) (model.TripResult, error) {
 	var p model.TripPlan
 	var err error
+	if previous != nil && previous.SourceVersion == 0 && cmd.Context != nil {
+		canonical, err := clone(*previous)
+		if err != nil {
+			return model.TripResult{}, err
+		}
+		if err = hydrateLegacySource(&canonical); err != nil {
+			return model.TripResult{}, err
+		}
+		previous = &canonical
+	}
 	if cmd.Operation == "propose" {
 		if previous != nil || cmd.PlanID != "" || cmd.ExpectedRevision != 0 || len(cmd.Changes) > 0 || len(cmd.Selections) > 0 {
 			return model.TripResult{}, invalid("invalid creation command")
@@ -318,8 +328,10 @@ func validatePlan(p model.TripPlan) (model.TripValidation, []model.TravelQuery, 
 				return v, nil, invalid("arrival deadline must include date and timezone")
 			}
 			source := t.FieldSources["arrival_before"]
-			if source != "user" && source != "context" {
-				return v, nil, invalid("inferred arrival deadline cannot be hard")
+			invalidLegacy := p.SourceVersion == 0 && source != "user" && source != "context"
+			invalidSource := p.SourceVersion > 0 && slices.Contains([]string{"derived", "proposal", "default", "preference"}, source) && t.ConditionStrengths["arrival_before"] != model.Soft
+			if invalidLegacy || invalidSource {
+				return v, nil, invalid("inferred arrival deadline cannot be hard; preserve the user's coarse activity time in content and omit an invented arrival_before; never relabel it as user evidence")
 			}
 		}
 		if t.Train == nil {

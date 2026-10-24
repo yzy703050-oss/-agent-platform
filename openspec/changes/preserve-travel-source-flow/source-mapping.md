@@ -54,7 +54,7 @@
 | 退役 single_pass_planning | 继续拒绝，不恢复 | 原源码已明确退役 |
 | Python 旧测试、旧评测结果、旧配置密钥 | 不复制、不当作 Go 验收证据 | 用户只要求关键测试和 Go 实际效果 |
 
-## 当前已证实的偏差
+## 实施前已证实的偏差及修复落点
 
 - Go prompt.go 为缩写指令，未使用五个原文提示值。
 - Go 工具名称和扁平参数与原版不同，缺 creation/review profile 与 request_replan。
@@ -65,4 +65,8 @@
 - Go 缺原版完整 review 投影、语义无进展判断和组件绑定回复，现渲染不含活动。
 - Go 政策主要做片段适用判断，未恢复原版政策模型提取和完整规则核验；低频偏好分析与压缩需恢复源触发和提示。
 
-以上是源码证据，不代表每次模型失败的单一原因。性能测量未保存完整调用参数/观察，不能据此断言全部根因。后续失败需在授权、脱敏范围记录角色、规范参数、校验问题和实际状态变化再诊断。
+以上记录实施前的源码差异，不是当前代码状态。Task 1–5 已分别恢复原文与 profile、原版业务条件和回复、批次预检、同一 Eino 的 Main/Verifier/Summary、政策/偏好/压缩及 PostgreSQL 恢复。Task 6 进一步通过真实模型发现并修正 JSON 参数格式身份、辅助模型超时归属、原生历史 DTO、旧 Go 快照活动修改、源生成参数、软推导期限、具体 schema 校正信息、review 重复投影和安全点收尾；演示库存统一采用 unknown，不提供真实余票保证。
+
+对应证据：完整提示与 schema golden、TestTravelSourceBatch、TestTravelSourceFlow/Eino/Scenarios、TestSourceReviewProjection、TestSourceProgressCanonicalizesJSONB、TestTravelEinoBatchGate、TestTravelSourceRules、TestTravelSourceRecovery、TestTravelMetricsAccounting 及 opt-in TestTravelSourceModel。精确测试名称与运行日志以最终验收记录为准；原版映射并不承诺模型每次输出完全相同。
+
+真实模型各轮保留完整调用参数和实际观察于本机 .cache/reports；公开报告仅导出安全测试数据和计量。未通过的轮次不删除，不能以单个成功样本取代整组验收。全部检查结束前不将本 change 标为已完成。

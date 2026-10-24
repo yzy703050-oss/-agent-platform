@@ -18,6 +18,11 @@ import (
 )
 
 func TestTravelSourceFlow(t *testing.T) {
+	t.Run("retired_flat_kernel_is_not_a_production_fallback", func(t *testing.T) {
+		if _, err := NewKernel(context.Background(), KernelConfig{Model: &sourceGateModel{}, MaxIterations: 8}); err == nil {
+			t.Fatal("retired flat protocol and proposal/amend caps remain reachable without native Registry")
+		}
+	})
 	t.Run("roles_policy_lookup_planning_and_replan", func(t *testing.T) {
 		s := FlowState{}
 		if s.DecideRole() != "main" {

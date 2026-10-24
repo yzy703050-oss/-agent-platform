@@ -160,7 +160,7 @@ func (h *journal) recordRejected(ctx context.Context, call traveltools.NativeCal
 	}
 	matched := false
 	for _, accepted := range d.Response.ToolCalls {
-		if accepted.ID == call.ID && accepted.Name == call.Name && accepted.Arguments == string(call.Arguments) {
+		if accepted.ID == call.ID && accepted.Name == call.Name && traveltools.SameNativeArguments(accepted.Arguments, string(call.Arguments)) {
 			matched = true
 		}
 	}
@@ -205,7 +205,7 @@ func (h *journal) WrapInvokableToolCall(_ context.Context, next adk.InvokableToo
 		}
 		matched := false
 		for _, call := range d.Response.ToolCalls {
-			if call.ID == t.CallID && call.Name == t.Name && call.Arguments == args {
+			if call.ID == t.CallID && call.Name == t.Name && traveltools.SameNativeArguments(call.Arguments, args) {
 				matched = true
 			}
 		}

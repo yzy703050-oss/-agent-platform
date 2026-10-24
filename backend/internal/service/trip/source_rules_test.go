@@ -11,6 +11,34 @@ import (
 )
 
 func TestTripSourceRules(t *testing.T) {
+	t.Run("inferred_deadline_accepts_source_soft_correction", func(t *testing.T) {
+		oneway := false
+		now := time.Date(2026, 10, 24, 0, 0, 0, 0, time.UTC)
+		for _, source := range []string{"derived", "proposal", "default", "preference"} {
+			for _, level := range []model.ConstraintStrength{model.Hard, model.Soft} {
+				cmd := model.TripCommand{Operation: "propose", RoundTrip: &oneway, Context: &model.TripDecisionContext{Role: "main"}, Tasks: []model.TripTask{{Origin: "上海", Destination: "杭州", Conditions: sourceConditions(`{"departure_date":"2026-10-26","arrival_before":"2026-10-26T13:00:00+08:00"}`), FieldSources: map[string]string{"arrival_before": source}, ConditionStrengths: map[string]model.ConstraintStrength{"arrival_before": level}, Items: []model.TripQueryItem{{Domain: "train"}}}}}
+				out, err := Preview(nil, cmd, nil, now)
+				if level == model.Hard {
+					if err == nil {
+						t.Fatal("inferred hard deadline accepted", source)
+					}
+				} else if err != nil || len(out.Queries) != 1 {
+					t.Fatal("source soft correction still rejected", source, err)
+				}
+			}
+		}
+	})
+	t.Run("native_activity_edit_preserves_legacy_saved_route_and_selection", func(t *testing.T) {
+		p := basePlan()
+		p.Tasks = p.Tasks[:1]
+		p.RoundTrip = false
+		p.Tasks[0].Activities = []model.TripActivity{{ID: "meeting", Date: "2026-10-25", Time: "14:00", Purpose: "客户会议", Description: "客户会议", Source: "user", Strength: model.Hard}}
+		activities := []model.TripActivity{{ID: "meeting", Date: "2026-10-25", Time: "16:00", Purpose: "客户会议", Description: "客户会议", Source: "user", Strength: model.Hard}}
+		result, err := Preview(&p, model.TripCommand{Operation: "amend", PlanID: p.ID, ExpectedRevision: p.Revision, Context: &model.TripDecisionContext{Role: "main", OriginalQuery: "只把会议从14:00改到16:00"}, Changes: []model.TripTaskChange{{TaskID: "t1", Activities: &activities}}}, nil, time.Date(2026, 10, 24, 0, 0, 0, 0, time.UTC))
+		if err != nil || result.Plan.Tasks[0].DepartureDate != "2026-10-25" || result.Plan.Tasks[0].Train == nil || result.Plan.Tasks[0].Train.Ref != p.Tasks[0].Train.Ref || result.Plan.Constraints.MaxBudgetFen == nil || *result.Plan.Constraints.MaxBudgetFen != *p.Constraints.MaxBudgetFen || len(result.Queries) != 0 {
+			t.Fatal("native edit lost legacy immutable facts", result, err)
+		}
+	})
 	t.Run("expiry_refresh_requires_current_exact_task_binding", func(t *testing.T) {
 		now := time.Now()
 		e := model.TravelEvidence{ID: "q", ResultRevision: 1, UserID: "u", ConversationID: "c", PlanID: "p", TaskID: "t", Status: "ok", ExpiresAt: now.Add(-time.Minute), Query: model.TravelQuery{Domain: "train", TaskRevision: 2}, Candidates: []model.TravelCandidate{{ID: "G1", Name: "G1"}}}

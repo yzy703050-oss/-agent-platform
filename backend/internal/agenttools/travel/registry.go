@@ -57,8 +57,9 @@ type NativeConfig struct {
 	OnNativeTrip func(context.Context, string, model.TripResult) error
 }
 type Registry struct {
-	cfg        NativeConfig
-	validators map[string]map[string]*js.Resolved
+	cfg            NativeConfig
+	validators     map[string]map[string]*js.Resolved
+	tripValidators map[string]map[string]*js.Resolved
 }
 type tripPreparer interface {
 	Prepare(context.Context, model.TravelExecution, model.TripCommand) (model.TripResult, error)
@@ -74,7 +75,7 @@ func NewRegistry(cfg NativeConfig) (*Registry, error) {
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
-	r := &Registry{cfg: cfg, validators: map[string]map[string]*js.Resolved{}}
+	r := &Registry{cfg: cfg, validators: map[string]map[string]*js.Resolved{}, tripValidators: map[string]map[string]*js.Resolved{}}
 	for _, profile := range []string{"main", "pre_policy", "review", "review_retry", "summary"} {
 		infos, err := SourceProfile(profile)
 		if err != nil {
@@ -99,6 +100,37 @@ func NewRegistry(cfg NativeConfig) (*Registry, error) {
 				return nil, fmt.Errorf("source schema %s/%s: %w", profile, info.Name, err)
 			}
 			r.validators[profile][info.Name] = resolved
+			if info.Name == "write_trip" {
+				r.tripValidators[profile] = map[string]*js.Resolved{}
+				for _, union := range doc.Properties["tripplan"].OneOf {
+					name := strings.TrimPrefix(union.Ref, "#/$defs/")
+					branch := doc.Defs[name]
+					if branch == nil {
+						continue
+					}
+					operation := branch.Properties["operation"]
+					if operation == nil {
+						continue
+					}
+					values := append([]any(nil), operation.Enum...)
+					if operation.Const != nil {
+						values = append(values, *operation.Const)
+					}
+					// The authoritative oneOf is unchanged. On failure only, use
+					// its discriminated branch to retain leaf validation locations.
+					detail := doc.CloneSchemas()
+					detail.Properties["tripplan"] = detail.Defs[name].CloneSchemas()
+					specific, err := detail.Resolve(nil)
+					if err != nil {
+						return nil, err
+					}
+					for _, value := range values {
+						if op, ok := value.(string); ok {
+							r.tripValidators[profile][op] = specific
+						}
+					}
+				}
+			}
 		}
 	}
 	return r, nil
@@ -163,7 +195,20 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 			return batch, ruleError("INVALID_ARGUMENTS", "invalid tool JSON", nil)
 		}
 		if err = validator.Validate(instance); err != nil {
-			return batch, nativeSchemaError(err)
+			if call.Name == "write_trip" {
+				if root, ok := instance.(map[string]any); ok {
+					if plan, ok := root["tripplan"].(map[string]any); ok {
+						if op, ok := plan["operation"].(string); ok {
+							if specific := r.tripValidators[profile][op]; specific != nil {
+								if detail := specific.Validate(instance); detail != nil {
+									return batch, nativeSchemaError(detail, specific)
+								}
+							}
+						}
+					}
+				}
+			}
+			return batch, nativeSchemaError(err, validator)
 		}
 		prepared := PreparedCall{NativeCall: call, Normalized: normalized}
 		var common struct {

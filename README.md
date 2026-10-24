@@ -4,7 +4,7 @@
 
 当前包含两个独立入口：**通用聊天**和**Go 原生差旅助手**。点击入口新建会话，历史保持原 Agent 归属。主 Agent 自动委派差旅尚未实现。
 
-> Go 差旅重构已完成本次范围验收并归档，当前代码已通过真实数据库、本地完整检查和 Linux race CI。能力边界与后续事项见 [差旅实施记录](docs/travel-refactor-execution.md) 和 [当前验收](docs/travel-refactor-verification.md)。
+> 原 Python 差旅助手的原文提示、工具契约、Main/Verifier/Summary 链路、校正及停止机制已迁入现有分层。2026-10-24 最后一轮真实模型＋模拟工具＋PostgreSQL 验收为 12/12；此前失败轮次也完整保留。Linux race 和本次归档状态以 [最新验收记录](docs/travel-source-fidelity-verification.md) 为准，旧 MVP 的 CI 不作为当前提交的证据。
 
 ## 已实现的能力
 
@@ -83,7 +83,7 @@ Repository 是统一的数据访问实现层，**不表示所有调用都可以�
 | `agent/contracts` | Agent、Execution、事件和执行限制；不包含差旅行程规则 |
 | `agent/manager` | 静态注册、按会话选择 Agent、Run 状态、配额、租约、通知和恢复对账 |
 | `agents/general` | 普通聊天配置、设置工具、平台消息转换 |
-| `agents/travel` | 差旅阶段、提示、决策日志适配、工具授权、事实输出及恢复引用 |
+| `agents/travel` | 同一 Eino 内的 Main/Verifier/Summary、原文提示、政策/偏好/压缩辅助角色、决策与恢复；无独立 adapter 层 |
 | `agent/einoruntime` | 共用 Eino TurnLoop、停止确认、断点包络与 Repository 适配 |
 | `agent/memory` | 授权历史、完整 Run 裁剪、偏好注入、来源受限摘要及低频维护 |
 | `agenttools/travel` | 类型化工具与 Service 桥接；可信身份来自服务端，不来自模型参数 |
@@ -116,17 +116,17 @@ backend/
       tools/                   # 通用动态工具管理仍未实现
     agenttools/
       settings_tool.go
-      travel/                  # 五个差旅工具的类型化桥接
+      travel/                  # 原生差旅工具与 Service 的类型化桥接
     repository/postgres/
     client/llm/ train/ hotel/ weather/ mcp/ providerhttp/
     model/                     # 无 Eino 依赖的业务与平台类型
-  migrations/                  # 001–004 增量迁移
+  migrations/                  # 001–005 增量迁移
   tests/integration/           # 独立测试库、随机 schema
 frontend/src/
   api/ components/ hooks/ App.tsx
 scripts/                       # 启动、配置加载、验证
 openspec/                      # 正式需求与当前变更
-  changes/refactor-travel-agent-go/
+  changes/preserve-travel-source-flow/
 docs/                          # 计划、职责、自审、验收与运行说明
 ```
 
@@ -161,13 +161,14 @@ docs/                          # 计划、职责、自审、验收与运行说�
 
 | 工具 | 作用 |
 | --- | --- |
-| `read_travel` | 读取当前会话行程，检查候选是否仍有效 |
-| `query_travel` | 车次、酒店地点、天气；未配置的网页查询明确 unavailable |
+| `read` | 分页检索行程/会话历史，读取完整行程；先过滤失效任务来源 |
+| `query` | 车次、酒店地点、天气；未配置的网页查询明确 unavailable |
 | `write_trip` | propose / amend / select，写入必须经 Service 与事务 |
 | `query_policy` | 从既有 RAG MCP 获得完整片段和来源；命中不等于合规 |
-| `write_travel_preference` | 按用户明确要求保存或撤回长期偏好 |
+| `write_memory` | 明确新增/替换/撤回偏好，或按用户要求重分析 |
+| `request_replan` | Verifier 独立交接回 Main 修复全局遗漏，不通过 AgentManager |
 
-查询采用规范化键、允许范围内缓存、最多 4 个并发、10 秒查询上限和 5 分钟证据有效期。相同物理查询可复用，但返回引用需重新绑定到目标行程/修订。内存合并还区分 Session、Run 和 attempt。瞬态错误至多重试一次，非法格式不循环重试；失败不生成候选。
+原生查询采用原版规范化键、物理结果缓存与五项候选投影、最多三个并发和一小时证据时效；引用仍绑定当前任务修订。Client 单独负责端点并发、熔断及最多额外两次网络重试，Service 不叠加重试。普通工具 I/O 受 ToolTimeout 限制；政策/偏好 LLM 作为辅助角色，保留自身请求期限并共享 Run 截止时间。来源不明、价格未知或查询失败不生成事实。
 
 酒店接口是高德地点搜索，不具备房型、房价、空房或预订能力。网页检索供应方尚未确定。政策接口固定调用已核验的 `query_policy_evidence`；执行命令、目录和集合由本地配置指定，模型不能更改。
 
@@ -190,13 +191,13 @@ docs/                          # 计划、职责、自审、验收与运行说�
 
 显示历史与模型上下文是不同查询。暂停任务被新问题替代后，历史保留，旧断点失效；旧任务消息、输出、工具结果、偏好修订及包含旧来源的摘要均排除。更早仍有效的信息可以继续使用，不清空整个用户的有效历史。
 
-普通聊天保留原 ContextBuilder 策略。差旅额外注入有效偏好和摘要，统一按约 32KB 字节预算处理，保留完整工具配对。超长可选摘要让位于当前任务；当前任务本身超预算会明确拒绝。
+普通聊天保留原 ContextBuilder 策略。差旅使用原版 20,000 Token 上下文预算估计、80% 压缩触发和最多三个完整前缀压缩，保留当前轮和完整工具配对。review 只投影当前计划与必要证据，引用去重已出现在快照中的政策、候选和初始提案；完整审计仍保存。当前请求本身超预算会明确拒绝。
 
 低频维护只处理允许来源：新增至少五个有效来源 Run 后才分析，保守地识别多个独立用户消息重复出现的白名单完整偏好句，写 inferred 修订；不以推断覆盖明确值或复活撤回。摘要只提取带回执的行程路线、日期和修订并记录全部来源，不携带历史候选作为新证据，不额外启动后台模型。
 
 ## 数据库与并发一致性
 
-迁移由 Go embed 分发，启动时按版本执行：001 基础表，002 消息去重，003 已有输出，004 差旅业务。
+迁移由 Go embed 分发，启动时按版本执行：001 基础表，002 消息去重，003 已有输出，004 差旅业务，005 原生偏好批量回执/来源与持久化查询作业。旧迁移不改写；005 不执行隐式有损降级。
 
 004 包括行程、不可变修订、查询证据、已接受决策、动作日志、操作回执、偏好修订和来源摘要。归属、修订和操作键使用显式列、外键及唯一约束，业务快照使用 JSONB。
 
@@ -255,6 +256,7 @@ pwsh -NoProfile -File .\scripts\dev-frontend.ps1
 - `/conversations/:id/runs` 依据会话归属执行；幂等键复用同请求，内容变化冲突。
 - `/runs/:id/events` 支持持久化事件重放，流式 delta 为临时输出。
 - 新增 `travel.phase`，只允许规定阶段和业务 ID，不能夹带提示词、密钥或任意供应方响应。
+- `travel.model_call` 记录每次真实模型调用的阶段、耗时和实际 Usage；Usage 缺失为 unknown，包含辅助模型及失败调用。
 - 最终成功在提交后发布；工具已提交不等于整个 Run 一定成功。
 
 `paused` 可手动继续；`interrupted` 不能证明有安全断点；`failed` 是执行失败；`timed_out` 是活动执行超时；`cancelled` 为主动结束或新问题替代。未知结果和过期证据有独立说明。
@@ -271,6 +273,19 @@ pwsh -NoProfile -File .\scripts\verify.ps1 -SkipNpmInstall
 
 Linux race 在 GitHub Actions 执行；本机 Windows 没有有效 race 工具链。历史 CI 只能证明对应历史提交，当前分支状态见最新验收记录。
 
+### 最近一次真实模型测量
+
+固定请求各运行3次，工具使用明确标注的模拟数据，数据库与模型真实执行。耗时从 Agent 构造到最终 Run 持久化，不含 HTTP/SSE/UI；非流式，不报告 TTFT。模型为本地配置的 deepseek-flash。
+
+| 场景 | 通过 | 耗时范围 | 实际模型调用 | 总 Token 范围 |
+| --- | --- | --- | --- | --- |
+| 只查车次与天气 | 3/3 | 2.88–3.41秒 | 2次 | 13,663–13,692 |
+| 单程出差保存并选车 | 3/3 | 9.92–10.45秒 | 5次 | 29,353–29,884 |
+| 三段往返＋两晚住宿＋两场活动 | 3/3 | 13.45–28.27秒 | 3–8次 | 27,235–71,551 |
+| 只把会议14:00改为16:00 | 3/3 | 2.93–3.44秒 | 2次，供应方查询0次 | 14,498–14,534 |
+
+本轮全部调用返回 Usage。多城市调用量仍有明显波动，3次样本不能证明长期稳定性；通过表示实际可实现的安排已保存，不代表酒店价格/库存或政策合规已核实。[逐次结果和输出示例](docs/travel-source-fidelity-verification.md)、[76份历史及最终脱敏样本](docs/reports/travel-source-model-2026-10-24.json)。
+
 建议演示：登录 → 两入口与历史 → 真实差旅保存和候选选择 → 切换时继续 → 关闭发起页面 → 重开仅展示 → 手动继续 → 暂停后新问题替代 → 展示回执、修订与来源隔离。
 
 ## 尚未完成及明确限制
@@ -279,7 +294,7 @@ Linux race 在 GitHub Actions 执行；本机 Windows 没有有效 race 工具�
 | --- | --- |
 | 主 Agent 委派 | 两入口独立，未实现 Query 路由、父子 Run 与跨 Agent 委派 |
 | 网页查询 | 尚无确定供应方，返回 unavailable |
-| 政策知识 | MCP 已连通，当前集合无命中文档；真实政策命中及逐项规则核验仍需资料 |
+| 政策知识 | 曾以自编演示集合验证 MCP 命中；本轮性能使用固定演示检索片段＋真实模型提取。企业真实制度和在线 RAG 质量仍需后续验收 |
 | 预订交易 | 不出票、不订房、不付款、不退款；酒店地点不是可订报价 |
 | 个性化配置 | 用户 API Key 加密管理、用户模型配置、动态 MCP 服务管理尚未实现 |
 | RAG 产品能力 | 没有知识上传/索引管理界面；复用已有 RAG，不在平台重建 RAG |

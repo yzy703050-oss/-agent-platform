@@ -1,0 +1,3824 @@
+{
+  "generated_at": "2026-10-24T21:41:40.1206066+08:00",
+  "final_round": "round6",
+  "tool_mode": "fixed demo providers; real model and PostgreSQL",
+  "generation_options": {
+    "deepseek_thinking": "disabled",
+    "max_tokens": 8192,
+    "temperature": 0.3
+  },
+  "limits": {
+    "extra_network_retries": 2,
+    "main_iterations": 8,
+    "model_attempt_seconds": 30,
+    "run_seconds": 100,
+    "tool_io_seconds": 5
+  },
+  "latency_scope": "NewExecution + Start + final Run persistence; excludes migrations/fixture setup, HTTP/SSE/browser and seeded-plan preparation",
+  "notes": [
+    "Serial execution, 3 repeats per case; no p95 claim from this small sample.",
+    "Token usage comes only from provider response Usage; nil is missing, never estimated as zero.",
+    "Model calls count Generate invocations; hidden SDK HTTP retries are not separately counted.",
+    "Travel is non-streaming; first_event_ms is first platform event, not time to first token.",
+    "Case modify_activity is seeded through Service before timing; seed revision count is reported.",
+    "All runs use fresh random schemas and cold application query caches; provider prompt cache is not controlled."
+  ],
+  "samples": [
+    {
+      "round": "travel-source-model-2026-10-24-field-errors-probe",
+      "case": "multicity",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] 本次旅程内容超过上下文预算，已停止本轮处理。请将旅程分段规划，例如先安排第一段，再处理后续路段。\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 18930.548,
+      "model_calls": 5,
+      "input_tokens": 38379,
+      "output_tokens": 4261,
+      "total_tokens": 42640,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 3084.678,
+          "input_tokens": 15978,
+          "output_tokens": 546,
+          "total_tokens": 16524,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 12483.744,
+          "input_tokens": 21594,
+          "output_tokens": 3156,
+          "total_tokens": 24750,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2873.812,
+          "input_tokens": 807,
+          "output_tokens": 559,
+          "total_tokens": 1366,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 2
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 2,
+      "revision_rows": 2,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-review-projection-probe",
+      "case": "multicity",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] exceeds max iterations\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 33982.053,
+      "model_calls": 9,
+      "input_tokens": 73598,
+      "output_tokens": 8169,
+      "total_tokens": 81767,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 5,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 3
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 3,
+          "duration_ms": 8059.797,
+          "input_tokens": 34123,
+          "output_tokens": 1549,
+          "total_tokens": 35672,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 5,
+          "duration_ms": 22909.448,
+          "input_tokens": 38668,
+          "output_tokens": 6111,
+          "total_tokens": 44779,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2283.066,
+          "input_tokens": 807,
+          "output_tokens": 509,
+          "total_tokens": 1316,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 7
+      },
+      "tool_failures": 3,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 5,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "query",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:query id:call_00_0t4kcKTWkaAq4twX7KFV7679]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 2900.5,
+      "model_calls": 1,
+      "input_tokens": 6703,
+      "output_tokens": 197,
+      "total_tokens": 6900,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 2812.477,
+          "input_tokens": 6703,
+          "output_tokens": 197,
+          "total_tokens": 6900,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "query",
+      "repeat": 2,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:query id:call_00_oEpuFh3P20R2pCQpwryB9074]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 1839.411,
+      "model_calls": 1,
+      "input_tokens": 6703,
+      "output_tokens": 235,
+      "total_tokens": 6938,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1749.263,
+          "input_tokens": 6703,
+          "output_tokens": 235,
+          "total_tokens": 6938,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "query",
+      "repeat": 3,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:query id:call_00_ddy3khROTCsqxpjtZ3rs8619]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 1717.493,
+      "model_calls": 1,
+      "input_tokens": 6703,
+      "output_tokens": 212,
+      "total_tokens": 6915,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1640.139,
+          "input_tokens": 6703,
+          "output_tokens": 212,
+          "total_tokens": 6915,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "oneway",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:query_policy id:call_00_pY4v2zyLxk6YBbsitA0X8416]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 6033.534,
+      "model_calls": 1,
+      "input_tokens": 6736,
+      "output_tokens": 873,
+      "total_tokens": 7609,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 5953.902,
+          "input_tokens": 6736,
+          "output_tokens": 873,
+          "total_tokens": 7609,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "oneway",
+      "repeat": 2,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:query_policy id:call_00_IJVIp6V11O4uJWyqJDeO9145]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 6685.146,
+      "model_calls": 1,
+      "input_tokens": 6736,
+      "output_tokens": 943,
+      "total_tokens": 7679,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 6604.725,
+          "input_tokens": 6736,
+          "output_tokens": 943,
+          "total_tokens": 7679,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "oneway",
+      "repeat": 3,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:query_policy id:call_00_2a1D1RXownspm083YUbX9521]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 3012.807,
+      "model_calls": 1,
+      "input_tokens": 6736,
+      "output_tokens": 535,
+      "total_tokens": 7271,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 2928.817,
+          "input_tokens": 6736,
+          "output_tokens": 535,
+          "total_tokens": 7271,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "multicity",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:query_policy id:call_00_UAT4qD6z396Ossin0fCP8102]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 12816.001,
+      "model_calls": 1,
+      "input_tokens": 6806,
+      "output_tokens": 2433,
+      "total_tokens": 9239,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 12734.107,
+          "input_tokens": 6806,
+          "output_tokens": 2433,
+          "total_tokens": 9239,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "multicity",
+      "repeat": 2,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:query_policy id:call_00_bDnaYDdWwMRZHiIegPTI1574]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 9497.196,
+      "model_calls": 1,
+      "input_tokens": 6806,
+      "output_tokens": 1516,
+      "total_tokens": 8322,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 9418.87,
+          "input_tokens": 6806,
+          "output_tokens": 1516,
+          "total_tokens": 8322,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "multicity",
+      "repeat": 3,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:query_policy id:call_00_WyjHFKmrjlbNozc69yph0694]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 9648.937,
+      "model_calls": 1,
+      "input_tokens": 6806,
+      "output_tokens": 1443,
+      "total_tokens": 8249,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 9566.54,
+          "input_tokens": 6806,
+          "output_tokens": 1443,
+          "total_tokens": 8249,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "modify_activity",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:read id:call_00_SUfc0Nb0J2n6HF7TVEtE8857]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 1691.607,
+      "model_calls": 1,
+      "input_tokens": 6752,
+      "output_tokens": 122,
+      "total_tokens": 6874,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1619.243,
+          "input_tokens": 6752,
+          "output_tokens": 122,
+          "total_tokens": 6874,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 2,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "modify_activity",
+      "repeat": 2,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:read id:call_00_FPpPUtx8xA0vpFRnnc245073]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 2247.738,
+      "model_calls": 1,
+      "input_tokens": 6752,
+      "output_tokens": 170,
+      "total_tokens": 6922,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 2174.317,
+          "input_tokens": 6752,
+          "output_tokens": 170,
+          "total_tokens": 6922,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 2,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round1",
+      "case": "modify_activity",
+      "repeat": 3,
+      "success": false,
+      "error": "[NodeRunError] failed to invoke tool[name:read id:call_00_imqLvikGVFAGDjbSjVWw2016]: idempotency conflict\n------------------------\nnode path: [node_1, ToolNode]",
+      "execution_ms": 1830.495,
+      "model_calls": 1,
+      "input_tokens": 6752,
+      "output_tokens": 142,
+      "total_tokens": 6894,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1755.82,
+          "input_tokens": 6752,
+          "output_tokens": 142,
+          "total_tokens": 6894,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {},
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 2,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "query",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 4132.89,
+      "model_calls": 2,
+      "input_tokens": 14063,
+      "output_tokens": 393,
+      "total_tokens": 14456,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 2395.244,
+          "input_tokens": 7360,
+          "output_tokens": 207,
+          "total_tokens": 7567,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1558.968,
+          "input_tokens": 6703,
+          "output_tokens": 186,
+          "total_tokens": 6889,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "query",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 4983.717,
+      "model_calls": 2,
+      "input_tokens": 14068,
+      "output_tokens": 558,
+      "total_tokens": 14626,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1963.618,
+          "input_tokens": 7365,
+          "output_tokens": 236,
+          "total_tokens": 7601,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 2819.563,
+          "input_tokens": 6703,
+          "output_tokens": 322,
+          "total_tokens": 7025,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "query",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 3845.413,
+      "model_calls": 2,
+      "input_tokens": 14062,
+      "output_tokens": 385,
+      "total_tokens": 14447,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 2068.384,
+          "input_tokens": 7359,
+          "output_tokens": 204,
+          "total_tokens": 7563,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1589.431,
+          "input_tokens": 6703,
+          "output_tokens": 181,
+          "total_tokens": 6884,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "oneway",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] exceeds max iterations\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 81100.968,
+      "model_calls": 11,
+      "input_tokens": 62584,
+      "output_tokens": 10745,
+      "total_tokens": 73329,
+      "usage_complete": false,
+      "missing_usage_calls": 3,
+      "stage_calls": {
+        "agent:main": 6,
+        "agent:travel_policy": 3,
+        "agent:trip_review": 2
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 2,
+          "duration_ms": 16026.195,
+          "input_tokens": 17332,
+          "output_tokens": 2522,
+          "total_tokens": 19854,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 6,
+          "duration_ms": 49715.015,
+          "input_tokens": 45252,
+          "output_tokens": 8223,
+          "total_tokens": 53475,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 3,
+          "duration_ms": 15001.679,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "missing_usage": 3
+        }
+      },
+      "tool_calls": {
+        "query": 2,
+        "query_policy": 3,
+        "write_trip": 5
+      },
+      "tool_failures": 6,
+      "provider_calls": {
+        "train": 2
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 4,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "oneway",
+      "repeat": 2,
+      "success": false,
+      "error": "[NodeRunError] failed to create chat completion: Post \"https://api.deepseek.com/chat/completions\": context deadline exceeded\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 99775.491,
+      "model_calls": 7,
+      "input_tokens": 34901,
+      "output_tokens": 9698,
+      "total_tokens": 44599,
+      "usage_complete": false,
+      "missing_usage_calls": 2,
+      "stage_calls": {
+        "agent:main": 4,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 2
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 2,
+          "duration_ms": 54381.601,
+          "input_tokens": 6720,
+          "output_tokens": 2702,
+          "total_tokens": 9422,
+          "missing_usage": 1
+        },
+        "agent:main": {
+          "calls": 4,
+          "duration_ms": 40153.359,
+          "input_tokens": 28181,
+          "output_tokens": 6996,
+          "total_tokens": 35177,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 4999.595,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "missing_usage": 1
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 4
+      },
+      "tool_failures": 4,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 2,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "oneway",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 59053.333,
+      "model_calls": 9,
+      "input_tokens": 56116,
+      "output_tokens": 8371,
+      "total_tokens": 64487,
+      "usage_complete": false,
+      "missing_usage_calls": 2,
+      "stage_calls": {
+        "agent:main": 6,
+        "agent:travel_policy": 2,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 3129.158,
+          "input_tokens": 8251,
+          "output_tokens": 524,
+          "total_tokens": 8775,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 6,
+          "duration_ms": 45542.192,
+          "input_tokens": 47865,
+          "output_tokens": 7847,
+          "total_tokens": 55712,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 2,
+          "duration_ms": 10000.576000000001,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "missing_usage": 2
+        }
+      },
+      "tool_calls": {
+        "query": 1,
+        "query_policy": 2,
+        "write_trip": 5
+      },
+      "tool_failures": 5,
+      "provider_calls": {
+        "train": 2
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "multicity",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 42311.723,
+      "model_calls": 4,
+      "input_tokens": 25936,
+      "output_tokens": 7106,
+      "total_tokens": 33042,
+      "usage_complete": false,
+      "missing_usage_calls": 1,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 4316.705,
+          "input_tokens": 12021,
+          "output_tokens": 869,
+          "total_tokens": 12890,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 32668.316,
+          "input_tokens": 13915,
+          "output_tokens": 6237,
+          "total_tokens": 20152,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 5000.382,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "missing_usage": 1
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 2
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "multicity",
+      "repeat": 2,
+      "success": false,
+      "error": "[NodeRunError] failed to create chat completion: Post \"https://api.deepseek.com/chat/completions\": context deadline exceeded\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 99691.477,
+      "model_calls": 7,
+      "input_tokens": 28457,
+      "output_tokens": 11904,
+      "total_tokens": 40361,
+      "usage_complete": false,
+      "missing_usage_calls": 3,
+      "stage_calls": {
+        "agent:main": 5,
+        "agent:travel_policy": 2
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 2,
+          "duration_ms": 10000.869999999999,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "missing_usage": 2
+        },
+        "agent:main": {
+          "calls": 5,
+          "duration_ms": 89511.617,
+          "input_tokens": 28457,
+          "output_tokens": 11904,
+          "total_tokens": 40361,
+          "missing_usage": 1
+        }
+      },
+      "tool_calls": {
+        "query_policy": 2,
+        "write_trip": 2
+      },
+      "tool_failures": 4,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "multicity",
+      "repeat": 3,
+      "success": false,
+      "error": "[NodeRunError] failed to create chat completion: Post \"https://api.deepseek.com/chat/completions\": context deadline exceeded\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 99801.016,
+      "model_calls": 8,
+      "input_tokens": 36357,
+      "output_tokens": 15269,
+      "total_tokens": 51626,
+      "usage_complete": false,
+      "missing_usage_calls": 3,
+      "stage_calls": {
+        "agent:main": 6,
+        "agent:travel_policy": 2
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 2,
+          "duration_ms": 10000.82,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "missing_usage": 2
+        },
+        "agent:main": {
+          "calls": 6,
+          "duration_ms": 89592.943,
+          "input_tokens": 36357,
+          "output_tokens": 15269,
+          "total_tokens": 51626,
+          "missing_usage": 1
+        }
+      },
+      "tool_calls": {
+        "query_policy": 2,
+        "write_trip": 3
+      },
+      "tool_failures": 5,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "modify_activity",
+      "repeat": 1,
+      "success": false,
+      "error": null,
+      "execution_ms": 8459.4,
+      "model_calls": 2,
+      "input_tokens": 14341,
+      "output_tokens": 1251,
+      "total_tokens": 15592,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 8328.279,
+          "input_tokens": 14341,
+          "output_tokens": 1251,
+          "total_tokens": 15592,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "modify_activity",
+      "repeat": 2,
+      "success": false,
+      "error": null,
+      "execution_ms": 22638.772,
+      "model_calls": 4,
+      "input_tokens": 22192,
+      "output_tokens": 2736,
+      "total_tokens": 24928,
+      "usage_complete": false,
+      "missing_usage_calls": 1,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 5000.491,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "missing_usage": 1
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 17479.868,
+          "input_tokens": 22192,
+          "output_tokens": 2736,
+          "total_tokens": 24928,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 1,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round2",
+      "case": "modify_activity",
+      "repeat": 3,
+      "success": false,
+      "error": null,
+      "execution_ms": 6791.786,
+      "model_calls": 2,
+      "input_tokens": 13586,
+      "output_tokens": 889,
+      "total_tokens": 14475,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 5066.483,
+          "input_tokens": 6836,
+          "output_tokens": 736,
+          "total_tokens": 7572,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1620.295,
+          "input_tokens": 6750,
+          "output_tokens": 153,
+          "total_tokens": 6903,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 2,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "query",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 4106.136,
+      "model_calls": 2,
+      "input_tokens": 14066,
+      "output_tokens": 384,
+      "total_tokens": 14450,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1890.905,
+          "input_tokens": 7363,
+          "output_tokens": 197,
+          "total_tokens": 7560,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 2038.781,
+          "input_tokens": 6703,
+          "output_tokens": 187,
+          "total_tokens": 6890,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "query",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 5086.084,
+      "model_calls": 2,
+      "input_tokens": 14069,
+      "output_tokens": 483,
+      "total_tokens": 14552,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 3016.776,
+          "input_tokens": 7366,
+          "output_tokens": 235,
+          "total_tokens": 7601,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1869.748,
+          "input_tokens": 6703,
+          "output_tokens": 248,
+          "total_tokens": 6951,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "query",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 4230.994,
+      "model_calls": 2,
+      "input_tokens": 14060,
+      "output_tokens": 526,
+      "total_tokens": 14586,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 2198.076,
+          "input_tokens": 7357,
+          "output_tokens": 234,
+          "total_tokens": 7591,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1856.224,
+          "input_tokens": 6703,
+          "output_tokens": 292,
+          "total_tokens": 6995,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "oneway",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 73854.215,
+      "model_calls": 4,
+      "input_tokens": 23169,
+      "output_tokens": 6987,
+      "total_tokens": 30156,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 4267.901,
+          "input_tokens": 8375,
+          "output_tokens": 633,
+          "total_tokens": 9008,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 12290.25,
+          "input_tokens": 13917,
+          "output_tokens": 1853,
+          "total_tokens": 15770,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 57089.739,
+          "input_tokens": 877,
+          "output_tokens": 4501,
+          "total_tokens": 5378,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 2
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "oneway",
+      "repeat": 2,
+      "success": false,
+      "error": "[NodeRunError] failed to create chat completion: Post \"https://api.deepseek.com/chat/completions\": context deadline exceeded\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 99648.697,
+      "model_calls": 3,
+      "input_tokens": 6736,
+      "output_tokens": 763,
+      "total_tokens": 7499,
+      "usage_complete": false,
+      "missing_usage_calls": 2,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:travel_policy": 1
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 92012.469,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "missing_usage": 1
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 7530.455,
+          "input_tokens": 6736,
+          "output_tokens": 763,
+          "total_tokens": 7499,
+          "missing_usage": 1
+        }
+      },
+      "tool_calls": {
+        "query": 1,
+        "query_policy": 1
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "oneway",
+      "repeat": 3,
+      "success": false,
+      "error": null,
+      "execution_ms": 36072.06,
+      "model_calls": 3,
+      "input_tokens": 14923,
+      "output_tokens": 6207,
+      "total_tokens": 21130,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:travel_policy": 1
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 26435.611,
+          "input_tokens": 838,
+          "output_tokens": 4624,
+          "total_tokens": 5462,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 9479.256000000001,
+          "input_tokens": 14085,
+          "output_tokens": 1583,
+          "total_tokens": 15668,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 1,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "multicity",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] failed to create chat completion: Post \"https://api.deepseek.com/chat/completions\": context deadline exceeded\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 99793.454,
+      "model_calls": 3,
+      "input_tokens": 7684,
+      "output_tokens": 6367,
+      "total_tokens": 14051,
+      "usage_complete": false,
+      "missing_usage_calls": 1,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:travel_policy": 1
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 87941.56,
+          "input_tokens": 878,
+          "output_tokens": 4865,
+          "total_tokens": 5743,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 11749.361,
+          "input_tokens": 6806,
+          "output_tokens": 1502,
+          "total_tokens": 8308,
+          "missing_usage": 1
+        }
+      },
+      "tool_calls": {
+        "query": 1,
+        "query_policy": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "multicity",
+      "repeat": 2,
+      "success": false,
+      "error": "[NodeRunError] 本次旅程内容超过上下文预算，已停止本轮处理。请将旅程分段规划，例如先安排第一段，再处理后续路段。\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 64587.652,
+      "model_calls": 3,
+      "input_tokens": 19249,
+      "output_tokens": 12244,
+      "total_tokens": 31493,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:travel_policy": 1
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 28699.036,
+          "input_tokens": 906,
+          "output_tokens": 5220,
+          "total_tokens": 6126,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 35756.342,
+          "input_tokens": 18343,
+          "output_tokens": 7024,
+          "total_tokens": 25367,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1,
+        "query_policy": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "multicity",
+      "repeat": 3,
+      "success": false,
+      "error": "[NodeRunError] failed to create chat completion: Post \"https://api.deepseek.com/chat/completions\": context deadline exceeded\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 99680.474,
+      "model_calls": 3,
+      "input_tokens": 7748,
+      "output_tokens": 4983,
+      "total_tokens": 12731,
+      "usage_complete": false,
+      "missing_usage_calls": 1,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:travel_policy": 1
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 84293.121,
+          "input_tokens": 942,
+          "output_tokens": 3926,
+          "total_tokens": 4868,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 15211.332,
+          "input_tokens": 6806,
+          "output_tokens": 1057,
+          "total_tokens": 7863,
+          "missing_usage": 1
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "modify_activity",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 8359.296,
+      "model_calls": 2,
+      "input_tokens": 14691,
+      "output_tokens": 1008,
+      "total_tokens": 15699,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 8230.58,
+          "input_tokens": 14691,
+          "output_tokens": 1008,
+          "total_tokens": 15699,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "modify_activity",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 31738.708,
+      "model_calls": 4,
+      "input_tokens": 24257,
+      "output_tokens": 5277,
+      "total_tokens": 29534,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 21584.135,
+          "input_tokens": 828,
+          "output_tokens": 3936,
+          "total_tokens": 4764,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 9989.354,
+          "input_tokens": 23429,
+          "output_tokens": 1341,
+          "total_tokens": 24770,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round3",
+      "case": "modify_activity",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 6048.86,
+      "model_calls": 2,
+      "input_tokens": 14703,
+      "output_tokens": 874,
+      "total_tokens": 15577,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 5915.385,
+          "input_tokens": 14703,
+          "output_tokens": 874,
+          "total_tokens": 15577,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "query",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 4182.69,
+      "model_calls": 2,
+      "input_tokens": 14007,
+      "output_tokens": 302,
+      "total_tokens": 14309,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 2012.706,
+          "input_tokens": 7329,
+          "output_tokens": 160,
+          "total_tokens": 7489,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1974.535,
+          "input_tokens": 6678,
+          "output_tokens": 142,
+          "total_tokens": 6820,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "query",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 3361.293,
+      "model_calls": 2,
+      "input_tokens": 14018,
+      "output_tokens": 311,
+      "total_tokens": 14329,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1653.144,
+          "input_tokens": 7340,
+          "output_tokens": 169,
+          "total_tokens": 7509,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1292.119,
+          "input_tokens": 6678,
+          "output_tokens": 142,
+          "total_tokens": 6820,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "query",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 2998.564,
+      "model_calls": 2,
+      "input_tokens": 14013,
+      "output_tokens": 298,
+      "total_tokens": 14311,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1362.521,
+          "input_tokens": 7335,
+          "output_tokens": 156,
+          "total_tokens": 7491,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1428.164,
+          "input_tokens": 6678,
+          "output_tokens": 142,
+          "total_tokens": 6820,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "oneway",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 11232.418,
+      "model_calls": 5,
+      "input_tokens": 30030,
+      "output_tokens": 1646,
+      "total_tokens": 31676,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 3489.005,
+          "input_tokens": 8458,
+          "output_tokens": 280,
+          "total_tokens": 8738,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 5804.41,
+          "input_tokens": 20822,
+          "output_tokens": 1181,
+          "total_tokens": 22003,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 1692.567,
+          "input_tokens": 750,
+          "output_tokens": 185,
+          "total_tokens": 935,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 3
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "oneway",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 13134.335,
+      "model_calls": 6,
+      "input_tokens": 37348,
+      "output_tokens": 2186,
+      "total_tokens": 39534,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 4,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 1980.805,
+          "input_tokens": 8623,
+          "output_tokens": 262,
+          "total_tokens": 8885,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 4,
+          "duration_ms": 9040.017,
+          "input_tokens": 27988,
+          "output_tokens": 1701,
+          "total_tokens": 29689,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 1851.642,
+          "input_tokens": 737,
+          "output_tokens": 223,
+          "total_tokens": 960,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 4
+      },
+      "tool_failures": 2,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "oneway",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 10607.602,
+      "model_calls": 5,
+      "input_tokens": 30762,
+      "output_tokens": 1655,
+      "total_tokens": 32417,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 1668.723,
+          "input_tokens": 8982,
+          "output_tokens": 249,
+          "total_tokens": 9231,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 6927.79,
+          "input_tokens": 21026,
+          "output_tokens": 1111,
+          "total_tokens": 22137,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 1782.928,
+          "input_tokens": 754,
+          "output_tokens": 295,
+          "total_tokens": 1049,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 3
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "multicity",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] 本次旅程内容超过上下文预算，已停止本轮处理。请将旅程分段规划，例如先安排第一段，再处理后续路段。\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 41240.667,
+      "model_calls": 9,
+      "input_tokens": 70624,
+      "output_tokens": 10088,
+      "total_tokens": 80712,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 7,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 3432.838,
+          "input_tokens": 16030,
+          "output_tokens": 560,
+          "total_tokens": 16590,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 7,
+          "duration_ms": 34954.476,
+          "input_tokens": 53722,
+          "output_tokens": 9172,
+          "total_tokens": 62894,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2389.119,
+          "input_tokens": 872,
+          "output_tokens": 356,
+          "total_tokens": 1228,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 6
+      },
+      "tool_failures": 5,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 2,
+      "revision_rows": 2,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "multicity",
+      "repeat": 2,
+      "success": false,
+      "error": "[NodeRunError] exceeds max iterations\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 43727.548,
+      "model_calls": 9,
+      "input_tokens": 62161,
+      "output_tokens": 10953,
+      "total_tokens": 73114,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 8,
+        "agent:travel_policy": 1
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 1880.457,
+          "input_tokens": 872,
+          "output_tokens": 355,
+          "total_tokens": 1227,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 8,
+          "duration_ms": 41313.971999999994,
+          "input_tokens": 61289,
+          "output_tokens": 10598,
+          "total_tokens": 71887,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 7
+      },
+      "tool_failures": 6,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 2,
+      "revision_rows": 2,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "multicity",
+      "repeat": 3,
+      "success": false,
+      "error": "[NodeRunError] 本次旅程内容超过上下文预算，已停止本轮处理。请将旅程分段规划，例如先安排第一段，再处理后续路段。\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 29021.329,
+      "model_calls": 7,
+      "input_tokens": 53183,
+      "output_tokens": 6874,
+      "total_tokens": 60057,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 5,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 2743.176,
+          "input_tokens": 15616,
+          "output_tokens": 493,
+          "total_tokens": 16109,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 5,
+          "duration_ms": 23711.623999999996,
+          "input_tokens": 36760,
+          "output_tokens": 6043,
+          "total_tokens": 42803,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2147.249,
+          "input_tokens": 807,
+          "output_tokens": 338,
+          "total_tokens": 1145,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 5
+      },
+      "tool_failures": 3,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "modify_activity",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 9136.889,
+      "model_calls": 5,
+      "input_tokens": 34106,
+      "output_tokens": 934,
+      "total_tokens": 35040,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 4,
+        "agent:travel_policy": 1
+      },
+      "stages": {
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2582.251,
+          "input_tokens": 751,
+          "output_tokens": 323,
+          "total_tokens": 1074,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 4,
+          "duration_ms": 6372.925,
+          "input_tokens": 33355,
+          "output_tokens": 611,
+          "total_tokens": 33966,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 2,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "modify_activity",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 6447.449,
+      "model_calls": 4,
+      "input_tokens": 33845,
+      "output_tokens": 619,
+      "total_tokens": 34464,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 4
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 4,
+          "duration_ms": 6277.874,
+          "input_tokens": 33845,
+          "output_tokens": 619,
+          "total_tokens": 34464,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 3,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round4",
+      "case": "modify_activity",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 3818.521,
+      "model_calls": 2,
+      "input_tokens": 14645,
+      "output_tokens": 401,
+      "total_tokens": 15046,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 3696.155,
+          "input_tokens": 14645,
+          "output_tokens": 401,
+          "total_tokens": 15046,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "query",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 3708.161,
+      "model_calls": 2,
+      "input_tokens": 13390,
+      "output_tokens": 321,
+      "total_tokens": 13711,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1743.853,
+          "input_tokens": 6712,
+          "output_tokens": 179,
+          "total_tokens": 6891,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1761.262,
+          "input_tokens": 6678,
+          "output_tokens": 142,
+          "total_tokens": 6820,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "query",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 4521.206,
+      "model_calls": 2,
+      "input_tokens": 13386,
+      "output_tokens": 316,
+      "total_tokens": 13702,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1984.347,
+          "input_tokens": 6708,
+          "output_tokens": 174,
+          "total_tokens": 6882,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 2341.228,
+          "input_tokens": 6678,
+          "output_tokens": 142,
+          "total_tokens": 6820,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "query",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 3764.709,
+      "model_calls": 2,
+      "input_tokens": 13386,
+      "output_tokens": 308,
+      "total_tokens": 13694,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1665.944,
+          "input_tokens": 6708,
+          "output_tokens": 166,
+          "total_tokens": 6874,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1906.569,
+          "input_tokens": 6678,
+          "output_tokens": 142,
+          "total_tokens": 6820,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "oneway",
+      "repeat": 1,
+      "success": false,
+      "error": null,
+      "execution_ms": 22190.68,
+      "model_calls": 9,
+      "input_tokens": 59675,
+      "output_tokens": 2695,
+      "total_tokens": 62370,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 5,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 3
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 3,
+          "duration_ms": 5783.986000000001,
+          "input_tokens": 19744,
+          "output_tokens": 570,
+          "total_tokens": 20314,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 5,
+          "duration_ms": 14076.435999999998,
+          "input_tokens": 39148,
+          "output_tokens": 1822,
+          "total_tokens": 40970,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 1862.246,
+          "input_tokens": 783,
+          "output_tokens": 303,
+          "total_tokens": 1086,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "request_replan": 2,
+        "write_trip": 5
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "train": 4
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 8,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "oneway",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 7594.272,
+      "model_calls": 3,
+      "input_tokens": 19868,
+      "output_tokens": 1396,
+      "total_tokens": 21264,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 1685.23,
+          "input_tokens": 5850,
+          "output_tokens": 228,
+          "total_tokens": 6078,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 5707.003000000001,
+          "input_tokens": 14018,
+          "output_tokens": 1168,
+          "total_tokens": 15186,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "write_trip": 3
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "oneway",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 9452.71,
+      "model_calls": 5,
+      "input_tokens": 27815,
+      "output_tokens": 1506,
+      "total_tokens": 29321,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 1652.26,
+          "input_tokens": 6164,
+          "output_tokens": 246,
+          "total_tokens": 6410,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 5932.384,
+          "input_tokens": 20914,
+          "output_tokens": 1068,
+          "total_tokens": 21982,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 1635.173,
+          "input_tokens": 737,
+          "output_tokens": 192,
+          "total_tokens": 929,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 3
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "multicity",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 25305.517,
+      "model_calls": 7,
+      "input_tokens": 57153,
+      "output_tokens": 5273,
+      "total_tokens": 62426,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 3
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 3,
+          "duration_ms": 10082.806,
+          "input_tokens": 33723,
+          "output_tokens": 1632,
+          "total_tokens": 35355,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 12268.654999999999,
+          "input_tokens": 22542,
+          "output_tokens": 3121,
+          "total_tokens": 25663,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2389.173,
+          "input_tokens": 888,
+          "output_tokens": 520,
+          "total_tokens": 1408,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 5
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 5,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "multicity",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 24813.576,
+      "model_calls": 7,
+      "input_tokens": 56007,
+      "output_tokens": 5137,
+      "total_tokens": 61144,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 3
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 3,
+          "duration_ms": 9022.887999999999,
+          "input_tokens": 33257,
+          "output_tokens": 1720,
+          "total_tokens": 34977,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 12812.345,
+          "input_tokens": 21899,
+          "output_tokens": 2904,
+          "total_tokens": 24803,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2401.876,
+          "input_tokens": 851,
+          "output_tokens": 513,
+          "total_tokens": 1364,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 5
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 5,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "multicity",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 25782.313,
+      "model_calls": 8,
+      "input_tokens": 64088,
+      "output_tokens": 5337,
+      "total_tokens": 69425,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 4,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 3
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 3,
+          "duration_ms": 10002.895,
+          "input_tokens": 33847,
+          "output_tokens": 1798,
+          "total_tokens": 35645,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 4,
+          "duration_ms": 13110.376,
+          "input_tokens": 29329,
+          "output_tokens": 3251,
+          "total_tokens": 32580,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2021.645,
+          "input_tokens": 912,
+          "output_tokens": 288,
+          "total_tokens": 1200,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 5
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 5,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "modify_activity",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 3042.953,
+      "model_calls": 2,
+      "input_tokens": 14114,
+      "output_tokens": 370,
+      "total_tokens": 14484,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 2893.764,
+          "input_tokens": 14114,
+          "output_tokens": 370,
+          "total_tokens": 14484,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "modify_activity",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 3882.504,
+      "model_calls": 2,
+      "input_tokens": 14100,
+      "output_tokens": 386,
+      "total_tokens": 14486,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 3716.3050000000003,
+          "input_tokens": 14100,
+          "output_tokens": 386,
+          "total_tokens": 14486,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round5",
+      "case": "modify_activity",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 3819.111,
+      "model_calls": 2,
+      "input_tokens": 14119,
+      "output_tokens": 377,
+      "total_tokens": 14496,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 3668.969,
+          "input_tokens": 14119,
+          "output_tokens": 377,
+          "total_tokens": 14496,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "query",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 3408.289,
+      "model_calls": 2,
+      "input_tokens": 13372,
+      "output_tokens": 320,
+      "total_tokens": 13692,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1626.104,
+          "input_tokens": 6694,
+          "output_tokens": 178,
+          "total_tokens": 6872,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1578.796,
+          "input_tokens": 6678,
+          "output_tokens": 142,
+          "total_tokens": 6820,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "query",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 2876.231,
+      "model_calls": 2,
+      "input_tokens": 13365,
+      "output_tokens": 298,
+      "total_tokens": 13663,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1547.232,
+          "input_tokens": 6687,
+          "output_tokens": 156,
+          "total_tokens": 6843,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1050.379,
+          "input_tokens": 6678,
+          "output_tokens": 142,
+          "total_tokens": 6820,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "query",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 3400.097,
+      "model_calls": 2,
+      "input_tokens": 13378,
+      "output_tokens": 303,
+      "total_tokens": 13681,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "stages": {
+        "agent:summary": {
+          "calls": 1,
+          "duration_ms": 1730.99,
+          "input_tokens": 6700,
+          "output_tokens": 176,
+          "total_tokens": 6876,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 1,
+          "duration_ms": 1286.004,
+          "input_tokens": 6678,
+          "output_tokens": 127,
+          "total_tokens": 6805,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "oneway",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 10177.928,
+      "model_calls": 5,
+      "input_tokens": 27847,
+      "output_tokens": 1611,
+      "total_tokens": 29458,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 2014.606,
+          "input_tokens": 6203,
+          "output_tokens": 313,
+          "total_tokens": 6516,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 6226.5380000000005,
+          "input_tokens": 20907,
+          "output_tokens": 1099,
+          "total_tokens": 22006,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 1652.818,
+          "input_tokens": 737,
+          "output_tokens": 199,
+          "total_tokens": 936,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 3
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "oneway",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 10448.653,
+      "model_calls": 5,
+      "input_tokens": 28161,
+      "output_tokens": 1723,
+      "total_tokens": 29884,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 1731.783,
+          "input_tokens": 6459,
+          "output_tokens": 298,
+          "total_tokens": 6757,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 6260.822,
+          "input_tokens": 20965,
+          "output_tokens": 1096,
+          "total_tokens": 22061,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2190.81,
+          "input_tokens": 737,
+          "output_tokens": 329,
+          "total_tokens": 1066,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 3
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "oneway",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 9915.931,
+      "model_calls": 5,
+      "input_tokens": 27796,
+      "output_tokens": 1557,
+      "total_tokens": 29353,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 1815.656,
+          "input_tokens": 6171,
+          "output_tokens": 300,
+          "total_tokens": 6471,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 6181.896000000001,
+          "input_tokens": 20888,
+          "output_tokens": 1053,
+          "total_tokens": 21941,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 1651.673,
+          "input_tokens": 737,
+          "output_tokens": 204,
+          "total_tokens": 941,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 3
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "train": 1
+      },
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "multicity",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 13451.165,
+      "model_calls": 3,
+      "input_tokens": 23857,
+      "output_tokens": 3378,
+      "total_tokens": 27235,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:trip_review": 1
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 1,
+          "duration_ms": 2572.941,
+          "input_tokens": 8994,
+          "output_tokens": 577,
+          "total_tokens": 9571,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 10507.208999999999,
+          "input_tokens": 14863,
+          "output_tokens": 2801,
+          "total_tokens": 17664,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "write_trip": 3
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 3,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "multicity",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 23359.672,
+      "model_calls": 7,
+      "input_tokens": 55916,
+      "output_tokens": 5247,
+      "total_tokens": 61163,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 3,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 3
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 3,
+          "duration_ms": 9460.967,
+          "input_tokens": 33120,
+          "output_tokens": 1878,
+          "total_tokens": 34998,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 3,
+          "duration_ms": 11018.107,
+          "input_tokens": 21970,
+          "output_tokens": 2847,
+          "total_tokens": 24817,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2312.401,
+          "input_tokens": 826,
+          "output_tokens": 522,
+          "total_tokens": 1348,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "write_trip": 5
+      },
+      "tool_failures": 1,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 5,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "multicity",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 28270.355,
+      "model_calls": 8,
+      "input_tokens": 65148,
+      "output_tokens": 6403,
+      "total_tokens": 71551,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 4,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 3
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 3,
+          "duration_ms": 8597.16,
+          "input_tokens": 33614,
+          "output_tokens": 1584,
+          "total_tokens": 35198,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 4,
+          "duration_ms": 17065.017,
+          "input_tokens": 30641,
+          "output_tokens": 4468,
+          "total_tokens": 35109,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 1955.035,
+          "input_tokens": 893,
+          "output_tokens": 351,
+          "total_tokens": 1244,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 6
+      },
+      "tool_failures": 3,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 5,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "modify_activity",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 3219.787,
+      "model_calls": 2,
+      "input_tokens": 14114,
+      "output_tokens": 420,
+      "total_tokens": 14534,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 3065.633,
+          "input_tokens": 14114,
+          "output_tokens": 420,
+          "total_tokens": 14534,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "modify_activity",
+      "repeat": 2,
+      "success": true,
+      "error": null,
+      "execution_ms": 3437.706,
+      "model_calls": 2,
+      "input_tokens": 14110,
+      "output_tokens": 395,
+      "total_tokens": 14505,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 3288.418,
+          "input_tokens": 14110,
+          "output_tokens": 395,
+          "total_tokens": 14505,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-round6",
+      "case": "modify_activity",
+      "repeat": 3,
+      "success": true,
+      "error": null,
+      "execution_ms": 2928.646,
+      "model_calls": 2,
+      "input_tokens": 14100,
+      "output_tokens": 398,
+      "total_tokens": 14498,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 2774.7960000000003,
+          "input_tokens": 14100,
+          "output_tokens": 398,
+          "total_tokens": 14498,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "read": 1,
+        "write_trip": 1
+      },
+      "tool_failures": 0,
+      "provider_calls": {},
+      "plan_count": 1,
+      "task_count": 1,
+      "train_count": 1,
+      "hotel_count": 0,
+      "activity_count": 1,
+      "revision_rows": 3,
+      "seed_revision_rows": 2
+    },
+    {
+      "round": "travel-source-model-2026-10-24-safe-point-probe",
+      "case": "multicity",
+      "repeat": 1,
+      "success": true,
+      "error": null,
+      "execution_ms": 19898.318,
+      "model_calls": 6,
+      "input_tokens": 48856,
+      "output_tokens": 3940,
+      "total_tokens": 52796,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:travel_policy": 1,
+        "agent:trip_review": 3
+      },
+      "stages": {
+        "agent:trip_review": {
+          "calls": 3,
+          "duration_ms": 8671.887,
+          "input_tokens": 33913,
+          "output_tokens": 1660,
+          "total_tokens": 35573,
+          "missing_usage": 0
+        },
+        "agent:main": {
+          "calls": 2,
+          "duration_ms": 7761.1410000000005,
+          "input_tokens": 14049,
+          "output_tokens": 1757,
+          "total_tokens": 15806,
+          "missing_usage": 0
+        },
+        "agent:travel_policy": {
+          "calls": 1,
+          "duration_ms": 2891.693,
+          "input_tokens": 894,
+          "output_tokens": 523,
+          "total_tokens": 1417,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query_policy": 1,
+        "read": 1,
+        "write_trip": 4
+      },
+      "tool_failures": 0,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 1,
+      "task_count": 3,
+      "train_count": 3,
+      "hotel_count": 2,
+      "activity_count": 2,
+      "revision_rows": 5,
+      "seed_revision_rows": 0
+    },
+    {
+      "round": "travel-source-model-2026-10-24-soft-deadline-probe",
+      "case": "multicity",
+      "repeat": 1,
+      "success": false,
+      "error": "[NodeRunError] exceeds max iterations\n------------------------\nnode path: [node_1, ChatModel]",
+      "execution_ms": 35982.796,
+      "model_calls": 8,
+      "input_tokens": 80457,
+      "output_tokens": 9650,
+      "total_tokens": 90107,
+      "usage_complete": true,
+      "missing_usage_calls": 0,
+      "stage_calls": {
+        "agent:main": 8
+      },
+      "stages": {
+        "agent:main": {
+          "calls": 8,
+          "duration_ms": 35597.307,
+          "input_tokens": 80457,
+          "output_tokens": 9650,
+          "total_tokens": 90107,
+          "missing_usage": 0
+        }
+      },
+      "tool_calls": {
+        "query": 1,
+        "read": 1,
+        "write_trip": 6
+      },
+      "tool_failures": 6,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plan_count": 0,
+      "task_count": 0,
+      "train_count": 0,
+      "hotel_count": 0,
+      "activity_count": 0,
+      "revision_rows": 0,
+      "seed_revision_rows": 0
+    }
+  ]
+}

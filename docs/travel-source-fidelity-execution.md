@@ -56,3 +56,29 @@ Task 4 阶段验证：原版角色与动态 profile 已接线；真实 Eino＋jo
 RED→GREEN：原生偏好批量端口缺失、精确批量回执/来源过滤、查询结果丢断点重建、同批首计划提交后失联再构造 Agent 完成第二项、实际模型输入排除旧任务、动态时间导致已接受决策哈希变化、Eino 实际输出仍流出原始假付款文字、错误任务引用触发刷新。对应脚本与 PostgreSQL 随机 schema 测试通过。既有工作流夹具改用源 tasks/selection_refs；查询观察单独形成修订，金额/箭头断言按源回复格式表达相同事实；Service 测试改为断言不叠加 Client 重试，HTTP 重试仍由专门 Client 测试验证。
 
 验证：REQUIRE_DATABASE_TESTS=1 下 go test ./... -count=1 -timeout 5m 退出 0，集成包 36.012 秒；go vet ./... 退出 0。包含真实暂停/手动继续、页面切换/关闭、General 恢复回归。task5-all-final.log、task5-vet.log；真实模型及性能验收尚待 Task 6，不能把脚本成功当作模型效果恢复。
+
+## Task 6：真实模型验收与计量
+
+原版生成参数和所有角色提示保持原样。travel.model_call 包装实际 Generate，包含辅助模型、失败及 Usage 缺失；已接受决策重放不计新调用。少量综合回归覆盖全阶段计量、JSON 参数语义身份、原生历史、旧 Go 活动修改、真实 HTTP 生成参数、软推导期限、具体且安全的 schema 反馈。
+
+真实模型复核又发现 review 重复完整审计、上一轮摘要结构不符、JSONB 键顺序假进展和宿主迭代门禁早于安全点收尾；均先有失败回归再修复。当前 review 只传源业务投影和引用，完整审计保留，达到宿主限制的确定性收尾不额外调用模型。演示供应方的余票说明文字改为规范 unknown，避免被误判为明确不可售；未提供任何真实余票、报价或库存保证。移除仅服务旧简化协议的 Kernel fallback 与旧 checkpoint 夹具，真实 PostgreSQL 源流程恢复测试保留且通过；生产指纹 flow-v4/batch-v4 拒绝不兼容旧断点。
+
+最终同代码 round6：查询、单程、多城、局部活动修改各3次，12/12通过；集成命令122.075秒。本轮全部 Usage 完整。前五轮依次0/12、5/12、7/12、9/12、11/12，未删失败或挑最好样本。四次定向探针也保留，总计76份脱敏样本。完整逐次 Token、阶段调用与延时、供应方次数和实际业务结果见 [验收记录](travel-source-fidelity-verification.md) 及其 JSON；不以运行无 error 代替三段/住宿/活动保存或16:00修改断言。
+
+当前完整 go test ./... -count=1 -timeout180s（真实 PostgreSQL）退出0，集成包36.546秒；go vet和server构建退出0；前端2文件15项测试和生产构建退出0。日志task6-backend-round6、task6-vet-round6、task6-model-round6、task6-frontend-round5、task6-frontend-build-round5。Windows race二进制0xc0000139加载失败，不能报告通过；Linux CI尚待当前提交验证。
+
+## Task 7：单代理自审与人工规格核对（进行中）
+
+按用户已选单代理执行，由当前实现者整体自审，未另派独立评审。核对模块依赖：Service不导入Agent/Eino，Agent和工具不导入postgres/pgx，业务写仍经Service；执行/查询结果与回执通过消费者接口和Repository事务。逐项核对specs的场景、F01–F19映射与下面证据：
+
+| 需求/风险 | 代码与验证证据 |
+| --- | --- |
+| 完整原文、阶段工具契约及字段存在性 | TestTravelSourcePrompts、TestTravelSourceContracts、TestTravelNativePatchPresence；93个Python文件SHA复核全部一致 |
+| 多城/单程/活动/修改、规范化和硬约束 | TestTripSourceRules/Conditions/Boundaries、TestTripBoundReply、TestTravelSourceQueries、TestTravelSourceModel真实保存结果 |
+| 政策、偏好与来源隔离/压缩 | TestTravelSourceAuxiliary/Execution、TravelMemoryIsolation及source recovery；无旧Python用户数据导入 |
+| 无进展、部分收尾、完整review | TestTravelSourceFlow/Scenarios/Eino、TestSourceReviewProjection、TestSourceProgressCanonicalizesJSONB、TestTravelEinoBatchGate |
+| 整批预检失败零副作用、合法独立并发、权限 | TestTravelSourceBatch、TestTravelEinoBatchGate、TestTravelSourceJournal |
+| 提交后断点前故障、作业复用、旧attempt和checkpoint | travel_source_recovery_test.go、既有Eino恢复/页面生命周期/HTTP租约测试，真实PostgreSQL |
+| 所有模型阶段计量及失败披露 | TestTravelMetricsAccounting、真实模型四组12次、全部76份历史与最终脱敏计量 |
+
+自审修复集中于以上实际模型发现及对应RED→GREEN，没有待掩盖的关键失败；历史README的32KB差旅预算、缺005迁移和RAG“没有命中”等陈旧描述已修正。原生Travel继续使用agent.go平台实现、kernel.go Eino装配、commands.go协议转换，没有独立adapter.go。当前OpenSpec CLI无verify命令，已运行strict validate退出0并人工逐条核对；Linux race及最终归档尚未标完成。外部真实供应方/RAG在线、浏览器和Docker部署本轮未重验，不作为本次通过证据。

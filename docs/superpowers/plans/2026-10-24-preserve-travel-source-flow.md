@@ -149,10 +149,10 @@
 
 **Interfaces:** 实际所有模型调用经带 Stage 的计量包装；记录逻辑调用次数、起止/耗时、输入/输出 Token 与 Usage 是否提供；计数工具和实际数据库结果独立于模型文本。缓存命中是否调用模型按实际记录，SDK 内部 HTTP 重试不冒称独立模型决策。
 
-- [ ] 先写可离线运行的 `TestTravelMetricsAccounting`：Main/Verifier/政策/偏好/压缩各阶段相加等于总数；Usage 缺失标记 unknown，不记为零；失败调用同样计数。运行到 RED，再补最小计量包装，重跑 GREEN。
-- [ ] 用真实模型、固定模拟工具、真实随机 schema 运行查询、单程、多城、局部活动修改各 3 次；使用修复前保存的同组请求和判据，严禁减少旅段或排除活动让测试变绿。执行 `go test ./tests/integration -run TestTravelSourceModel -count=1 -timeout 30m`，设置 REQUIRE_DATABASE_TESTS=1、REQUIRE_TRAVEL_SOURCE_MODEL_TEST=1；Expected: 12 份有完整结果的报告，所有业务断言通过才可通过此任务。
-- [ ] 分场景报告每次结果、成功率、输入/输出/总 Token、各阶段调用数、耗时范围、工具调用和实际完成字段；测量从 Go Agent 执行到结果持久化返回，不含 HTTP/SSE/UI，非流式不报告 TTFT。失败同样保留，不用多次重跑挑最好结果。
-- [ ] 若失败，读角色/规范参数/实际观察和存储差异，先定位对应源行为，再补一项有意义的 RED→GREEN 回归修复；规格或设计需变更时先同步文档，不擅自改提示词。修复后重跑受影响场景并保留前后结果，最终全组一次验收。
+- [x] 先写可离线运行的 `TestTravelMetricsAccounting`：Main/Verifier/政策/偏好/压缩各阶段相加等于总数；Usage 缺失标记 unknown，不记为零；失败调用同样计数。运行到 RED，再补最小计量包装，重跑 GREEN。
+- [x] 用真实模型、固定模拟工具、真实随机 schema 运行查询、单程、多城、局部活动修改各 3 次；使用修复前保存的同组请求和判据，严禁减少旅段或排除活动让测试变绿。执行 `go test ./tests/integration -run TestTravelSourceModel -count=1 -timeout 30m`，设置 REQUIRE_DATABASE_TESTS=1、REQUIRE_TRAVEL_SOURCE_MODEL_TEST=1；Expected: 12 份有完整结果的报告，所有业务断言通过才可通过此任务。
+- [x] 分场景报告每次结果、成功率、输入/输出/总 Token、各阶段调用数、耗时范围、工具调用和实际完成字段；测量从 Go Agent 执行到结果持久化返回，不含 HTTP/SSE/UI，非流式不报告 TTFT。失败同样保留，不用多次重跑挑最好结果。
+- [x] 若失败，读角色/规范参数/实际观察和存储差异，先定位对应源行为，再补一项有意义的 RED→GREEN 回归修复；规格或设计需变更时先同步文档，不擅自改提示词。修复后重跑受影响场景并保留前后结果，最终全组一次验收。
 - [ ] 运行 `go test ./... -count=1`、`go vet ./...`、`go build ./cmd/server`；frontend 运行 `npm test -- --run` 和 `npm run build`。Linux race 沿用已有 CI；未执行不得报告通过。Expected: 所有必要检查 GREEN，失败未解决则本任务保持未完成。
 - [ ] 自审原版行为映射与 Go import 方向，提交 `test: verify source faithful travel workflow and model metrics`，完成 6.1/6.2。
 
@@ -162,9 +162,9 @@
 
 **Files:** 更新 README、docs/travel-source-fidelity-execution.md、docs/travel-source-fidelity-verification.md、source-mapping 及 OpenSpec tasks；只有实际完成后才归档本 change。
 
-- [ ] 按每个 Requirement/Scenario、F01–F19、任务及详细计划核对源码和测试证据，检查没有只有勾选框的完成项；记录整体自审发现及修复。
-- [ ] 运行 `openspec validate preserve-travel-source-flow --strict`；Expected: PASS。单独记录人工一致性核对，不称执行过不存在的 verify。
-- [ ] 更新 README：原版已保留内容、实际测试结果、模拟工具标识、真实依赖与剩余缺口。失败/未做必须直说，不能沿用旧“迁移完成”结论掩盖偏差。
+- [x] 按每个 Requirement/Scenario、F01–F19、任务及详细计划核对源码和测试证据，检查没有只有勾选框的完成项；记录整体自审发现及修复。
+- [x] 运行 `openspec validate preserve-travel-source-flow --strict`；Expected: PASS。单独记录人工一致性核对，不称执行过不存在的 verify。
+- [x] 更新 README：原版已保留内容、实际测试结果、模拟工具标识、真实依赖与剩余缺口。失败/未做必须直说，不能沿用旧“迁移完成”结论掩盖偏差。
 - [ ] 仅在任务、测试、审查、一致性满足后使用 OpenSpec archive 同步规格；复核 archive 内容和 diff，提交归档文档。
 - [ ] 按分支收尾流程报告已验证结果与未做项，呈现适用的提交/PR/保留分支选择并执行用户授权，不自动合并共享分支。
 

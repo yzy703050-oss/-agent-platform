@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type TravelHistoryRequest struct {
 	Resource       string
 	ConversationID string
@@ -8,6 +10,7 @@ type TravelHistoryRequest struct {
 	Filters        TripConditions
 }
 type TravelPolicyQuery struct {
-	Context    TripConditions
-	TripPlanID string
+	RetrievalTimeout time.Duration `json:"-"`
+	Context          TripConditions
+	TripPlanID       string
 }

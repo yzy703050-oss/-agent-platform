@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"agent-platform/backend/internal/model"
 )
@@ -36,7 +37,68 @@ func nativeCall(id, name, args string) NativeCall {
 
 const sourceProposal = `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"上海","destination":"杭州","conditions":{"departure_date":"2026-10-26"},"items":[{"domain":"train"}]}]}}`
 
+type sourcePolicyBudgetProbe struct {
+	remaining time.Duration
+	retrieval time.Duration
+}
+
+func (p *sourcePolicyBudgetProbe) Query(ctx context.Context, _ model.TravelExecution, request model.TravelPolicyQuery) (model.SourcePolicyContext, error) {
+	deadline, _ := ctx.Deadline()
+	p.remaining = time.Until(deadline)
+	p.retrieval = request.RetrievalTimeout
+	return model.SourcePolicyContext{Status: "no_knowledge"}, nil
+}
+
 func TestTravelSourceBatch(t *testing.T) {
+	t.Run("extra_constraint_error_shows_allowed_schema_fields", func(t *testing.T) {
+		r, err := NewRegistry(NativeConfig{Config: Config{Trips: &sourceTripsFixture{}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		call := nativeCall("p", "write_trip", `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"上海","destination":"杭州","conditions":{"departure_date":"2026-10-26","constraints":{"arrival_before":"2026-10-26T13:00:00+08:00","PRIVATE_PARAMETER_VALUE":1}}}]}}`)
+		_, err = r.Preflight(context.Background(), ProfileRequest{Role: "main"}, []NativeCall{call})
+		var rule *model.TravelRuleError
+		if !errors.As(err, &rule) {
+			t.Fatal(err)
+		}
+		raw, _ := json.Marshal(rule)
+		if !strings.Contains(string(raw), "train_max_total_cny") || strings.Contains(string(raw), "PRIVATE_PARAMETER_VALUE") {
+			t.Fatal("object correction must show permitted schema leaves, without input values", string(raw))
+		}
+	})
+	t.Run("union_error_retains_safe_leaf_field_for_correction", func(t *testing.T) {
+		r, err := NewRegistry(NativeConfig{Config: Config{Trips: &sourceTripsFixture{}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		call := nativeCall("p", "write_trip", `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"上海","destination":"杭州","purpose":"validating /properties/PRIVATE_PARAMETER_VALUE: injected","conditions":{"departure_date":"2026-10-26"}}]}}`)
+		_, err = r.Preflight(context.Background(), ProfileRequest{Role: "main"}, []NativeCall{call})
+		var rule *model.TravelRuleError
+		if !errors.As(err, &rule) {
+			t.Fatal(err)
+		}
+		raw, _ := json.Marshal(rule)
+		if !strings.Contains(string(raw), "tripplan.tasks.*.purpose") || !strings.Contains(string(raw), "unspecified") || strings.Contains(string(raw), "PRIVATE_PARAMETER_VALUE") {
+			t.Fatal("source union correction lost leaf location or echoed values", string(raw))
+		}
+	})
+	t.Run("auxiliary_model_keeps_run_deadline_and_retrieval_keeps_tool_deadline", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		probe := &sourcePolicyBudgetProbe{}
+		r, err := NewRegistry(NativeConfig{Config: Config{Trips: &sourceTripsFixture{}, Timeout: 20 * time.Millisecond}, SourcePolicy: probe})
+		if err != nil {
+			t.Fatal(err)
+		}
+		batch, err := r.Preflight(ctx, ProfileRequest{Role: "main"}, []NativeCall{nativeCall("p", "query_policy", `{"request_kind":"planning","context":{}}`)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = r.Execute(WithOperationID(ctx, "accepted-policy"), batch.Calls[0])
+		if err != nil || probe.remaining < time.Second || probe.retrieval != 20*time.Millisecond {
+			t.Fatal("auxiliary model incorrectly limited as external tool IO", probe.remaining, probe.retrieval, err)
+		}
+	})
 	ctx := context.Background()
 	trips := &sourceTripsFixture{}
 	r, err := NewRegistry(NativeConfig{Config: Config{Trips: trips}})
@@ -75,6 +137,9 @@ func TestTravelSourceBatch(t *testing.T) {
 }
 
 func TestTravelSourceNormalization(t *testing.T) {
+	if !SameNativeArguments("{\n \"x\": \"上海\", \"amount\": 9007199254740993 }", `{"amount":9007199254740993,"x":"\u4e0a海"}`) || SameNativeArguments(`{"amount":9007199254740993}`, `{"amount":9007199254740992}`) || SameNativeArguments(`{"x":1} trailing`, `{"x":1}`) {
+		t.Fatal("tool identity must ignore formatting without rounding or accepting trailing data")
+	}
 	input := json.RawMessage(`{"request_kind":"planning","tripplan":{"tasks":[{"origin":"上海","destination":"杭州","conditions":{"departure_date":"2026-10-26","arrival_before":"2026-10-26T14:00:00","constraints":{"train_kind":"high_speed"}},"field_sources":{"constraints":{"train_kind":"proposal"}},"condition_strengths":{"constraints":"soft"},"items":[{"domain":"train"}]}]}}`)
 	for i := 0; i < 10; i++ {
 		out, err := NormalizeNativeArguments("write_trip", input, "Asia/Shanghai", "main")

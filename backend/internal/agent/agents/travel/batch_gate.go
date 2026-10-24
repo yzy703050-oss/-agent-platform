@@ -110,9 +110,6 @@ func (h *nativeBatchGate) BeforeModelRewriteState(ctx context.Context, state *ad
 	if err != nil {
 		return ctx, state, err
 	}
-	if b.Final == "" && s.ModelCalls >= h.cfg.MaxIterations {
-		return ctx, state, adk.ErrExceedMaxIterations
-	}
 	if b.Final == "" && h.cfg.NativeBeforeModel != nil {
 		var final string
 		state.Messages, final, err = h.cfg.NativeBeforeModel(ctx, state.Messages)
@@ -129,6 +126,11 @@ func (h *nativeBatchGate) BeforeModelRewriteState(ctx context.Context, state *ad
 		if err != nil {
 			return ctx, state, err
 		}
+	}
+	// The source safe point can finalize already saved facts at the budget.
+	// It runs before the provider gate; a deterministic reply consumes no call.
+	if b.Final == "" && s.ModelCalls >= h.cfg.MaxIterations {
+		return ctx, state, adk.ErrExceedMaxIterations
 	}
 	profile, err := h.profile(ctx)
 	if err != nil {
@@ -275,7 +277,7 @@ func (h *nativeBatchGate) WrapInvokableToolCall(_ context.Context, next adk.Invo
 		index := -1
 		var prepared traveltools.PreparedCall
 		for i, call := range b.Batch.Calls {
-			if call.ID == t.CallID && call.Name == t.Name && string(call.Arguments) == args {
+			if call.ID == t.CallID && call.Name == t.Name && traveltools.SameNativeArguments(string(call.Arguments), args) {
 				index = i
 				prepared = call
 				break
@@ -375,7 +377,7 @@ func (h *nativeBatchGate) unknownTool(ctx context.Context, name, args string) (s
 	}
 	runtime := h.runtimeFor(b)
 	for _, call := range b.Calls {
-		if call.Name == name && string(call.Arguments) == args && !runtime.claimed[call.ID] {
+		if call.Name == name && traveltools.SameNativeArguments(string(call.Arguments), args) && !runtime.claimed[call.ID] {
 			runtime.claimed[call.ID] = true
 			h.mu.Unlock()
 			result := pm.TravelToolResult{CallID: call.ID, Name: name, Status: "rejected", Error: &pm.TravelRuleError{Code: "UNKNOWN_TOOL", Message: "unknown_tool:" + name}}

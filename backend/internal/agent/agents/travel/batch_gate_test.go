@@ -1,6 +1,7 @@
 package travel
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"sync"
@@ -55,6 +56,7 @@ type sourceGateModel struct {
 	paired      bool
 	independent bool
 	unknown     bool
+	pretty      bool
 }
 
 func (m *sourceGateModel) WithTools([]*schema.ToolInfo) (em.ToolCallingChatModel, error) {
@@ -83,6 +85,13 @@ func (m *sourceGateModel) Generate(_ context.Context, messages []*schema.Message
 	}
 	if m.unknown {
 		msg.ToolCalls = append(msg.ToolCalls, schema.ToolCall{ID: "b", Type: "function", Function: schema.FunctionCall{Name: "unregistered", Arguments: `{}`}})
+	}
+	if m.pretty {
+		for i := range msg.ToolCalls {
+			var out bytes.Buffer
+			_ = json.Indent(&out, []byte(msg.ToolCalls[i].Function.Arguments), "", "  ")
+			msg.ToolCalls[i].Function.Arguments = out.String()
+		}
 	}
 	return msg, nil
 }
@@ -133,7 +142,7 @@ func TestTravelSourceJournal(t *testing.T) {
 			}
 			store := &sourceJournalStore{decisions: map[string]pm.TravelDecision{}, results: map[string]string{}}
 			h := &journal{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}, store: store, native: true}
-			m := &sourceGateModel{independent: !unknown, unknown: unknown}
+			m := &sourceGateModel{independent: !unknown, unknown: unknown, pretty: true}
 			kernel, err := NewKernel(ctx, KernelConfig{Model: m, MaxIterations: 8, Registry: registry, Handlers: []adk.ChatModelAgentMiddleware{h}, NativeRejected: h.recordRejected})
 			if err != nil {
 				t.Fatal(err)
@@ -170,6 +179,47 @@ func (m *sourceGateModel) Stream(ctx context.Context, msgs []*schema.Message, op
 }
 
 func TestTravelEinoBatchGate(t *testing.T) {
+	t.Run("source_safe_point_reply_at_model_budget", func(t *testing.T) {
+		ctx := context.Background()
+		registry, err := traveltools.NewRegistry(traveltools.NativeConfig{Config: traveltools.Config{Trips: &sourceGateTrips{}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := &sourceGateModel{}
+		kernel, err := NewKernel(ctx, KernelConfig{Model: m, MaxIterations: 1, Registry: registry, Handlers: []adk.ChatModelAgentMiddleware{&sourceGateIdentity{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}}}, NativeBeforeModel: func(ctx context.Context, messages []*schema.Message) ([]*schema.Message, string, error) {
+			s, err := readState(ctx)
+			if err != nil {
+				return nil, "", err
+			}
+			if s.ModelCalls >= 1 {
+				return messages, "已按本次实际保存结果收尾。", nil
+			}
+			return messages, "", nil
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		it := adk.NewRunner(ctx, adk.RunnerConfig{Agent: kernel}).Query(ctx, "保存本次安排")
+		final := ""
+		for {
+			event, ok := it.Next()
+			if !ok {
+				break
+			}
+			if event.Err != nil {
+				t.Fatal(event.Err)
+			}
+			if event.Output != nil && event.Output.MessageOutput != nil {
+				msg, err := event.Output.MessageOutput.GetMessage()
+				if err == nil && msg.Role == schema.Assistant && len(msg.ToolCalls) == 0 {
+					final = msg.Content
+				}
+			}
+		}
+		if m.calls.Load() != 1 || final != "已按本次实际保存结果收尾。" {
+			t.Fatalf("calls=%d final=%q", m.calls.Load(), final)
+		}
+	})
 	for _, invalid := range []bool{true, false} {
 		t.Run(map[bool]string{true: "preflight_before_parallel_effects", false: "bound_reply_without_extra_model_call"}[invalid], func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

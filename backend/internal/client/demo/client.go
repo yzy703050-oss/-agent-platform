@@ -29,12 +29,12 @@ func (c *Client) Search(ctx context.Context, q model.TravelQuery) (model.TravelE
 		for i, amount := range []int64{10000, 15000} {
 			depart := date.Add(time.Duration(9+i*5) * time.Hour)
 			arrive := depart.Add(2 * time.Hour)
-			out.Candidates = append(out.Candidates, model.TravelCandidate{IsDemo: true, ID: fmt.Sprintf("demo-%x-%d", digest[:6], i), Name: fmt.Sprintf("演示 G%d", 1001+i), Origin: q.Origin, Destination: q.Destination, DepartureAt: &depart, ArrivalAt: &arrive, PriceFen: &amount, TrainKind: "G", SeatClass: "二等座", Availability: "演示；真实余票未知"})
+			out.Candidates = append(out.Candidates, model.TravelCandidate{IsDemo: true, ID: fmt.Sprintf("demo-%x-%d", digest[:6], i), Name: fmt.Sprintf("演示 G%d", 1001+i), Origin: q.Origin, Destination: q.Destination, DepartureAt: &depart, ArrivalAt: &arrive, PriceFen: &amount, TrainKind: "G", SeatClass: "二等座", Availability: "unknown"})
 		}
 	case "hotel":
 		out.Status = "partial"
 		out.MissingFields = []string{"price_fen", "availability"}
-		out.Candidates = []model.TravelCandidate{{IsDemo: true, ID: "demo-hotel-1", Name: q.City + "演示酒店地点", City: q.City, Address: q.City + "演示商务区（虚构地址）", Availability: "未知"}}
+		out.Candidates = []model.TravelCandidate{{IsDemo: true, ID: "demo-hotel-1", Name: q.City + "演示酒店地点", City: q.City, Address: q.City + "演示商务区（虚构地址）", Availability: "unknown"}}
 	case "weather":
 		temp := 22.0
 		out.Weather = []model.TravelWeather{{Date: q.Date, Description: q.City + "演示晴天（非真实预报）", TemperatureC: &temp}}

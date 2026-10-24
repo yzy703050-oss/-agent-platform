@@ -54,6 +54,7 @@ func NewAgent(cfg Config) (*Agent, error) {
 	if cfg.Model == nil || cfg.Trips == nil || cfg.Preferences == nil || cfg.Decisions == nil || cfg.Checkpoints == nil || cfg.Identity == "" {
 		return nil, errors.New("travel dependencies unavailable")
 	}
+	cfg.Model = measureModel(cfg.Model)
 	if cfg.SourcePolicy == nil {
 		cfg.SourcePolicy = NewPolicyAgent(cfg.Model, cfg.Retriever)
 	}
@@ -84,7 +85,7 @@ func NewAgent(cfg Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + string(contractsJSON) + "travel-source-flow-v2:batch-v2:durable-query-v1:eino-v0.9.0-beta.1"))
+	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + string(contractsJSON) + "travel-source-flow-v4:batch-v4:durable-query-v1:generation-temp0.3-max8192-deepseek-thinking-disabled:eino-v0.9.0-beta.1"))
 	return &Agent{cfg: cfg, preference: preference, fingerprint: hex.EncodeToString(sum[:])}, nil
 }
 func (a *Agent) Fingerprint() string { return a.fingerprint }

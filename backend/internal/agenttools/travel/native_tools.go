@@ -41,7 +41,7 @@ type nativeTool struct {
 func (t *nativeTool) Info(context.Context) (*schema.ToolInfo, error) { return t.info, nil }
 func (t *nativeTool) InvokableRun(ctx context.Context, args string, _ ...tool.Option) (out string, err error) {
 	prepared, ok := ctx.Value(preparedCallKey{}).(PreparedCall)
-	if !ok || prepared.Name != t.info.Name || string(prepared.Arguments) != args {
+	if !ok || prepared.Name != t.info.Name || !SameNativeArguments(string(prepared.Arguments), args) {
 		return "", model.ErrIdempotencyConflict
 	}
 	started := time.Now()
@@ -100,6 +100,10 @@ func (r *Registry) Execute(ctx context.Context, call PreparedCall) (string, erro
 		return string(data), err
 	}
 	bounded, cancel := context.WithTimeout(ctx, nativeTimeout(r.cfg.Timeout))
+	if call.Name == "query_policy" || call.Name == "write_memory" && call.Memory != nil && call.Memory.Operation == "reanalyze" {
+		cancel()
+		bounded, cancel = context.WithCancel(ctx)
+	}
 	defer cancel()
 	result := model.TravelToolResult{CallID: call.ID, Name: call.Name, Status: "ok"}
 	switch call.Name {
@@ -122,6 +126,13 @@ func (r *Registry) Execute(ctx context.Context, call PreparedCall) (string, erro
 				request.TripPlanID = *call.Read.TripPlanID
 			}
 			result.Data, err = r.cfg.History.ReadHistory(bounded, r.cfg.Execution, request)
+			if err == nil && request.Resource == "trip" {
+				var p model.TripPlan
+				if err = json.Unmarshal(result.Data, &p); err == nil {
+					view := NativeTripView(model.TripResult{Operation: "read", Plan: p, Validation: p.Validation})
+					result.Data = mustJSON(view)
+				}
+			}
 		} else if call.Read.Resource == "trip" && call.Read.TripPlanID != nil {
 			var view model.TripResult
 			view, err = r.cfg.Trips.Inspect(bounded, r.cfg.Execution, *call.Read.TripPlanID)
@@ -188,7 +199,7 @@ func (r *Registry) Execute(ctx context.Context, call PreparedCall) (string, erro
 		}
 		policy := model.SourcePolicyContext{Status: "no_knowledge", Summary: "未取得适用政策资料，不能确认无限制。", Constraints: []model.SourcePolicyRule{}, Applicability: map[string]json.RawMessage{}, References: []model.SourcePolicyReference{}, MissingFields: []string{"policy_evidence"}, Conflicts: []json.RawMessage{}}
 		if r.cfg.SourcePolicy != nil {
-			request := model.TravelPolicyQuery{Context: model.TripConditions(call.Policy.Context)}
+			request := model.TravelPolicyQuery{Context: model.TripConditions(call.Policy.Context), RetrievalTimeout: nativeTimeout(r.cfg.Timeout)}
 			if request.Context == nil {
 				request.Context = model.TripConditions{}
 			}
@@ -303,6 +314,13 @@ func NativeTripView(result model.TripResult) map[string]any {
 		conditions := t.Conditions
 		if conditions == nil {
 			conditions = model.TripConditions{}
+			if p.SourceVersion == 0 {
+				for key, value := range map[string]string{"departure_date": t.DepartureDate, "arrival_date": t.ArrivalDate, "arrival_before": t.ArrivalBefore, "check_in": t.CheckIn, "check_out": t.CheckOut} {
+					if value != "" {
+						conditions[key] = mustJSON(value)
+					}
+				}
+			}
 		}
 		levels := t.ConditionStrengths
 		if levels == nil {
@@ -325,7 +343,7 @@ func NativeTripView(result model.TripResult) map[string]any {
 				d["hotel_selection"] = t.Hotel.Ref
 			}
 		}
-		rows = append(rows, map[string]any{"id": t.ID, "revision": max(t.Revision, 1), "status": taskStatus, "origin": t.Origin, "destination": t.Destination, "purpose": t.Purpose, "requires_hotel": t.RequiresHotel, "conditions": conditions, "content": content, "field_sources": fieldSources, "condition_strengths": levels, "draft_plan": draft})
+		rows = append(rows, map[string]any{"id": t.ID, "revision": max(t.Revision, 1), "status": taskStatus, "origin": t.Origin, "destination": t.Destination, "purpose": t.Purpose, "requires_hotel": t.RequiresHotel, "conditions": conditions, "content": content, "items": t.Items, "field_sources": fieldSources, "condition_strengths": levels, "draft_plan": draft})
 		facts := map[string]any{"task_id": t.ID, "train": nil, "hotel": nil, "schedule": map[string]any{"departure_at": nil, "arrival_at": nil, "check_in": t.CheckIn, "check_out": t.CheckOut}}
 		if t.Train != nil {
 			facts["train"] = nativeCandidate(t.Train.Candidate, "train")
@@ -336,13 +354,20 @@ func NativeTripView(result model.TripResult) map[string]any {
 		if t.Hotel != nil {
 			facts["hotel"] = nativeCandidate(t.Hotel.Candidate, "hotel")
 		}
-		reconstructed = append(reconstructed, facts)
+		if t.Train != nil || t.Hotel != nil {
+			reconstructed = append(reconstructed, facts)
+		}
 	}
 	issues := result.Validation.Issues
 	if issues == nil {
 		issues = []model.TripIssue{}
 	}
 	view := map[string]any{"status": status, "operation": result.Operation, "trip_plan_id": p.ID, "revision": p.Revision, "tasks": rows, "validation": map[string]any{"valid": result.Validation.Status == "complete", "issues": issues, "reconstructed_tasks": reconstructed}, "candidates": []any{}, "pending_queries": []any{}, "stop_reason": p.StopReason, "reason": p.StopExplanation, "stage": "awaiting_selection", "stop_planning": slices.Contains([]string{"provider_capability_missing", "repair_disabled", "paused", "cancelled", "needs_input", "hard_constraint_conflict", "policy_unverified", "goal_not_satisfied"}, p.StopReason)}
+	view["confirmed_conditions"] = p.ConfirmedConditions
+	view["field_sources"] = p.FieldSources
+	view["condition_strengths"] = p.ConditionStrengths
+	view["policy_context"] = p.PolicyContext
+	view["constraint_snapshot"] = p.ConstraintSnapshot
 	for _, q := range result.Queries {
 		pending := view["pending_queries"].([]any)
 		pending = append(pending, map[string]any{"task_id": q.TaskID, "item": map[string]any{"domain": q.Domain, "parameters": NativeQueryParameters(q)}, "reason": "awaiting_query"})

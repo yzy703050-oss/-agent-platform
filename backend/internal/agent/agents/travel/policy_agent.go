@@ -3,6 +3,7 @@ package travel
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	pm "agent-platform/backend/internal/model"
 	tripsvc "agent-platform/backend/internal/service/trip"
@@ -25,7 +26,13 @@ func (a *PolicyAgent) Query(ctx context.Context, _ pm.TravelExecution, request p
 	}
 	var query string
 	_ = json.Unmarshal(request.Context["original_query"], &query)
-	evidence, err := a.retriever.Search(ctx, query)
+	retrievalTimeout := request.RetrievalTimeout
+	if retrievalTimeout <= 0 {
+		retrievalTimeout = 30 * time.Second
+	}
+	retrievalCtx, retrievalCancel := context.WithTimeout(ctx, retrievalTimeout)
+	evidence, err := a.retriever.Search(retrievalCtx, query)
+	retrievalCancel()
 	if err != nil {
 		if ctx.Err() != nil {
 			return empty, ctx.Err()

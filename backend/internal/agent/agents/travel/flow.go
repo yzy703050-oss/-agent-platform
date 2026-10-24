@@ -88,6 +88,26 @@ func (f *sourceFlow) save(ctx context.Context, s FlowState) error {
 		return err
 	}
 	adk.AddSessionValue(ctx, flowKey, string(raw))
+	host, err := readState(ctx)
+	if err != nil {
+		return err
+	}
+	host.Phase = PhasePlanning
+	if s.Role == "verifier" {
+		host.Phase = PhaseValidating
+	}
+	if slices.ContainsFunc(s.Jobs, func(job traveltools.QueryJob) bool { return job.Result == nil }) {
+		host.Phase = PhaseQuerying
+	}
+	if slices.Contains([]string{"stopping", "reply_ready", "completed", "stopped"}, s.Phase) {
+		host.Phase = PhaseReply
+	}
+	if len(s.Plans) > 0 {
+		host.PlanID = s.planIDs()[0]
+	}
+	if err = saveState(ctx, host); err != nil {
+		return err
+	}
 	if f.cfg.Snapshot != nil {
 		f.cfg.Snapshot(s)
 	}
@@ -463,13 +483,23 @@ func (f *sourceFlow) afterBatch(ctx context.Context, batch traveltools.PreparedB
 		return "", err
 	}
 	s.Phase = "validating"
+	s.LastBatchCalls = nil
+	if native, readErr := loadNativeBatch(ctx); readErr == nil {
+		s.LastBatchCalls = slices.Clone(native.Calls)
+	}
+	if len(s.LastBatchCalls) == 0 {
+		for _, call := range batch.Calls {
+			s.LastBatchCalls = append(s.LastBatchCalls, call.NativeCall)
+		}
+	}
+	s.LastBatchResults = slices.Clone(results)
 	s.ExternalQueryKeys = slices.Clone(batch.QueryKeys)
 	summaries := []string{}
-	for _, call := range batch.Calls {
+	for _, call := range s.LastBatchCalls {
 		var fields struct {
 			RoundSummary string `json:"round_summary"`
 		}
-		_ = json.Unmarshal(call.Normalized, &fields)
+		_ = json.Unmarshal(call.Arguments, &fields)
 		if fields.RoundSummary != "" {
 			summaries = append(summaries, fields.RoundSummary)
 		}
@@ -485,7 +515,10 @@ func (f *sourceFlow) afterBatch(ctx context.Context, batch traveltools.PreparedB
 		if r.Name == "write_trip" {
 			for _, call := range batch.Calls {
 				if call.ID == r.CallID {
-					s.AdjustmentHistory = append(s.AdjustmentHistory, mustMarshal(map[string]any{"call_id": r.CallID, "operation": r.Operation, "status": r.Status, "revision": r.Revision, "summary": s.PreviousRoundSummary, "changes": call.Normalized, "effect": map[bool]string{true: "saved_draft", false: "not_applied"}[r.TripPlanID != ""]}))
+					args := sourceObject(call.Arguments)
+					changes, _ := args["tripplan"].(map[string]any)
+					changes = sourceChanges(changes)
+					s.AdjustmentHistory = append(s.AdjustmentHistory, mustMarshal(map[string]any{"call_id": r.CallID, "trip_plan_id": r.TripPlanID, "operation": r.Operation, "status": r.Status, "revision": r.Revision, "summary": s.PreviousRoundSummary, "changes": changes, "effect": map[bool]string{true: "saved_draft", false: "not_applied"}[r.TripPlanID != ""]}))
 				}
 			}
 		}
@@ -549,44 +582,6 @@ func (f *sourceFlow) afterBatch(ctx context.Context, batch traveltools.PreparedB
 }
 
 func mustMarshal(v any) json.RawMessage { raw, _ := json.Marshal(v); return raw }
-func buildSourceReview(s FlowState) map[string]any {
-	plans := []any{}
-	facts := []any{}
-	for _, id := range s.planIDs() {
-		p := s.Plans[id]
-		plans = append(plans, s.PlanView(p))
-		facts = append(facts, map[string]any{"trip_plan_id": id, "saved_revision": p.Plan.Revision, "status": p.Plan.Status, "validation": p.Validation})
-	}
-	queries := []any{}
-	memory := []any{}
-	observations := []any{}
-	for _, result := range s.Results {
-		if result.Name == "query" {
-			var rows []any
-			if json.Unmarshal(result.Data, &rows) == nil {
-				queries = append(queries, rows...)
-			}
-		} else if result.Name == "write_memory" {
-			memory = append(memory, result)
-		} else if result.Name != "write_trip" {
-			observations = append(observations, result)
-		}
-	}
-	view := map[string]any{"original_query": s.OriginalQuery, "tripplan": map[string]any{}, "reply_facts": facts, "query_results": queries, "observations": observations, "memory_results": memory, "previous_round_summary": s.PreviousRoundSummary, "adjustment_history": s.AdjustmentHistory, "execution_results": s.RawResults}
-	if len(plans) == 1 {
-		view["tripplan"] = plans[0]
-	} else if len(plans) > 1 {
-		view["tripplans"] = plans
-	}
-	for i := len(s.Results) - 1; i >= 0; i-- {
-		r := s.Results[i]
-		if r.Name == "request_replan" && r.Status == "ok" {
-			view["replan_request"] = r
-			break
-		}
-	}
-	return view
-}
 func stoppedSourceReply(s FlowState) (string, error) {
 	parts := []string{}
 	for _, id := range s.planIDs() {
