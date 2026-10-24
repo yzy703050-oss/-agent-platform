@@ -42,6 +42,7 @@ const (
 )
 
 type TravelExecution struct {
+	QueryJobID     string
 	Scope          Scope
 	ConversationID string
 	RunID          string

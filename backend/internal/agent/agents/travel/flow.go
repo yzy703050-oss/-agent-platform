@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"agent-platform/backend/internal/agent/memory"
+	"agent-platform/backend/internal/agent/ports"
 	traveltools "agent-platform/backend/internal/agenttools/travel"
 	pm "agent-platform/backend/internal/model"
 	tripsvc "agent-platform/backend/internal/service/trip"
@@ -21,6 +22,7 @@ import (
 const flowKey = "platform.travel.source-flow.v1"
 
 type flowConfig struct {
+	Decisions       ports.TravelDecisionStore
 	Preference      *PreferenceAgent
 	ContextTokens   int
 	History         []pm.Message
@@ -216,6 +218,25 @@ func (f *sourceFlow) recordJob(ctx context.Context, job traveltools.QueryJob) er
 func (f *sourceFlow) runJobs(ctx context.Context) error {
 	f.mu.Lock()
 	s, err := f.load(ctx)
+	if err == nil {
+		if reader, ok := f.cfg.Trips.(interface {
+			ListQueryJobs(context.Context, pm.TravelExecution) ([]pm.TravelQueryJob, error)
+		}); ok {
+			var stored []pm.TravelQueryJob
+			stored, err = reader.ListQueryJobs(ctx, f.cfg.Execution)
+			for _, job := range stored {
+				index := slices.IndexFunc(s.Jobs, func(old traveltools.QueryJob) bool { return old.ID == job.ID })
+				if index < 0 {
+					s.Jobs = append(s.Jobs, job)
+				} else if job.Result != nil {
+					s.Jobs[index].Result = job.Result
+				}
+			}
+			if err == nil {
+				err = f.save(ctx, s)
+			}
+		}
+	}
 	f.mu.Unlock()
 	if err != nil {
 		return err
@@ -228,6 +249,36 @@ func (f *sourceFlow) runJobs(ctx context.Context) error {
 }
 
 func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message) ([]*schema.Message, string, error) {
+	if f.cfg.Decisions != nil {
+		host, err := readState(ctx)
+		if err != nil {
+			return nil, "", err
+		}
+		d, ok, err := f.cfg.Decisions.FindTravelDecision(ctx, f.cfg.Execution, decisionKey(host.ModelCalls))
+		if err != nil {
+			return nil, "", err
+		}
+		if ok {
+			if len(d.FlowSnapshot) == 0 || len(d.InputMessages) == 0 {
+				return nil, "", pm.ErrIdempotencyConflict
+			}
+			f.mu.Lock()
+			adk.AddSessionValue(ctx, flowKey, string(d.FlowSnapshot))
+			s, err := f.load(ctx)
+			if err == nil {
+				err = f.save(ctx, s)
+			}
+			f.mu.Unlock()
+			if err != nil {
+				return nil, "", err
+			}
+			messages := make([]*schema.Message, 0, len(d.InputMessages))
+			for _, m := range d.InputMessages {
+				messages = append(messages, toEino(m))
+			}
+			return messages, "", nil
+		}
+	}
 	if err := f.runJobs(ctx); err != nil {
 		return nil, "", err
 	}
@@ -241,7 +292,7 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 	if err != nil {
 		return nil, "", err
 	}
-	if len(s.PreparedMessages) > 0 && s.PreparedModelKey == host.ModelCalls {
+	if f.cfg.Decisions == nil && len(s.PreparedMessages) > 0 && s.PreparedModelKey == host.ModelCalls {
 		return s.PreparedMessages, "", nil
 	}
 	if !s.PreferenceMaintained && f.cfg.Preference != nil {

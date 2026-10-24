@@ -47,6 +47,7 @@ type PreparedBatch struct {
 	QueryKeys []string       `json:"query_keys,omitempty"`
 }
 type NativeConfig struct {
+	OperationID func(context.Context, string) (string, error)
 	Config
 	Context      func(context.Context) model.TripDecisionContext
 	Now          func() time.Time
@@ -202,7 +203,19 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 				return batch, ruleError("INVALID_REPLY_REFERENCE", "最终reply须用于已有计划的select/amend；路线调整使用reply={}。", nil)
 			}
 			if preparer, ok := r.cfg.Trips.(tripPreparer); ok {
-				preview, err := preparer.Prepare(ctx, r.cfg.Execution, cmd)
+				var preview model.TripResult
+				var err error
+				if accepted, ok := r.cfg.Trips.(interface {
+					PrepareOperation(context.Context, model.TravelExecution, string, model.TripCommand) (model.TripResult, error)
+				}); ok && r.cfg.OperationID != nil {
+					var id string
+					id, err = r.cfg.OperationID(ctx, call.ID)
+					if err == nil {
+						preview, err = accepted.PrepareOperation(ctx, r.cfg.Execution, id, cmd)
+					}
+				} else {
+					preview, err = preparer.Prepare(ctx, r.cfg.Execution, cmd)
+				}
 				if err != nil {
 					var rule *model.TravelRuleError
 					if errors.As(err, &rule) && rule.Code == "EVIDENCE_EXPIRED" && slices.Contains(request.RefreshedTripIDs, cmd.PlanID) {

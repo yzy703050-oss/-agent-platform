@@ -36,6 +36,17 @@ func (s *Service) Read(ctx context.Context, scope model.Scope, id string) (model
 	}
 	return s.store.GetTrip(ctx, scope, id)
 }
+
+// Agent reads require eligible source data; the traditional Read API retains
+// display-only historical access, including superseded tasks.
+func (s *Service) readForExecution(ctx context.Context, ref model.TravelExecution, id string) (model.TripPlan, error) {
+	if store, ok := s.store.(interface {
+		GetAgentTrip(context.Context, model.TravelExecution, string) (model.TripPlan, error)
+	}); ok {
+		return store.GetAgentTrip(ctx, ref, id)
+	}
+	return s.Read(ctx, ref.Scope, id)
+}
 func (s *Service) Apply(ctx context.Context, ref model.TravelExecution, operationID string, cmd model.TripCommand) (model.TripResult, error) {
 	if ref.Scope.UserID == "" || ref.Scope.SessionID == "" || ref.ConversationID == "" || ref.RunID == "" || ref.Attempt <= 0 || strings.TrimSpace(operationID) == "" {
 		return model.TripResult{}, model.ErrInvalidInput
@@ -72,13 +83,25 @@ func (s *Service) Prepare(ctx context.Context, ref model.TravelExecution, cmd mo
 	result, _, err := s.prepare(ctx, ref, cmd)
 	return result, err
 }
+
+func (s *Service) PrepareOperation(ctx context.Context, ref model.TravelExecution, id string, cmd model.TripCommand) (model.TripResult, error) {
+	raw, err := json.Marshal(cmd)
+	if err != nil {
+		return model.TripResult{}, err
+	}
+	hash := sha256.Sum256(raw)
+	if saved, ok, err := s.store.FindTripReceipt(ctx, ref, id, hex.EncodeToString(hash[:])); err != nil || ok {
+		return saved, err
+	}
+	return s.Prepare(ctx, ref, cmd)
+}
 func (s *Service) prepare(ctx context.Context, ref model.TravelExecution, cmd model.TripCommand) (model.TripResult, []model.TravelEvidence, error) {
 	if ref.Scope.UserID == "" || ref.Scope.SessionID == "" || ref.ConversationID == "" || ref.RunID == "" || ref.Attempt <= 0 {
 		return model.TripResult{}, nil, model.ErrInvalidInput
 	}
 	var previous *model.TripPlan
 	if cmd.Operation != "propose" {
-		p, err := s.store.GetTrip(ctx, ref.Scope, cmd.PlanID)
+		p, err := s.readForExecution(ctx, ref, cmd.PlanID)
 		if err != nil {
 			return model.TripResult{}, nil, err
 		}

@@ -115,3 +115,9 @@ review 使用原版字段与来源投影：original_query、全部 tripplans、c
 ## Migration Plan
 
 在现有工作分支、本项目内单代理实施。新增字段先兼容读取已有 Go 数据，不重写历史，不导入 Python 存储；只有确需数据库结构变化才追加迁移。更新差旅工作流/提示/schema 指纹，旧断点拒绝继续但历史可见，不强制反序列化。保留 General 和平台安全暂停回归。完成任务、测试、自审、规格人工核对后再 archive；现有 CLI 无 verify 命令，不声称运行 OpenSpec verify。
+
+### D9. 持久化接线细化
+
+005 迁移将原生记忆多键更新/分析标记和回执一次提交，source_runs 来源依赖参与可读性判断。查询作业和行程写入原子排队，稳定身份来自实际父操作；完成结果和实际证据原子提交，整组结束增加不可变查询观察修订。以作业 accepted/running 状态表示源 working 查询进度，不为每次状态切换额外写业务快照；Repo 不承担规划/校验决策。运行中无结果不自动重查，恢复必须报告 unknown。
+
+源决策 JSON 保存完整 InputMessages 和 FlowSnapshot；只有已 accepted 的决策重放使用其冻结输入。尚未 accepted 的输入在恢复时重新按当前证据构建。原生批次对已提交操作先验证匹配回执，其余项仍做完整只读预检。源工作流指纹升级 flow-v2/batch-v2/durable-query-v1；General 指纹不变。安全暂停中只读预检可以完成；新业务动作仍由 running 围栏阻止，仅已领取且当前 attempt 的查询作业能提交迟到结果。

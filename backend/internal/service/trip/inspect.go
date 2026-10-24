@@ -10,7 +10,7 @@ import (
 // Inspect preserves the historical revision but never presents an expired
 // selection as current evidence. No business revision is written by inspection.
 func (s *Service) Inspect(ctx context.Context, ref model.TravelExecution, id string) (model.TripResult, error) {
-	p, err := s.Read(ctx, ref.Scope, id)
+	p, err := s.readForExecution(ctx, ref, id)
 	if err != nil {
 		return model.TripResult{}, err
 	}

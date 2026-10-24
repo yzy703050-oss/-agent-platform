@@ -150,19 +150,10 @@ func TestTravelQueries(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if kind == "transient" {
-				if calls.Load() != 2 || result.Status != "ok" {
-					t.Fatalf("retry failed: %+v calls=%d", result, calls.Load())
-				}
-			}
-			if kind != "transient" {
-				want := int32(2)
-				if kind == "malformed" {
-					want = 1
-				}
-				if result.Status != "error" || calls.Load() != want || len(result.Candidates) > 0 {
-					t.Fatalf("failure fabricated results or retried indefinitely: %+v calls=%d", result, calls.Load())
-				}
+			// Provider Client owns source retries. Service must not multiply
+			// those attempts or turn a failed provider call into candidate facts.
+			if result.Status != "error" || calls.Load() != 1 || len(result.Candidates) > 0 {
+				t.Fatalf("Service retried the Client or fabricated results: %+v calls=%d", result, calls.Load())
 			}
 		})
 	}

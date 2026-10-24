@@ -453,7 +453,13 @@ func (m *nativeFinalModel) Generate(ctx context.Context, messages []*schema.Mess
 		}
 		return schema.AssistantMessage(final, nil), nil
 	}
-	return m.inner.Generate(withModelStage(ctx, modelStage(ctx)), messages, opts...)
+	response, err := m.inner.Generate(withModelStage(ctx, modelStage(ctx)), messages, opts...)
+	if err == nil && response != nil && len(response.ToolCalls) == 0 && m.finalize != nil {
+		copy := *response
+		copy.Content, err = m.finalize(ctx, response.Content)
+		response = &copy
+	}
+	return response, err
 }
 func (m *nativeFinalModel) Stream(ctx context.Context, messages []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
 	v, err := m.Generate(ctx, messages, opts...)

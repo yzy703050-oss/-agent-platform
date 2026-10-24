@@ -52,6 +52,21 @@ func (f *sourceFlow) enqueueRefresh(ctx context.Context, s *FlowState, id string
 			s.BlockedEvidence = append(s.BlockedEvidence, ref)
 		}
 	}
+	if queue, ok := f.cfg.Trips.(interface {
+		EnqueueRefresh(context.Context, pm.TravelExecution, string, pm.TripRefreshPlan) ([]pm.TravelQueryJob, error)
+	}); ok {
+		jobs, err := queue.EnqueueRefresh(ctx, f.cfg.Execution, "refresh:"+f.cfg.Execution.RunID+":"+id, plan)
+		if err != nil {
+			return false, err
+		}
+		for _, job := range jobs {
+			job.ParentCallID = "refresh:" + id
+			if !slices.ContainsFunc(s.Jobs, func(old traveltools.QueryJob) bool { return old.ID == job.ID }) {
+				s.Jobs = append(s.Jobs, job)
+			}
+		}
+		return true, nil
+	}
 	for i, q := range plan.Queries {
 		raw, _ := json.Marshal([]string{f.cfg.Execution.RunID, "refresh", id, fmt.Sprint(i)})
 		sum := sha256.Sum256(raw)

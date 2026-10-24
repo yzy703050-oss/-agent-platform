@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Service) PrepareRefresh(ctx context.Context, ref model.TravelExecution, id string) (model.TripRefreshPlan, error) {
-	p, err := s.Read(ctx, ref.Scope, id)
+	p, err := s.readForExecution(ctx, ref, id)
 	if err != nil {
 		return model.TripRefreshPlan{}, err
 	}
@@ -74,8 +74,12 @@ func expiredSelection(previous *model.TripPlan, selections []model.TripSelection
 		return nil
 	}
 	for _, s := range selections {
+		index := slices.IndexFunc(previous.Tasks, func(task model.TripTask) bool { return task.ID == s.TaskID })
+		if index < 0 {
+			continue
+		}
 		for _, e := range previous.QueryResults {
-			if e.ID == s.Ref.QueryID && e.ResultRevision == s.Ref.ResultRevision && !e.ExpiresAt.After(now) && slices.ContainsFunc(CandidateView(e).Candidates, func(c model.TravelCandidate) bool { return c.ID == s.Ref.CandidateID }) {
+			if e.ID == s.Ref.QueryID && e.ResultRevision == s.Ref.ResultRevision && e.PlanID == previous.ID && e.UserID == previous.UserID && e.ConversationID == previous.ConversationID && e.TaskID == s.TaskID && e.Query.Domain == s.Domain && e.Query.TaskRevision == max(1, previous.Tasks[index].Revision) && !e.ExpiresAt.IsZero() && !e.ExpiresAt.After(now) && slices.ContainsFunc(CandidateView(e).Candidates, func(c model.TravelCandidate) bool { return c.ID == s.Ref.CandidateID }) {
 				return evidenceExpired(*previous, s.TaskID, e)
 			}
 		}

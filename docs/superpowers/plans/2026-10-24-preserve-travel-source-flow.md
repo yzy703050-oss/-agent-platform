@@ -113,7 +113,7 @@
 
 **OpenSpec:** 4.1/4.2；travel-source-fidelity 全部决策和停止场景；F01/F02/F11–F16/F19。
 
-**Files:** 修改 Travel `{agent,state,adapter}.go`；同包新增 `{flow,budget,review,reply,policy_agent,preference_agent}.go`；修改 agent/memory/{travel,summary}.go、service/trip/policy.go、service/travelpreference/service.go、bootstrap/bootstrap.go、config/config.go；增加 `travel/source_flow_test.go`，在既有 memory/policy 测试中扩展表项。
+**Files:** 修改 Travel `{agent,state}.go`；同包新增 `{flow,budget,review,reply,policy_agent,preference_agent}.go`；修改 agent/memory/{travel,summary}.go、service/trip/policy.go、service/travelpreference/service.go、bootstrap/bootstrap.go、config/config.go；增加 `travel/source_flow_test.go`，在既有 memory/policy 测试中扩展表项。
 
 **Interfaces:** ExecutionState/DecideRole/BuildReview 消费 Task 2 真实业务快照和 Task 3 Registry；角色动态 ToolInfos 与服务端相同授权。Policy/Preference 辅助角色消费现有模型接口与只读检索/历史接口，确定性验证消费 model 类型，不把模型调用放进 Service/Repository。状态序列化保留业务批次、活跃时间、错误/blocked evidence、review 指纹、重试、交接及待查。
 
@@ -134,12 +134,12 @@
 
 **Interfaces:** 延续平台 Agent contracts 与现有 ports 方法；新执行快照包含 Task 4 所有字段及 Task 3 批次/作业状态。workflow fingerprint 纳入原文、schema、flow version；旧指纹拒绝恢复但历史可查。
 
-- [ ] 写 `TestTravelSourceRecovery`：同批不同计划第一项已提交、第二项未执行时中断；作业查询已返回但后续断点未保存；重建 Agent/Runner 仅用库中数据恢复，验证提交只发生一次、剩余项正确续跑、角色/预算/无进展数不清零。
-- [ ] 扩展现有隔离场景：旧 attempt 迟到拒写；旧断点不兼容时无模型/外部查询/业务写；替代任务的偏好和混合摘要不进入实际模型输入；页面内切换继续、关闭安全暂停、打开不自动执行。
-- [ ] 在数据库隔离 schema 运行 `go test ./tests/integration -run 'TestTravel(SourceRecovery|WorkflowRecovery|MemoryIsolation)' -count=1`，并设置 REQUIRE_DATABASE_TESTS=1；Expected: RED，由新快照或恢复语义缺失导致，不是数据库配置错误。
-- [ ] 完成快照/作业/回执存储适配，复用原事务围栏和成功回执，不把 prepare/accepted 当 completed；未知副作用继续不可自动重放。保留启动兼容性检查无副作用。
-- [ ] 重跑上述命令及相关平台 page/run 恢复用例；Expected: GREEN 且没有 SKIP。记录数据库迁移及新旧数据兼容结果。
-- [ ] 提交 `fix: persist original travel flow across safe recovery`，完成 5.1/5.2。
+- [x] 写 `TestTravelSourceRecovery`：同批不同计划第一项已提交、第二项未执行时中断；作业查询已返回但后续断点未保存；重建 Agent/Runner 仅用库中数据恢复，验证提交只发生一次、剩余项正确续跑、角色/预算/无进展数不清零。
+- [x] 扩展现有隔离场景：旧 attempt 迟到拒写；旧断点不兼容时无模型/外部查询/业务写；替代任务的偏好和混合摘要不进入实际模型输入；页面内切换继续、关闭安全暂停、打开不自动执行。
+- [x] 在数据库隔离 schema 运行 `go test ./tests/integration -run 'TestTravel(SourceRecovery|WorkflowRecovery|MemoryIsolation)' -count=1`，并设置 REQUIRE_DATABASE_TESTS=1；Expected: RED，由新快照或恢复语义缺失导致，不是数据库配置错误。
+- [x] 完成快照/作业/回执存储适配，复用原事务围栏和成功回执，不把 prepare/accepted 当 completed；未知副作用继续不可自动重放。保留启动兼容性检查无副作用。
+- [x] 重跑上述命令及相关平台 page/run 恢复用例；Expected: GREEN 且没有 SKIP。记录数据库迁移及新旧数据兼容结果。
+- [x] 提交 `fix: persist original travel flow across safe recovery`，完成 5.1/5.2。
 
 ### Task 6: 真实模型结果与性能验收
 

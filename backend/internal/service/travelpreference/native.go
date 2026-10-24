@@ -152,6 +152,18 @@ func (s *Service) commitMemory(ctx context.Context, ref model.TravelExecution, i
 	if err != nil {
 		return model.TravelMemoryResult{}, err
 	}
+	if analysis != nil {
+		sourceRuns = slices.Clone(sourceRuns)
+		for _, row := range rows {
+			if row.Origin == "inferred" {
+				for _, id := range append(slices.Clone(row.SourceRuns), row.SourceRunID) {
+					if id != "" && !slices.Contains(sourceRuns, id) {
+						sourceRuns = append(sourceRuns, id)
+					}
+				}
+			}
+		}
+	}
 	// Trusted origins and evidence provenance participate in idempotency identity.
 	origins := []string{}
 	for _, u := range updates {

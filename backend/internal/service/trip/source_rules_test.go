@@ -11,6 +11,30 @@ import (
 )
 
 func TestTripSourceRules(t *testing.T) {
+	t.Run("expiry_refresh_requires_current_exact_task_binding", func(t *testing.T) {
+		now := time.Now()
+		e := model.TravelEvidence{ID: "q", ResultRevision: 1, UserID: "u", ConversationID: "c", PlanID: "p", TaskID: "t", Status: "ok", ExpiresAt: now.Add(-time.Minute), Query: model.TravelQuery{Domain: "train", TaskRevision: 2}, Candidates: []model.TravelCandidate{{ID: "G1", Name: "G1"}}}
+		p := model.TripPlan{ID: "p", UserID: "u", ConversationID: "c", SourceVersion: 1, Tasks: []model.TripTask{{ID: "t", Revision: 2}}, QueryResults: map[string]model.TravelEvidence{"q": e}}
+		s := model.TripSelection{TaskID: "t", Domain: "train", Ref: model.TravelCandidateRef{QueryID: "q", ResultRevision: 1, CandidateID: "G1"}}
+		if expiredSelection(&p, []model.TripSelection{s}, now) == nil {
+			t.Fatal("valid expired binding not refreshable")
+		}
+		s.TaskID = "other"
+		if expiredSelection(&p, []model.TripSelection{s}, now) != nil {
+			t.Fatal("wrong task triggered network refresh")
+		}
+		s.TaskID = "t"
+		s.Domain = "hotel"
+		if expiredSelection(&p, []model.TripSelection{s}, now) != nil {
+			t.Fatal("wrong domain triggered network refresh")
+		}
+		s.Domain = "train"
+		e.Query.TaskRevision = 1
+		p.QueryResults["q"] = e
+		if expiredSelection(&p, []model.TripSelection{s}, now) != nil {
+			t.Fatal("obsolete task binding triggered refresh")
+		}
+	})
 	t.Run("quote_requirement_uses_only_the_matching_clause", func(t *testing.T) {
 		if !sourceUserWantsQuote("查询酒店价格和火车票") || sourceUserWantsQuote("不用查询酒店价格") || sourceUserWantsQuote("查火车票价格，酒店地点即可") {
 			t.Fatal("source hotel quote evidence semantics changed")

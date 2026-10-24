@@ -12,6 +12,7 @@ import (
 
 	travelagent "agent-platform/backend/internal/agent/agents/travel"
 	"agent-platform/backend/internal/agent/contracts"
+	"agent-platform/backend/internal/agent/einoruntime"
 	"agent-platform/backend/internal/agent/memory"
 	"agent-platform/backend/internal/client/demo"
 	"agent-platform/backend/internal/model"
@@ -38,37 +39,60 @@ func (m *workflowModel) WithTools([]*schema.ToolInfo) (einomodel.ToolCallingChat
 }
 func (m *workflowModel) Generate(ctx context.Context, input []*schema.Message, _ ...einomodel.Option) (*schema.Message, error) {
 	m.calls.Add(1)
-	if m.queryOnly {
-		for _, msg := range input {
-			if msg.Role == schema.Tool {
-				return schema.AssistantMessage("已经付款并预订成功，价格1元", nil), nil
-			}
-		}
-		decision := toolDecision("independent-query", "query_travel", `{"domain":"train","origin":"上海","destination":"杭州","date":"2026-10-25"}`)
-		if m.queryBatch {
-			decision.ToolCalls = append(decision.ToolCalls, toolDecision("other-query", "query_travel", `{"domain":"train","origin":"南京","destination":"苏州","date":"2026-10-26"}`).ToolCalls...)
-			decision.ToolCalls = append(decision.ToolCalls, toolDecision("weather-query", "query_travel", `{"domain":"weather","city":"杭州","date":"2026-10-25"}`).ToolCalls...)
-		}
-		return decision, nil
-	}
-	var last struct {
-		Trip     model.TripResult       `json:"trip"`
-		Evidence []model.TravelEvidence `json:"evidence"`
+	var review struct {
+		Trip struct {
+			ID       string `json:"trip_plan_id"`
+			Revision int64  `json:"revision"`
+			Status   string `json:"status"`
+			Tasks    []struct {
+				ID    string          `json:"id"`
+				Draft json.RawMessage `json:"draft_plan"`
+			} `json:"tasks"`
+			Candidates []struct {
+				Domain   string `json:"domain"`
+				TaskID   string `json:"task_id"`
+				QueryID  string `json:"query_id"`
+				Revision int64  `json:"result_revision"`
+				Items    []struct {
+					ID string `json:"id"`
+				} `json:"items"`
+			} `json:"candidates"`
+		} `json:"tripplan"`
+		Queries []json.RawMessage `json:"query_results"`
 	}
 	for _, msg := range input {
-		if msg.Role == schema.Tool {
-			_ = json.Unmarshal([]byte(msg.Content), &last)
+		if msg.Role == schema.User {
+			_ = json.Unmarshal([]byte(msg.Content), &review)
 		}
 	}
-	if last.Trip.Plan.ID == "" {
+	if m.queryOnly {
+		if len(review.Queries) > 0 {
+			return schema.AssistantMessage("已经付款并预订成功，价格1元", nil), nil
+		}
+		items := []any{map[string]any{"domain": "train", "parameters": map[string]any{"origin": "上海", "destination": "杭州", "departure_date": "2026-10-25"}}}
+		if m.queryBatch {
+			items = append(items, map[string]any{"domain": "train", "parameters": map[string]any{"origin": "南京", "destination": "苏州", "departure_date": "2026-10-26"}}, map[string]any{"domain": "weather", "parameters": map[string]any{"city": "杭州", "date": "2026-10-25"}})
+		}
+		args, _ := json.Marshal(map[string]any{"request_kind": "lookup", "query_plan": items})
+		return toolDecision("independent-query", "query", string(args)), nil
+	}
+	if review.Trip.ID == "" {
 		command := travelCommand()
 		if m.command != nil {
 			command = *m.command
 		}
-		args, _ := json.Marshal(command)
+		tasks := []any{}
+		for _, task := range command.Tasks {
+			tasks = append(tasks, map[string]any{"origin": task.Origin, "destination": task.Destination, "purpose": "unspecified", "requires_hotel": false, "conditions": map[string]any{"departure_date": task.DepartureDate}, "items": []any{map[string]any{"domain": "train"}}})
+		}
+		args, _ := json.Marshal(map[string]any{"request_kind": "planning", "tripplan": map[string]any{"operation": "propose", "tasks": tasks, "default_round_trip": command.RoundTrip}})
 		return toolDecision("create", "write_trip", string(args)), nil
 	}
-	if last.Trip.Plan.Revision == 1 {
+	selected := len(review.Trip.Tasks) > 0
+	for _, task := range review.Trip.Tasks {
+		selected = selected && len(task.Draft) > 0 && string(task.Draft) != "null"
+	}
+	if !selected {
 		if m.boundary != nil && m.blocked.CompareAndSwap(false, true) {
 			close(m.boundary)
 			select {
@@ -77,22 +101,20 @@ func (m *workflowModel) Generate(ctx context.Context, input []*schema.Message, _
 				return nil, ctx.Err()
 			}
 		}
-		cmd := model.TripCommand{Operation: "select", PlanID: last.Trip.Plan.ID, ExpectedRevision: 1}
-		for _, q := range last.Evidence {
-			if q.Query.Domain == "train" && len(q.Candidates) > 0 {
-				cmd.Selections = append(cmd.Selections, model.TripSelection{TaskID: q.TaskID, Domain: "train", Ref: model.TravelCandidateRef{QueryID: q.ID, ResultRevision: q.ResultRevision, CandidateID: q.Candidates[0].ID}})
+		selections := []any{}
+		for _, q := range review.Trip.Candidates {
+			if q.Domain == "train" && len(q.Items) > 0 {
+				selections = append(selections, map[string]any{"task_id": q.TaskID, "selection_refs": map[string]any{"train": map[string]any{"query_id": q.QueryID, "result_revision": q.Revision, "candidate_id": q.Items[0].ID}}})
 			}
 		}
-		if len(cmd.Selections) == 0 {
+		if len(selections) == 0 {
 			return schema.AssistantMessage("已经付款", nil), nil
 		}
-		args, _ := json.Marshal(cmd)
+		args, _ := json.Marshal(map[string]any{"request_kind": "planning", "tripplan": map[string]any{"operation": "select", "trip_plan_id": review.Trip.ID, "expected_revision": review.Trip.Revision, "tasks": selections}})
 		return toolDecision("select", "write_trip", string(args)), nil
 	}
-	if last.Trip.Plan.Revision == 2 && m.repair {
-		activities := []model.TripActivity{{Purpose: "补充会议", Date: "2026-10-25", Source: "user", Strength: model.Hard}}
-		cmd := model.TripCommand{Operation: "amend", PlanID: last.Trip.Plan.ID, ExpectedRevision: 2, Changes: []model.TripTaskChange{{TaskID: "t1", Activities: &activities}}}
-		args, _ := json.Marshal(cmd)
+	if review.Trip.Revision == 3 && m.repair {
+		args, _ := json.Marshal(map[string]any{"request_kind": "planning", "tripplan": map[string]any{"operation": "amend", "trip_plan_id": review.Trip.ID, "expected_revision": review.Trip.Revision, "tasks": []any{map[string]any{"task_id": "t1", "content": []any{map[string]any{"purpose": "补充会议", "description": "补充会议安排", "date": "2026-10-25", "source": "proposal", "strength": "soft"}}}}}})
 		return toolDecision("repair", "write_trip", string(args)), nil
 	}
 	// The platform must render confirmed facts, not repeat this invented claim.
@@ -155,6 +177,18 @@ func TestTravelWorkflowRecovery(t *testing.T) {
 				t.Fatal(err)
 			}
 			in.Resume = true
+			incompatibleCfg := cfg
+			incompatibleCfg.Identity = "old-workflow-does-not-match"
+			incompatible, err := travelagent.NewAgent(incompatibleCfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = incompatible.NewExecution(ctx, in); !errors.Is(err, einoruntime.ErrCheckpointIncompatible) {
+				t.Fatal("incompatible checkpoint accepted", err)
+			}
+			if freshModel.calls.Load() != 0 || provider.calls.Load() != 1 {
+				t.Fatal("incompatible probe executed side effects")
+			}
 			if _, err = fresh.NewExecution(ctx, in); err != nil {
 				t.Fatal(err)
 			}
@@ -183,7 +217,7 @@ func TestTravelWorkflowRecovery(t *testing.T) {
 				t.Fatalf("resume failed: %+v %v", result, err)
 			}
 			var revisions int
-			if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plan_revisions").Scan(&revisions); err != nil || revisions != 2 || provider.calls.Load() != 1 {
+			if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plan_revisions").Scan(&revisions); err != nil || revisions != 3 || provider.calls.Load() != 1 {
 				t.Fatalf("resume replayed side effects: %d/%d %v", revisions, provider.calls.Load(), err)
 			}
 			if limit == 8 {
@@ -201,7 +235,7 @@ func TestTravelWorkflowRecovery(t *testing.T) {
 				if _, err = exec.Start(ctx, nil); err != nil {
 					t.Fatal(err)
 				}
-				if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plan_revisions").Scan(&revisions); err != nil || revisions != 2 || freshModel.calls.Load() != calls {
+				if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plan_revisions").Scan(&revisions); err != nil || revisions != 3 || freshModel.calls.Load() != calls {
 					t.Fatalf("old checkpoint replay repeated accepted effects: %d %v", revisions, err)
 				}
 			}
@@ -248,14 +282,14 @@ func TestTravelWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(result.FinalText, "G1") || !strings.Contains(result.FinalText, "100.00") || strings.Contains(result.FinalText, "已付款") {
+	if !strings.Contains(result.FinalText, "G1") || (!strings.Contains(result.FinalText, "100.00") && !strings.Contains(result.FinalText, "100元")) || strings.Contains(result.FinalText, "已付款") {
 		t.Fatalf("final facts were not rendered from receipts: %s", result.FinalText)
 	}
 	var plans, revisions, receipts, decisions int
 	if err = f.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM travel_plans),(SELECT count(*) FROM travel_plan_revisions),(SELECT count(*) FROM travel_operation_receipts),(SELECT count(*) FROM travel_decisions)`).Scan(&plans, &revisions, &receipts, &decisions); err != nil {
 		t.Fatal(err)
 	}
-	if plans != 1 || revisions != 2 || receipts != 2 || decisions != 3 || provider.calls.Load() != 1 {
+	if plans != 1 || revisions != 3 || receipts != 2 || decisions != 3 || provider.calls.Load() != 1 {
 		t.Fatalf("unexpected persisted workflow: %d/%d/%d/%d queries=%d", plans, revisions, receipts, decisions, provider.calls.Load())
 	}
 	// Simulate loss of the checkpoint after committed effects: a fresh execution
@@ -270,7 +304,7 @@ func TestTravelWorkflow(t *testing.T) {
 	if m.calls.Load() != 3 || provider.calls.Load() != 1 {
 		t.Fatal("replay regenerated a decision or repeated a query")
 	}
-	if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plan_revisions").Scan(&revisions); err != nil || revisions != 2 {
+	if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plan_revisions").Scan(&revisions); err != nil || revisions != 3 {
 		t.Fatalf("replay duplicated revisions: %d %v", revisions, err)
 	}
 }
@@ -299,7 +333,7 @@ func TestTravelIndependentQuery(t *testing.T) {
 	if !strings.Contains(result.FinalText, "100.00") || strings.Contains(result.FinalText, "已经付款") {
 		t.Fatalf("query response fabricated facts: %s", result.FinalText)
 	}
-	for _, fact := range []string{"上海", "南京", "22.0°C", "演示数据"} {
+	for _, fact := range []string{"上海", "南京", "22.0℃", "演示数据"} {
 		if !strings.Contains(result.FinalText, fact) {
 			t.Fatalf("batch query lost confirmed fact %q: %s", fact, result.FinalText)
 		}
@@ -344,15 +378,15 @@ func TestTravelWorkflowVariants(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := 3
+			want := 4
 			if partial {
-				want = 1
+				want = 2
 			}
 			var revisions int
 			if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_plan_revisions").Scan(&revisions); err != nil || revisions != want || provider.calls.Load() != 2 {
 				t.Fatalf("revision/query mismatch: %d/%d %v", revisions, provider.calls.Load(), err)
 			}
-			if strings.Contains(result.FinalText, "已经付款") || !strings.Contains(result.FinalText, "杭州 → 上海") {
+			if strings.Contains(result.FinalText, "已经付款") || !strings.Contains(result.FinalText, "杭州→上海") {
 				t.Fatal("invalid final facts", result.FinalText)
 			}
 			if partial && !strings.Contains(result.FinalText, "尚未选择") {

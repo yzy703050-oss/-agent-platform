@@ -36,7 +36,7 @@ func (r *Repository) FindTripReceipt(ctx context.Context, ref model.TravelExecut
 		return result, false, err
 	}
 	defer tx.Rollback(ctx)
-	if err = lockTravelExecution(ctx, tx, ref); err != nil {
+	if err = lockTravelExecutionState(ctx, tx, ref, true); err != nil {
 		return result, false, err
 	}
 	data, ok, err := loadTravelReceipt(ctx, tx, ref, id, hash, "trip")
@@ -134,6 +134,11 @@ func (r *Repository) CommitTrip(ctx context.Context, in model.TripCommit) (model
 	}
 	if err = finishTravelAction(ctx, tx, ref, in.OperationID, data); err != nil {
 		return model.TripResult{}, err
+	}
+	if p.SourceVersion > 0 {
+		if err = enqueueTravelQueryJobs(ctx, tx, ref, in.OperationID, result.Queries); err != nil {
+			return model.TripResult{}, err
+		}
 	}
 	return result, tx.Commit(ctx)
 }

@@ -109,7 +109,7 @@ func (r *Repository) FindTravelDecision(ctx context.Context, ref model.TravelExe
 		return model.TravelDecision{}, false, err
 	}
 	defer tx.Rollback(ctx)
-	if err = lockTravelExecution(ctx, tx, ref); err != nil {
+	if err = lockTravelExecutionState(ctx, tx, ref, true); err != nil {
 		return model.TravelDecision{}, false, err
 	}
 	d, ok, err := loadTravelDecision(ctx, tx, ref, key)

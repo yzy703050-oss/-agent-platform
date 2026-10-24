@@ -8,9 +8,12 @@ import (
 	"strings"
 	"testing"
 
+	travelagent "agent-platform/backend/internal/agent/agents/travel"
+	"agent-platform/backend/internal/agent/contracts"
 	"agent-platform/backend/internal/agent/memory"
 	"agent-platform/backend/internal/model"
 	prefsvc "agent-platform/backend/internal/service/travelpreference"
+	tripsvc "agent-platform/backend/internal/service/trip"
 )
 
 func TestTravelMemoryIsolation(t *testing.T) {
@@ -134,5 +137,25 @@ func TestTravelMemoryIsolation(t *testing.T) {
 	var summaryCount int
 	if err = f.pool.QueryRow(ctx, "SELECT count(*) FROM travel_memory_summaries WHERE source_run_id=$1", current.RunID).Scan(&summaryCount); err != nil || summaryCount != 1 {
 		t.Fatalf("unchanged history repeated summary: %d %v", summaryCount, err)
+	}
+	// Verify the actual source-Agent model input, not only a context helper.
+	capture := &sourceCaptureModel{}
+	agent, err := travelagent.NewAgent(travelagent.Config{Model: capture, Trips: tripsvc.New(f.repo, nil), Preferences: prefs, Context: builder, Decisions: f.repo, Checkpoints: f.repo, Identity: "source-isolation"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := f.repo.GetRun(ctx, f.scope, current.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	execution, err := agent.NewExecution(ctx, contracts.RunInput{Scope: f.scope, Run: run, Messages: allowed, Limits: contracts.Limits{Iterations: 3}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = execution.Start(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	if capture.input == "" || strings.Contains(capture.input, "REPLACED_") || strings.Contains(capture.input, "EARLIER_VALID_PREFERENCE") {
+		t.Fatal("actual source model saw excluded/retracted data", capture.input)
 	}
 }

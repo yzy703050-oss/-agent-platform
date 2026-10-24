@@ -94,17 +94,21 @@ func (r *Repository) ReadTravelPreferences(ctx context.Context, scope model.Scop
 	if err = lockTravelExecution(ctx, tx, ref); err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, `SELECT DISTINCT ON(p.preference_key) p.preference_key,p.value,p.revision,p.retracted,p.origin,p.source_run_id
+	rows, err := tx.Query(ctx, `SELECT DISTINCT ON(p.preference_key) p.preference_key,p.value,p.revision,p.retracted,p.origin,p.source_run_id,p.source_runs
 FROM travel_preference_revisions p JOIN agent_runs a ON a.id=p.source_run_id JOIN conversations c ON c.id=a.conversation_id
-WHERE p.user_id=$1 AND a.context_eligible AND(a.id=$2 OR a.status='succeeded') AND c.deleted_at IS NULL ORDER BY p.preference_key,p.revision DESC`, scope.UserID, currentRunID)
+WHERE p.user_id=$1 AND a.context_eligible AND(a.id=$2 OR a.status='succeeded') AND c.deleted_at IS NULL
+AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(p.source_runs) source(id)
+LEFT JOIN agent_runs src ON src.id=source.id LEFT JOIN conversations sc ON sc.id=src.conversation_id
+WHERE src.id IS NULL OR src.user_id<>$1 OR NOT src.context_eligible OR(src.id<>$2 AND src.status<>'succeeded') OR sc.deleted_at IS NOT NULL)
+ORDER BY p.preference_key,p.revision DESC`, scope.UserID, currentRunID)
 	if err != nil {
 		return nil, err
 	}
 	var result []model.TravelPreference
 	for rows.Next() {
 		var p model.TravelPreference
-		var value []byte
-		if err = rows.Scan(&p.Key, &value, &p.Revision, &p.Retracted, &p.Origin, &p.SourceRunID); err != nil {
+		var value, sources []byte
+		if err = rows.Scan(&p.Key, &value, &p.Revision, &p.Retracted, &p.Origin, &p.SourceRunID, &sources); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -112,6 +116,7 @@ WHERE p.user_id=$1 AND a.context_eligible AND(a.id=$2 OR a.status='succeeded') A
 			rows.Close()
 			return nil, err
 		}
+		if err = json.Unmarshal(sources, &p.SourceRuns); err != nil { rows.Close(); return nil, err }
 		result = append(result, p)
 	}
 	err = rows.Err()

@@ -2,10 +2,7 @@ package travel
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
+	"errors"
 
 	"agent-platform/backend/internal/model"
 	tripsvc "agent-platform/backend/internal/service/trip"
@@ -14,12 +11,7 @@ import (
 
 // QueryJob is generated from the committed mutation, not an invented LLM call.
 // Its parent identity is stable across checkpoint reconstruction and attempts.
-type QueryJob struct {
-	ID           string                `json:"id"`
-	ParentCallID string                `json:"parent_call_id"`
-	Query        model.TravelQuery     `json:"query"`
-	Result       *model.TravelEvidence `json:"result,omitempty"`
-}
+type QueryJob = model.TravelQueryJob
 
 func PlanQueryJobs(operationID, callID string, result model.TripResult) ([]QueryJob, error) {
 	if operationID == "" || callID == "" || result.Receipt == nil || result.Receipt.OperationID != operationID || result.Receipt.PlanID != result.Plan.ID || result.Receipt.Revision != result.Plan.Revision {
@@ -30,9 +22,7 @@ func PlanQueryJobs(operationID, callID string, result model.TripResult) ([]Query
 		if q.PlanID != result.Plan.ID || q.PlanRevision != result.Plan.Revision || q.TaskID == "" {
 			return nil, model.ErrIdempotencyConflict
 		}
-		raw, _ := json.Marshal([]string{operationID, fmt.Sprint(i), q.TaskID, q.Domain})
-		sum := sha256.Sum256(raw)
-		jobs = append(jobs, QueryJob{ID: hex.EncodeToString(sum[:]), ParentCallID: callID, Query: q})
+		jobs = append(jobs, QueryJob{ID: model.TravelQueryJobID(operationID, i, q), ParentCallID: callID, Query: q})
 	}
 	return jobs, nil
 }
@@ -79,8 +69,21 @@ func (r *Registry) ExecuteQueryJobs(ctx context.Context, jobs []QueryJob, record
 		group.SetLimit(3)
 		for _, i := range ready {
 			group.Go(func() error {
-				e, err := r.cfg.Trips.Query(qctx, r.cfg.Execution, out[i].Query)
+				var e model.TravelEvidence
+				var err error
+				bounded, cancel := context.WithTimeout(qctx, nativeTimeout(r.cfg.Timeout))
+				defer cancel()
+				if executor, ok := r.cfg.Trips.(interface {
+					ExecuteQueryJob(context.Context, model.TravelExecution, string, model.TravelQuery) (model.TravelEvidence, error)
+				}); ok {
+					e, err = executor.ExecuteQueryJob(bounded, r.cfg.Execution, out[i].ID, out[i].Query)
+				} else {
+					e, err = r.cfg.Trips.Query(bounded, r.cfg.Execution, out[i].Query)
+				}
 				if err != nil {
+					if errors.Is(err, model.ErrTravelOutcomeUnknown) || errors.Is(err, model.ErrConflict) || errors.Is(err, model.ErrIdempotencyConflict) {
+						return err
+					}
 					if qctx.Err() != nil {
 						return qctx.Err()
 					}

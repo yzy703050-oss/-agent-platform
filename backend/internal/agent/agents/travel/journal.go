@@ -108,7 +108,18 @@ func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, op
 	if m.h.native {
 		stage = modelStage(ctx)
 	}
-	d, err = m.h.store.AcceptTravelDecision(ctx, m.h.ref, pm.TravelDecision{RunID: m.h.ref.RunID, DecisionKey: key, Stage: stage, RequestHash: hash, Response: fromEino(response)})
+	decision := pm.TravelDecision{RunID: m.h.ref.RunID, DecisionKey: key, Stage: stage, RequestHash: hash, Response: fromEino(response)}
+	if m.h.native {
+		for _, msg := range input {
+			decision.InputMessages = append(decision.InputMessages, fromEino(msg))
+		}
+		if value, ok := adk.GetSessionValue(ctx, flowKey); ok {
+			if text, ok := value.(string); ok {
+				decision.FlowSnapshot = json.RawMessage(text)
+			}
+		}
+	}
+	d, err = m.h.store.AcceptTravelDecision(ctx, m.h.ref, decision)
 	if err != nil {
 		return nil, err
 	}

@@ -84,7 +84,7 @@ func NewAgent(cfg Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + string(contractsJSON) + "travel-source-flow-v1:batch-v1:eino-v0.9.0-beta.1"))
+	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + string(contractsJSON) + "travel-source-flow-v2:batch-v2:durable-query-v1:eino-v0.9.0-beta.1"))
 	return &Agent{cfg: cfg, preference: preference, fingerprint: hex.EncodeToString(sum[:])}, nil
 }
 func (a *Agent) Fingerprint() string { return a.fingerprint }
@@ -104,6 +104,7 @@ func (a *Agent) NewExecution(ctx context.Context, in contracts.RunInput) (contra
 		exec.mu.Unlock()
 	}})
 	flow.cfg.Model = a.cfg.Model
+	flow.cfg.Decisions = a.cfg.Decisions
 	flow.cfg.Preference = a.preference
 	flow.cfg.History = in.Messages
 	flow.cfg.ContextTokens = a.cfg.ContextTokens
@@ -118,7 +119,20 @@ func (a *Agent) NewExecution(ctx context.Context, in contracts.RunInput) (contra
 			return reader.ReadEffective(ctx, ref.Scope, ref.RunID)
 		}
 	}
-	registry, err := traveltools.NewRegistry(traveltools.NativeConfig{Config: traveltools.Config{Trips: a.cfg.Trips, Execution: ref, Timeout: in.Limits.ToolTimeout}, Context: flow.decision, Memory: a.cfg.Memory, History: a.cfg.History, SourcePolicy: a.cfg.SourcePolicy, OnNativeTrip: flow.recordTrip})
+	registry, err := traveltools.NewRegistry(traveltools.NativeConfig{Config: traveltools.Config{Trips: a.cfg.Trips, Execution: ref, Timeout: in.Limits.ToolTimeout}, Context: flow.decision, Memory: a.cfg.Memory, History: a.cfg.History, SourcePolicy: a.cfg.SourcePolicy, OnNativeTrip: flow.recordTrip, OperationID: func(ctx context.Context, callID string) (string, error) {
+		s, err := readState(ctx)
+		if err != nil {
+			return "", err
+		}
+		d, ok, err := a.cfg.Decisions.FindTravelDecision(ctx, ref, decisionKey(s.ModelCalls-1))
+		if err != nil {
+			return "", err
+		}
+		if !ok || d.OperationIDs[callID] == "" {
+			return "", pm.ErrConflict
+		}
+		return d.OperationIDs[callID], nil
+	}})
 	if err != nil {
 		return nil, err
 	}

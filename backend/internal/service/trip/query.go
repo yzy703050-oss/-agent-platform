@@ -17,6 +17,9 @@ func selectCandidate(p model.TripPlan, task model.TripTask, selection model.Trip
 		if e.UserID != p.UserID || e.ConversationID != p.ConversationID || e.PlanID != p.ID || e.TaskID != task.ID || e.Query.Domain != selection.Domain {
 			return model.TravelSelection{}, invalid("candidate scope or binding mismatch")
 		}
+		if p.SourceVersion > 0 && e.Query.TaskRevision != max(task.Revision, 1) {
+			return model.TravelSelection{}, invalid("QUERY_REBIND_REQUIRED: candidate belongs to an earlier task revision")
+		}
 		if (e.Status != "ok" && e.Status != "partial") || e.Source.Provider == "" || e.Source.FetchedAt.IsZero() || e.Source.FetchedAt.After(now) || !e.ExpiresAt.After(now) {
 			if p.SourceVersion > 0 && !e.ExpiresAt.After(now) && slices.ContainsFunc(CandidateView(e).Candidates, func(c model.TravelCandidate) bool { return c.ID == selection.Ref.CandidateID }) {
 				return model.TravelSelection{}, evidenceExpired(p, task.ID, e)

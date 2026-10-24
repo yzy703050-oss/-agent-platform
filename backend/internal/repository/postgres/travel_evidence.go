@@ -37,7 +37,7 @@ func (r *Repository) FindTravelQuery(ctx context.Context, ref model.TravelExecut
 		return evidence, false, err
 	}
 	defer tx.Rollback(ctx)
-	if err = lockTravelExecution(ctx, tx, ref); err != nil {
+	if err = lockTravelExecutionState(ctx, tx, ref, ref.QueryJobID != ""); err != nil {
 		return evidence, false, err
 	}
 	var data []byte
@@ -65,7 +65,7 @@ func (r *Repository) SaveTravelQuery(ctx context.Context, ref model.TravelExecut
 		return model.TravelEvidence{}, err
 	}
 	defer tx.Rollback(ctx)
-	if err = lockTravelExecution(ctx, tx, ref); err != nil {
+	if err = lockTravelExecutionState(ctx, tx, ref, ref.QueryJobID != ""); err != nil {
 		return model.TravelEvidence{}, err
 	}
 	var planID any
@@ -92,6 +92,11 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, e.ID, e.ResultRevision, e.UserID, e
 	if err != nil {
 		return model.TravelEvidence{}, err
 	}
+	if ref.QueryJobID != "" {
+		if e, err = finishTravelQueryJob(ctx, tx, ref, ref.QueryJobID, e); err != nil {
+			return e, err
+		}
+	}
 	return e, tx.Commit(ctx)
 }
 func (r *Repository) LoadTravelEvidence(ctx context.Context, ref model.TravelExecution, refs []model.TravelCandidateRef) ([]model.TravelEvidence, error) {
@@ -103,7 +108,7 @@ func (r *Repository) LoadTravelEvidence(ctx context.Context, ref model.TravelExe
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	if err = lockTravelExecution(ctx, tx, ref); err != nil {
+	if err = lockTravelExecutionState(ctx, tx, ref, true); err != nil {
 		return nil, err
 	}
 	seen := map[model.TravelCandidateRef]bool{}
