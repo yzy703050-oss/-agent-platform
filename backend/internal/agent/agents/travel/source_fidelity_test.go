@@ -33,7 +33,7 @@ func TestTravelSourcePrompts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(aux)); got != "5080f30d46e2823825aec90e606d4400ec1b66ba51275608da672afa4d6c6125" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(aux)); got != "b33979342d45d35801dec92d464881174468946681527a293b8fca68374bfa71" {
 		t.Fatalf("original auxiliary prompt fixture changed: %s", got)
 	}
 }

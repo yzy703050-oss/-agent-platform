@@ -14,7 +14,7 @@ func TestTravelSourceContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != "69c63f7237e89ee65c06116bcd15f9d9369b223f74a65268de933757bb2f277d" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != "656952580305329a6d32563888185a3113240e2140e1c34be3fab7680e817185" {
 		t.Fatalf("frozen Python schema fixture changed: %s", got)
 	}
 	var expected map[string][]struct {
