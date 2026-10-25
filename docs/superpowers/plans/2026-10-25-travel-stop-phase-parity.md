@@ -47,8 +47,12 @@
 
 - [x] REQUIRE_DATABASE_TESTS=1 go test ./... -count=1 -timeout180s、go vet ./...、go build ./cmd/server；推送修复分支后核实LinuxCI的race/真实PG及前端既有检查。失败先定位，不重复付费评测。
 - [x] 整体自审并人工核对本spec全部场景，openspec validate fix-travel-stop-phase-parity --strict；记录实际结果及未覆盖边界。
-- [ ] 所有产品任务/验证通过后执行OpenSpec archive，同步主规格，计划链接转归档，提交文档；创建PR到feat/agent-platform-mvp并attach_artifact，报告链接，不合并。
+- [x] 所有产品任务/验证通过后执行OpenSpec archive，同步主规格，计划链接转归档，提交文档；创建PR到feat/agent-platform-mvp并attach_artifact，报告链接，不合并。
 
 ## 执行记录
 
 用户已选择“先修复刚才发现的停止优先级和状态机差异，再向当前默认分支提PR”，沿用单代理。实施前按用户AGENTS.md第三阶段交付本计划审阅；未审阅前只写规划文档，不修改产品代码。私有执行日志使用.cache/execution/travel-stop-phase-parity/。
+
+## 最终交付
+
+停止优先级8707f2c、状态转换42eb24b，Linux CI40157228490全部成功，归档b2f0bf2。已创建并附到当前任务的PR：https://github.com/yzy703050-oss/-agent-platform/pull/1，源codex/travel-stop-phase-parity，目标feat/agent-platform-mvp，未合并。代码与已测42eb24b一致；其后仅文档收尾。
