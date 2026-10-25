@@ -7,5 +7,5 @@
 - [x] 2.2 对齐批次错误和最终收尾路径，更新指纹；现有Eino、协议错误、拒绝和恢复回归通过。
 
 ## 3 验收及PR
-- [ ] 3.1 完整Go/真实PostgreSQL、vet/build及Linux race CI通过；单代理整体自审与人工规格核对、strict validate完成。
-- [ ] 3.2 完成归档和说明，从codex/travel-stop-phase-parity向feat/agent-platform-mvp创建PR，附本任务。
+- [x] 3.1 完整Go/真实PostgreSQL、vet/build及Linux race CI40157228490通过（代码42eb24b，race集成74.487秒）；单代理整体自审与人工逐场景核对、strict validate完成。
+- [x] 3.2 交付前核对完成，验收说明及PR内容就绪，归档条件满足；按用户流程先archive，再在分支收尾阶段从codex/travel-stop-phase-parity向feat/agent-platform-mvp创建并附PR，实际链接记录在详细计划。
