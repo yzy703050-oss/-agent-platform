@@ -20,14 +20,14 @@ OpenSpec：`openspec/changes/add-general-web-search/`；详细实施计划：`do
 | 自审修复 | 搜索页面有标题但摘要结构不兼容时被误判为空结果；补 parser-miss RED → GREEN，修复为不可用，不放宽校验 |
 | 搜索代理 | NewWithProxy 缺失 RED → GREEN；无效协议/路径/查询拒绝，构造不修改全局 Transport；实际只改搜索 Transport |
 | 完整 Go/PG、vet/build | 首轮全量通过（PG 集成 37.279 秒）；自审修改后最终轮全量通过（PG 集成 36.074 秒），vet/build 通过 |
-| Linux CI race | 待本分支验证，不能拿其他 PR 的 CI 作为本次证据 |
+| Linux CI race | [本分支 CI 40170069985](https://github.com/yzy703050-oss/-agent-platform/actions/runs/40170069985)，代码提交 `5df2789b397211f3fb3a086c677f4c4454d8f6ad`：Linux race、vet/build、前端测试/构建均通过；实际 Linux PostgreSQL 集成测试 89.928 秒，总结论 success |
 | 公网/真实模型 | 成功与失败均见下表及 JSON；最新整组公网验收未通过 |
 
 PG 测试夹具首轮故意等待到模型被强制中断，平台按已有规则标记 interrupted。改为既有导出 Runner.RequestPause 的确认边界后，搜索恢复通过；没有为测试新增生产接口或放宽安全断点规则。Manager 的完整暂停协议继续由已有生命周期及 Eino 测试联合覆盖。
 
 ## 实际模型计量
 
-模型均为本地配置的 deepseek-flash；数据库真实，Eino 实际流式执行，tokens 取供应商 Usage，各次模型请求计一次，重复流式 usage 取该请求最大值而非相加。记录器不增加模型请求。耗时包含 Manager 提交、Agent/工具执行至 PostgreSQL 终态读取，不含浏览器和 HTTP/SSE 传输；单次样例不能代表分位数或平均性能。
+模型均为本地配置的 deepseek-flash；数据库真实，Eino 实际流式执行，tokens 取供应商 Usage，各次模型请求计一次，重复流式 usage 取该请求最大值而非相加。记录器不增加模型请求。搜索次数指工具/客户端调用次数，官方分页产生的 HTTP 请求数未单独计量。耗时包含 Manager 提交、Agent/工具执行至 PostgreSQL 终态读取，不含浏览器和 HTTP/SSE 传输；单次样例不能代表分位数或平均性能。
 
 | 轮次/场景 | 模型调用 | 搜索 | 输入/输出/总 tokens | 耗时 | 结果 |
 | --- | ---: | ---: | --- | ---: | --- |
@@ -54,6 +54,18 @@ JSON 保留上述所有模型输出和来源，见 [真实计量数据](reports/
 | 历史及恢复兼容 | Repository、Manager、共用 Runner；PG 综合测试和上下文排除回归 | 通过；无新增存储系统 |
 | 稳定体验与外部依赖 | 真实公网多轮结果不一致 | 未作为稳定可用验收，不归档 |
 
+## 整体自审与范围
+
+对照基线 `aee1bb43df5265dcd5cd6db14457151cd82f021b` 检查模块依赖、HTTP 资源、错误语义、字段/整体大小、上下文隔离、RunID+ToolCallID 来源匹配、配置注入及断点指纹。差旅 Agent、差旅工具、Trip/TravelPreference Service 的 diff 为空。未发现其他待修的重大代码问题；未进行真实浏览器交互验收，UI 证据来自组件和事件测试，不扩称为整站 E2E。
+
+实施中的技术判断及代价：
+
+- 继续使用已创建的独立分支，并以 PowerShell 维护本计划记录，不新增 worktree 或子代理；当前共享工作区可见其他未跟踪变更，因此只显式提交本任务文件，隔离程度弱于独立 checkout。
+- 恢复测试按持久化/安全断点两个子场景联合验证，不新增测试专用生产入口；完整 Manager.Pause 继续依靠既有生命周期与 Eino 回归联合覆盖，未把新搜索测试称为单条完整端到端暂停测试。
+- 实际 Windows 代理未被 Go 自动使用，增加搜索专用可选配置；代价是部署环境需要配置可达代理，避免影响其他客户端。
+
+没有延后处理的代码次要问题；外部服务最新验收未通过仍是未完成项。任务表如实保留该状态。
+
 ## 后续完成条件
 
-完成当前分支 Linux race CI 并记录准确提交；在 DuckDuckGo 允许正常返回后，以搜索专用配置重新通过显式公网和模型来源验收。此前保持任务 4.2/4.3 未完成，不把 HTTP 202 当成代码测试通过。未来换正式搜索 API 属于另一次明确选择，本次仍保留用户指定的官方 DuckDuckGo v2。
+当前分支 Linux race、vet/build 与前端 CI 已通过，证据对应上述代码提交；在 DuckDuckGo 允许正常返回后，以搜索专用配置重新通过显式公网和模型来源验收。此前保持任务 4.2/4.3 未完成，不把 HTTP 202 当成代码测试通过。未来换正式搜索 API 属于另一次明确选择，本次仍保留用户指定的官方 DuckDuckGo v2。

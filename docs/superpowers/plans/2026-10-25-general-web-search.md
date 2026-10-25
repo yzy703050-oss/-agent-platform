@@ -108,10 +108,10 @@
 
 技术补充（实际网络证据）：直连超时，进程内使用本机已配置代理后官方搜索与模型来源回答通过。按 design 增加可选 `Config.WebSearchProxyURL`/`WEB_SEARCH_PROXY_URL`，bootstrap 和显式冒烟统一调用 `websearch.NewWithProxy(ctx, proxyURL)`；只修改搜索私有 Transport，不改变模型/差旅出站路径。先写无效代理配置测试，再实现并验证；本地实际代理地址不进入 Git。自审补充 parser-miss 的 RED→GREEN，结构不兼容不得当作正常空结果。
 
-- [ ] **准备可核对验收。** 新增 opt-in `TestWebSearchLive`：实际官方客户端查询公开 CloudWeGo/Eino 资料，至少一条有效来源才通过；`TestGeneralSearchRealModel`：本地已配置模型执行明确搜索问题，至少 1 次实际搜索、最终回复带返回来源；另做普通直答及搜索失败反馈检查。先运行离线综合测试检验记录器不重发请求、不漏 Stream usage，不新增大量测试组合。
-- [ ] **实际运行。** `go test ./... -count=1 -timeout 180s`（REQUIRE_DATABASE_TESTS=1）、`go vet ./...`、`go build ./cmd/server`；前端 `npm run test -- --run`、`npm run build`。Linux CI 使用已有 `go test -race ./... -count=1 -timeout 180s`，Windows 不声称完成 race。
+- [x] **准备可核对验收。** 新增 opt-in `TestWebSearchLive`：实际官方客户端查询公开 CloudWeGo/Eino 资料，至少一条有效来源才通过；`TestGeneralSearchRealModel`：本地已配置模型执行明确搜索问题，至少 1 次实际搜索、最终回复带返回来源；另做普通直答及搜索失败反馈检查。先运行离线综合测试检验记录器不重发请求、不漏 Stream usage，不新增大量测试组合。
+- [x] **实际运行。** `go test ./... -count=1 -timeout 180s`（REQUIRE_DATABASE_TESTS=1）、`go vet ./...`、`go build ./cmd/server`；前端 `npm run test -- --run`、`npm run build`。Linux CI 使用已有 `go test -race ./... -count=1 -timeout 180s`，Windows 不声称完成 race。
 - [ ] **公网与模型验收。** 分别设置上述开关后运行指定冒烟，记录真实日期、模型、延时、模型调用数、搜索调用数、供应商 tokens、来源及失败情况。网络失败停止标记公网通过，分析后报告限制；不得以 mock 或 web 工具代替应用客户端验收。无须跑 Python 模型对比。
-- [ ] **文档与整体自审。** README 说明分层、开关、提示与工具反馈、来源展示、取消延迟限制及真实验收证据；核对无密钥、无无关升级或差旅改动。完成 specs 每条场景→代码/测试/实际输出的矩阵。
+- [x] **文档与整体自审。** README 说明分层、开关、提示与工具反馈、来源展示、取消延迟限制及真实验收证据；核对无密钥、无无关升级或差旅改动。完成 specs 每条场景→代码/测试/实际输出的矩阵。
 - [ ] **规格检查与完成。** `openspec validate add-general-web-search --strict`；当前 CLI 无 verify 命令，使用明确标注的人工一致性核对。Go/前端/PG、公网与模型、Linux race 都有通过证据后才勾选产品验收。若 CI 需先推分支，以必要的验证性 push 运行，不先声称完成。
 - [ ] **归档与分支收尾。** 所有产品任务通过后运行 OpenSpec archive 并检查主规格，再按 finishing-a-development-branch 流程处理用户选择。创建 PR 时必须另建搜索 PR 并 attach_artifact，不更新差旅 PR 的产品范围。
 
@@ -121,4 +121,4 @@
 - 已核对现有 settings 工具、General 构造/指纹、Bootstrap、配置白名单、前端工具事件与消息字段；消息工具名需从 ToolCallID 配对获取。
 - 已核对官方来源，识别响应体未关闭、无界读取和固定分页等待；Task 1 有明确适配与验证，不默认为官方等于平台要求已满足。
 - 计划任务映射完整：Task 1→1.1；Task 2→2.1；Task 3→3.1/3.2；Task 4→4.1/4.2/4.3。无独立重复需求文档。
-- 当前阶段只生成规划文档，不修改产品文件、不声称已实现或测试通过。待用户审阅后按已选单代理实施。
+- 用户已批准并按单代理完成产品接入；本地全量与 Linux race 通过。最新公网受 DuckDuckGo HTTP 202 challenge 阻断，保留 4.2/4.3 未完成，不归档。

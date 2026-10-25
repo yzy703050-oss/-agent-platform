@@ -13,6 +13,6 @@
 
 ## 4. 验收与规格核对
 
-- [ ] 4.1 更新 README、General 说明及验证记录；运行 Go 全量含真实 PostgreSQL、vet/build、前端测试与构建，记录实际输出并完成整体自审；Linux race 使用已有 CI 验证。
+- [x] 4.1 更新 README、General 说明及验证记录；运行 Go 全量含真实 PostgreSQL、vet/build、前端测试与构建，记录实际输出并完成整体自审；Linux race 使用已有 CI 验证。
 - [ ] 4.2 完成显式公网搜索与真实模型冒烟，记录调用次数、延时及可获取的 token usage；公开查询确有有效来源方可标注真实联网成功，失败则留存原因并报告未完成验收。
 - [ ] 4.3 对照 specs/design/本任务表及实施计划逐项人工核对，运行 OpenSpec strict validate；当前 CLI 无 verify 命令，报告人工核对证据，不声称运行 verify。产品任务通过后同步主规格并归档。

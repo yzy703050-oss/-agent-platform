@@ -143,5 +143,6 @@
   "measurement": "Supplier usage; actual streaming; end-to-end Manager+Eino+tool+PostgreSQL, excludes browser/HTTP/SSE",
   "date": "2026-10-25",
   "timezone": "Asia/Shanghai",
-  "current_acceptance": "blocked_by_duckduckgo_http_202_challenge"
+  "current_acceptance": "blocked_by_duckduckgo_http_202_challenge",
+  "success_sample_qualification": "Existing-proxy success was recorded before search-only proxy configuration and parser-miss refinement; latest full live acceptance received HTTP 202 challenge. Do not treat old successful sample as final public acceptance."
 }
