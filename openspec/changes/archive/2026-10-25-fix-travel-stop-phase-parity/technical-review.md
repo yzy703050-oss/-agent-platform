@@ -1,0 +1,7 @@
+# 技术复核
+
+已对照本change全部文档及对应Python/Go函数。停止原因不能简化为“硬冲突永远最高”：原版硬日期冲突与一般硬校验问题的分支条件不同，原因和提交权限必须分开。代码采用原顺序，校验不减弱。
+
+状态检查只新增纯函数不足以解决问题，必须替换flow/state/protocol/presentation现有直接赋值并补齐validating和reply_ready中间边。deciding和repair_required下正常生成均可进入executing；错误观察保留repair_required。恢复装载不是live transition；不能在save中简单比较旧/新阶段，因为同次保存前可能经过多条合法边。
+
+现有固定模型脚本/Eino及PostgreSQL恢复测试可验证链路，不需要重新测Python模型或追加付费调用。新规则纳入指纹；纯源码基线及prompt不改，当前分层不调整。无新增依赖/迁移，未发现需另作产品选择的歧义。

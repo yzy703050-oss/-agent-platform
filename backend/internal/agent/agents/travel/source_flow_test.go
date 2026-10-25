@@ -49,24 +49,32 @@ func TestTravelSourceFlow(t *testing.T) {
 	})
 	t.Run("no_progress_ignores_receipts_and_prose_but_resets_on_real_change", func(t *testing.T) {
 		p := pm.TripResult{Plan: pm.TripPlan{ID: "p", Revision: 1, Tasks: []pm.TripTask{{ID: "t", Origin: "上海", Destination: "杭州", Revision: 1, Activities: []pm.TripActivity{{ID: "m", Date: "2026-10-26", Time: "14:00", Purpose: "会议"}}}}}}
-		s := FlowState{Plans: map[string]pm.TripResult{"p": p}}
-		s.ObserveReview()
+		s := FlowState{Phase: "deciding", Plans: map[string]pm.TripResult{"p": p}}
+		if err := s.ObserveReview(); err != nil {
+			t.Fatal(err)
+		}
 		p.Plan.Revision++
 		p.Receipt = &pm.TravelReceipt{OperationID: "new-receipt"}
 		s.Plans["p"] = p
 		s.PreviousRoundSummary = "已再次核对"
-		s.ObserveReview()
+		if err := s.ObserveReview(); err != nil {
+			t.Fatal(err)
+		}
 		if s.UnchangedReviews != 1 || s.StopReason != "" {
 			t.Fatal(s.UnchangedReviews, s.StopReason)
 		}
-		s.ObserveReview()
+		if err := s.ObserveReview(); err != nil {
+			t.Fatal(err)
+		}
 		if s.StopReason != "no_progress" {
 			t.Fatal("unchanged_reviews>=2 must stop", s.StopReason)
 		}
-		s.StopReason = ""
+		s = FlowState{Phase: "deciding", Plans: s.Plans, ReviewFingerprint: s.ReviewFingerprint}
 		p.Plan.Tasks[0].Activities[0].Time = "16:00"
 		s.Plans["p"] = p
-		s.ObserveReview()
+		if err := s.ObserveReview(); err != nil {
+			t.Fatal(err)
+		}
 		if s.UnchangedReviews != 0 {
 			t.Fatal("real change did not reset progress")
 		}
@@ -251,7 +259,7 @@ func TestTravelSourceFlowEino(t *testing.T) {
 	}
 	flow.registry = registry
 	m := &sourceFlowModel{t: t}
-	kernel, err := NewKernel(ctx, KernelConfig{Registry: registry, Model: m, MaxIterations: 8, NativeBeforeModel: flow.beforeModel, NativeReserveBatch: flow.reserve, NativeProfile: flow.profile, NativeAfterBatch: flow.afterBatch, Handlers: []adk.ChatModelAgentMiddleware{&sourceGateIdentity{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}}}})
+	kernel, err := NewKernel(ctx, KernelConfig{Registry: registry, Model: m, MaxIterations: 8, NativeBeforeModel: flow.beforeModel, NativeModelObserved: flow.modelObserved, NativeReserveBatch: flow.reserve, NativeProfile: flow.profile, NativeAfterBatch: flow.afterBatch, Handlers: []adk.ChatModelAgentMiddleware{&sourceGateIdentity{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}}}})
 	if err != nil {
 		t.Fatal(err)
 	}

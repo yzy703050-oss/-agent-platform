@@ -65,8 +65,11 @@ func (f *sourceFlow) load(ctx context.Context) (FlowState, error) {
 	s := FlowState{Version: 1, Phase: "deciding", Role: "main", OriginalQuery: f.cfg.OriginalQuery, Plans: map[string]pm.TripResult{}, Preferences: map[string]string{}}
 	if value, ok := adk.GetSessionValue(ctx, flowKey); ok {
 		text, ok := value.(string)
-		if !ok || json.Unmarshal([]byte(text), &s) != nil || s.Version != 1 || s.PlanningRounds < 0 || s.ActiveNanos < 0 || !slices.Contains([]string{"deciding", "executing", "validating", "repair_required", "stopping", "reply_ready", "completed", "stopped", "paused"}, s.Phase) || !slices.Contains([]string{"main", "verifier", "summary"}, s.Role) {
+		if !ok || json.Unmarshal([]byte(text), &s) != nil || s.Version != 1 || s.PlanningRounds < 0 || s.ActiveNanos < 0 || !slices.Contains([]string{"main", "verifier", "summary"}, s.Role) {
 			return FlowState{}, errors.New("incompatible source travel flow state")
+		}
+		if !knownPhase(s.Phase) {
+			return FlowState{}, &pm.TravelRuleError{Code: "INVALID_EXECUTION_STATE", Message: "unknown execution phase"}
 		}
 	}
 	if s.Plans == nil {
@@ -78,6 +81,9 @@ func (f *sourceFlow) load(ctx context.Context) (FlowState, error) {
 	return s, nil
 }
 func (f *sourceFlow) save(ctx context.Context, s FlowState) error {
+	if !knownPhase(s.Phase) {
+		return &pm.TravelRuleError{Code: "INVALID_EXECUTION_STATE", Message: "unknown execution phase"}
+	}
 	now := f.cfg.Now()
 	if !f.lastTick.IsZero() {
 		s.ActiveNanos += max(int64(0), int64(now.Sub(f.lastTick)))
@@ -127,7 +133,7 @@ func (f *sourceFlow) profile(ctx context.Context) (traveltools.ProfileRequest, e
 	if role == "summary" {
 		role = "main"
 	} // Prompt role and execution authority differ in the original loop.
-	if s.StopReason != "" {
+	if s.StopReason != "" || s.summaryOnly() {
 		role = "summary"
 	}
 	request := profileForState(s, role)
@@ -167,20 +173,21 @@ func (f *sourceFlow) reserve(ctx context.Context, calls []traveltools.NativeCall
 	if err != nil {
 		return err
 	}
-	if s.StopReason != "" {
+	if s.StopReason != "" || s.summaryOnly() {
 		return &pm.TravelRuleError{Code: "EXECUTION_STOPPED", Message: s.StopReason}
 	}
+	// Rejected batches are observed in afterBatch before choosing a stop phase.
 	err = s.ReserveBatch(calls, f.cfg.PlanningRounds)
 	if err != nil {
-		s.StopReason = "planning_round_limit_exceeded"
-		s.Phase = "stopping"
-	} else {
-		s.Phase = "executing"
+		return err
+	}
+	if err = s.transition("executing"); err != nil {
+		return err
 	}
 	if saved := f.save(ctx, s); saved != nil {
 		return saved
 	}
-	return err
+	return nil
 }
 
 func (f *sourceFlow) modelObserved(ctx context.Context, msg *schema.Message) error {
@@ -190,14 +197,28 @@ func (f *sourceFlow) modelObserved(ctx context.Context, msg *schema.Message) err
 	if err != nil {
 		return err
 	}
+	// WrapModel can finalize a plain response before Eino's AfterModel hook.
+	// Observing that same saved response is idempotent, never a terminal exit.
+	if (s.Phase == "completed" || s.Phase == "stopped") && s.FinalText != "" && len(msg.ToolCalls) == 0 && msg.Content == s.FinalText {
+		return nil
+	}
 	if len(msg.ToolCalls) > 0 {
-		s.Phase = "executing"
+		// A model ignoring summary-only tools still gets paired rejected results.
+		if !s.summaryOnly() {
+			if err = s.transition("executing"); err != nil {
+				return err
+			}
+		}
 	} else {
-		s.Phase = "reply_ready"
 		for _, p := range s.Plans {
 			if p.Validation.Status != "complete" && s.StopReason == "" {
-				s.StopReason = "uncommitted_plan"
+				if err = s.stop("uncommitted_plan"); err != nil {
+					return err
+				}
 			}
+		}
+		if err = s.transition("reply_ready"); err != nil {
+			return err
 		}
 	}
 	return f.save(ctx, s)
@@ -238,6 +259,10 @@ func (f *sourceFlow) recordJob(ctx context.Context, job traveltools.QueryJob) er
 func (f *sourceFlow) runJobs(ctx context.Context) error {
 	f.mu.Lock()
 	s, err := f.load(ctx)
+	if err == nil && s.summaryOnly() {
+		f.mu.Unlock()
+		return nil
+	}
 	if err == nil {
 		if reader, ok := f.cfg.Trips.(interface {
 			ListQueryJobs(context.Context, pm.TravelExecution) ([]pm.TravelQueryJob, error)
@@ -307,6 +332,12 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 	s, err := f.load(ctx)
 	if err != nil {
 		return nil, "", err
+	}
+	if slices.Contains([]string{"completed", "stopped", "paused"}, s.Phase) {
+		if s.Phase != "paused" && s.FinalText != "" {
+			return history, s.FinalText, nil
+		}
+		return nil, "", &pm.TravelRuleError{Code: "EXECUTION_STOPPED", Message: "execution no longer permits a model decision"}
 	}
 	host, err := readState(ctx)
 	if err != nil {
@@ -379,7 +410,9 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 		}
 	}
 	if failedSourceRefresh(s) && s.StopReason == "" {
-		s.StopReason = "automatic_refresh_failed"
+		if err = s.stop("automatic_refresh_failed"); err != nil {
+			return nil, "", err
+		}
 	}
 	memories := []any{}
 	preferenceSummary := ""
@@ -411,28 +444,38 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 		}
 	}
 	if s.Planning && s.PlanningRounds >= f.cfg.PlanningRounds && s.StopReason == "" {
-		s.StopReason = "planning_round_limit_exceeded"
-		s.Phase = "stopping"
+		if err = s.stop("planning_round_limit_exceeded"); err != nil {
+			return nil, "", err
+		}
 	}
 	if time.Duration(s.ActiveNanos) >= f.cfg.Timeout && s.StopReason == "" {
-		s.StopReason = "turn_deadline_exceeded"
-		s.Phase = "stopping"
+		if err = s.stop("turn_deadline_exceeded"); err != nil {
+			return nil, "", err
+		}
 	}
 	if len(s.Plans) > 0 && s.Role == "verifier" && s.StopReason == "" {
-		s.ObserveReview()
+		if err = s.ObserveReview(); err != nil {
+			return nil, "", err
+		}
 	}
 	if s.StopReason != "" && len(s.Plans) > 0 {
 		final, err := stoppedSourceReply(s)
 		if err != nil {
 			return nil, "", err
 		}
-		s.Phase = "reply_ready"
+		if err = s.transition("reply_ready"); err != nil {
+			return nil, "", err
+		}
 		if err = f.save(ctx, s); err != nil {
 			return nil, "", err
 		}
 		return history, final, nil
 	}
-	s.Phase = "deciding"
+	if !s.summaryOnly() && s.Phase != "repair_required" {
+		if err = s.transition("deciding"); err != nil {
+			return nil, "", err
+		}
+	}
 	if err = f.save(ctx, s); err != nil {
 		return nil, "", err
 	}
@@ -454,13 +497,17 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 	} else {
 		messages, err = f.prepareHistory(ctx, &s, messages, history)
 		if err != nil {
-			s.StopReason = "context_budget_exceeded"
+			if stopErr := s.stop("context_budget_exceeded"); stopErr != nil {
+				return nil, "", stopErr
+			}
 			_ = f.save(ctx, s)
 			return nil, "", err
 		}
 	}
 	if err = f.checkContextBudget(s, messages); err != nil {
-		s.StopReason = "context_budget_exceeded"
+		if stopErr := s.stop("context_budget_exceeded"); stopErr != nil {
+			return nil, "", stopErr
+		}
 		_ = f.save(ctx, s)
 		return nil, "", err
 	}
@@ -482,7 +529,11 @@ func (f *sourceFlow) afterBatch(ctx context.Context, batch traveltools.PreparedB
 	if err != nil {
 		return "", err
 	}
-	s.Phase = "validating"
+	if !s.summaryOnly() {
+		if err = s.transition("validating"); err != nil {
+			return "", err
+		}
+	}
 	s.LastBatchCalls = nil
 	if native, readErr := loadNativeBatch(ctx); readErr == nil {
 		s.LastBatchCalls = slices.Clone(native.Calls)
@@ -541,13 +592,18 @@ func (f *sourceFlow) afterBatch(ctx context.Context, batch traveltools.PreparedB
 			}
 		}
 		if r.StopPlanning && s.StopReason == "" {
-			s.StopReason = r.StopReason
-			if s.StopReason == "" {
-				s.StopReason = "tool_requested_stop"
+			reason := r.StopReason
+			if reason == "" {
+				reason = "tool_requested_stop"
+			}
+			if err = s.stop(reason); err != nil {
+				return "", err
 			}
 		}
 		if r.Error != nil && r.Error.Code == "PLANNING_ROUND_LIMIT_EXCEEDED" {
-			s.StopReason = "planning_round_limit_exceeded"
+			if err = s.stop("planning_round_limit_exceeded"); err != nil {
+				return "", err
+			}
 		}
 		if r.Error != nil && r.Error.Code == "EVIDENCE_EXPIRED" {
 			var id string
@@ -567,16 +623,25 @@ func (f *sourceFlow) afterBatch(ctx context.Context, batch traveltools.PreparedB
 			}
 		}
 		if r.Error != nil && r.Error.Code == "AUTOMATIC_REFRESH_LIMIT" {
-			s.StopReason = "automatic_refresh_limit"
+			if err = s.stop("automatic_refresh_limit"); err != nil {
+				return "", err
+			}
 		}
 	}
 	final := ReadyReply(batch, results)
 	if final != "" {
-		s.Phase = "reply_ready"
+		err = s.transition("reply_ready")
 	} else if s.StopReason != "" {
-		s.Phase = "stopping"
+		err = s.stop(s.StopReason)
+	} else if slices.ContainsFunc(results, func(r pm.TravelToolResult) bool {
+		return r.Status == "error" || r.Status == "rejected" || r.Status == "unknown"
+	}) {
+		err = s.transition("repair_required")
 	} else {
-		s.Phase = "deciding"
+		err = s.transition("deciding")
+	}
+	if err != nil {
+		return "", err
 	}
 	return final, f.save(ctx, s)
 }

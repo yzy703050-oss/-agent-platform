@@ -42,7 +42,7 @@ func TestCapabilityResultStopsWithoutAnotherModelCall(t *testing.T) {
 	}
 	flow.registry = registry
 	m := &sourceGateModel{}
-	kernel, err := NewKernel(ctx, KernelConfig{Model: m, Registry: registry, MaxIterations: 4, NativeBeforeModel: flow.beforeModel, NativeProfile: flow.profile, NativeAfterBatch: flow.afterBatch, Handlers: []adk.ChatModelAgentMiddleware{&sourceGateIdentity{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}}}})
+	kernel, err := NewKernel(ctx, KernelConfig{Model: m, Registry: registry, MaxIterations: 4, NativeBeforeModel: flow.beforeModel, NativeModelObserved: flow.modelObserved, NativeReserveBatch: flow.reserve, NativeProfile: flow.profile, NativeAfterBatch: flow.afterBatch, Handlers: []adk.ChatModelAgentMiddleware{&sourceGateIdentity{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}}}})
 	if err != nil {
 		t.Fatal(err)
 	}

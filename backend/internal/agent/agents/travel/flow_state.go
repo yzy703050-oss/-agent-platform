@@ -76,6 +76,9 @@ func (s FlowState) DecideRole() string {
 }
 
 func (s *FlowState) ReserveBatch(calls []traveltools.NativeCall, limit int) error {
+	if s.summaryOnly() {
+		return &pm.TravelRuleError{Code: "EXECUTION_STOPPED", Message: "execution no longer permits tools"}
+	}
 	s.ExternalQueryKeys = nil
 	planning := s.Planning
 	for _, call := range calls {
@@ -109,7 +112,7 @@ func (s FlowState) planIDs() []string {
 	return ids
 }
 
-func (s *FlowState) ObserveReview() {
+func (s *FlowState) ObserveReview() error {
 	states := []any{}
 	for _, id := range s.planIDs() {
 		plan := s.Plans[id]
@@ -150,9 +153,9 @@ func (s *FlowState) ObserveReview() {
 	}
 	s.ReviewFingerprint = fingerprint
 	if s.UnchangedReviews >= 2 && s.StopReason == "" {
-		s.StopReason = "no_progress"
-		s.Phase = "stopping"
+		return s.stop("no_progress")
 	}
+	return nil
 }
 
 func (s FlowState) PlanView(result pm.TripResult) map[string]any {
