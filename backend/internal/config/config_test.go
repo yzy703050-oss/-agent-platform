@@ -5,6 +5,29 @@ import (
 	"testing"
 )
 
+func TestWebSearchConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		raw              string
+		enabled, invalid bool
+	}{{"", true, false}, {"true", true, false}, {"false", false, false}, {"typo", false, true}} {
+		cfg, err := Load(func(key string) string {
+			switch key {
+			case "DB_DSN":
+				return "postgres://local/database"
+			case "WEB_SEARCH_ENABLED":
+				return tc.raw
+			}
+			return ""
+		})
+		if (err != nil) != tc.invalid {
+			t.Fatalf("value=%q err=%v", tc.raw, err)
+		}
+		if err == nil && cfg.WebSearchEnabled != tc.enabled {
+			t.Fatalf("value=%q enabled=%v", tc.raw, cfg.WebSearchEnabled)
+		}
+	}
+}
+
 func TestDatabaseRequired(t *testing.T) {
 	_, e := Load(func(string) string { return "" })
 	if e == nil || !strings.Contains(e.Error(), "DB_DSN") {

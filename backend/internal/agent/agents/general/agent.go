@@ -3,12 +3,14 @@ package general
 import (
 	"agent-platform/backend/internal/agent/contracts"
 	"agent-platform/backend/internal/agenttools"
+	"agent-platform/backend/internal/client/websearch"
 	pm "agent-platform/backend/internal/model"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
@@ -25,17 +27,34 @@ type Agent struct {
 	store        func(contracts.RunInput) adkStore
 	fingerprint  string
 	pauseTimeout time.Duration
+	search       agenttools.WebSearcher
+	instruction  string
 }
 
-const instruction = "你是平台的通用聊天助手，用中文清晰回答用户。需要了解当前用户的设置时调用 get_my_settings。该工具只读且没有参数。差旅规划由独立的差旅助手入口提供，用户可切换入口新建会话；不要假装执行差旅操作或自动委派。"
+type Option func(*Agent)
 
-func NewAgent(m model.ToolCallingChatModel, s agenttools.SettingsReader, store func(contracts.RunInput) adkStore, identity string, pause time.Duration) *Agent {
-	sum := sha256.Sum256([]byte(identity + instruction + "eino-v0.9.0-beta.1:settings-v1"))
-	return &Agent{m, s, store, hex.EncodeToString(sum[:]), pause}
+func WithWebSearch(search agenttools.WebSearcher) Option { return func(a *Agent) { a.search = search } }
+
+func NewAgent(m model.ToolCallingChatModel, s agenttools.SettingsReader, store func(contracts.RunInput) adkStore, identity string, pause time.Duration, opts ...Option) *Agent {
+	a := &Agent{model: m, settings: s, store: store, pauseTimeout: pause}
+	for _, opt := range opts {
+		opt(a)
+	}
+	a.instruction = buildInstruction(a.search != nil)
+	sum := sha256.Sum256([]byte(identity + a.instruction + fmt.Sprintf("eino-v0.9.0-beta.1:settings-v1:web-search-v1:%t:%s", a.search != nil, websearch.ComponentVersion)))
+	a.fingerprint = hex.EncodeToString(sum[:])
+	return a
 }
 func (a *Agent) Fingerprint() string { return a.fingerprint }
 func (a *Agent) NewExecution(ctx context.Context, in contracts.RunInput) (contracts.Execution, error) {
-	kernel, e := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{Name: "general", Description: "通用聊天", Instruction: instruction, Model: a.model, MaxIterations: in.Limits.Iterations, ToolsConfig: adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{Tools: []tool.BaseTool{agenttools.NewSettingsTool(a.settings, in.Scope, in.Limits.ToolTimeout)}}}})
+	registeredTools := []tool.BaseTool{agenttools.NewSettingsTool(a.settings, in.Scope, in.Limits.ToolTimeout)}
+	if a.search != nil {
+		registeredTools = append(registeredTools, agenttools.NewWebSearchTool(a.search, in.Limits.ToolTimeout))
+	}
+	kernel, e := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+		Name: "general", Description: "通用聊天", Instruction: a.instruction, Model: a.model, MaxIterations: in.Limits.Iterations,
+		ToolsConfig: adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{Tools: registeredTools}},
+	})
 	if e != nil {
 		return nil, e
 	}

@@ -72,11 +72,11 @@
 - `general.Option`、`general.WithWebSearch(agenttools.WebSearcher) Option`；现有 NewAgent 最后增加 `opts ...Option`，旧调用者无需改动。Agent 搜索依赖与提示固定在构造时，不能执行中改变开关。
 - `NewExecution` 保留 get_my_settings，非 nil 搜索依赖才追加 web_search；Runner 和 RepositoryStore 不另建版本。
 
-- [ ] **先写失败测试。** `TestWebSearchConfiguration` 覆盖默认/false/非法；`TestGeneralWebSearchFlow` 用脚本模型检查暴露的工具与提示，首轮请求 web_search、第二轮消费实际工具观察并输出来源，验证 2 次模型调用与 1 次搜索；`TestGeneralWebSearchDisabledAndDirectReply` 验证禁用不注册/不宣传与启用时直答 0 搜索；错误反馈场景用失败客户端验证下一轮模型收到 search_unavailable；比较启用/禁用指纹不同，并保留设置工具测试。
-- [ ] **确认 RED。** `go test ./internal/config ./internal/agent/agents/general -run 'Test(WebSearchConfiguration|GeneralWebSearch)' -count=1`，确认失败对应新配置、Option 或工具注册缺失。
-- [ ] **最小实现。** bootstrap 按开关创建 client 注入 General；抽出条件提示，加入引用/失败/外部内容边界；指纹包括实际提示、开关、契约与官方版本。同步 env 示例与加载脚本白名单，不写实际 .env。异常初始化返回明确错误，不能静默声称搜索就绪。
-- [ ] **确认 GREEN。** 重跑本任务测试，再运行 `go test ./internal/config ./internal/agent/agents/general ./internal/agenttools -count=1`；既有工具、流式输出、取消及恢复测试继续通过。
-- [ ] **完成记录。** 核对 diff 中没有差旅路径改动，任务表 2.1 勾选，记录测试并提交。
+- [x] **先写失败测试。** `TestWebSearchConfiguration` 覆盖默认/false/非法；`TestGeneralWebSearchFlow` 用脚本模型检查暴露的工具与提示，首轮请求 web_search、第二轮消费实际工具观察并输出来源，验证 2 次模型调用与 1 次搜索；`TestGeneralWebSearchDisabledAndDirectReply` 验证禁用不注册/不宣传与启用时直答 0 搜索；错误反馈场景用失败客户端验证下一轮模型收到 search_unavailable；比较启用/禁用指纹不同，并保留设置工具测试。
+- [x] **确认 RED。** `go test ./internal/config ./internal/agent/agents/general -run 'Test(WebSearchConfiguration|GeneralWebSearch)' -count=1`，确认失败对应新配置、Option 或工具注册缺失。
+- [x] **最小实现。** bootstrap 按开关创建 client 注入 General；抽出条件提示，加入引用/失败/外部内容边界；指纹包括实际提示、开关、契约与官方版本。同步 env 示例与加载脚本白名单，不写实际 .env。异常初始化返回明确错误，不能静默声称搜索就绪。
+- [x] **确认 GREEN。** 重跑本任务测试，再运行 `go test ./internal/config ./internal/agent/agents/general ./internal/agenttools -count=1`；既有工具、流式输出、取消及恢复测试继续通过。
+- [x] **完成记录。** 核对 diff 中没有差旅路径改动，任务表 2.1 勾选，记录测试并提交。
 
 ### Task 3: 来源展示及真实存储/恢复（OpenSpec 3.1、3.2）
 

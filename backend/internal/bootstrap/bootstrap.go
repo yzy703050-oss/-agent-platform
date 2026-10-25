@@ -6,6 +6,7 @@ import (
 	"agent-platform/backend/internal/agent/contracts"
 	"agent-platform/backend/internal/agent/manager"
 	"agent-platform/backend/internal/agent/memory"
+	"agent-platform/backend/internal/agenttools"
 	chatapp "agent-platform/backend/internal/application/chat"
 	"agent-platform/backend/internal/client/demo"
 	"agent-platform/backend/internal/client/hotel"
@@ -13,6 +14,7 @@ import (
 	ragmcp "agent-platform/backend/internal/client/mcp"
 	"agent-platform/backend/internal/client/train"
 	"agent-platform/backend/internal/client/weather"
+	"agent-platform/backend/internal/client/websearch"
 	prefsvc "agent-platform/backend/internal/service/travelpreference"
 	tripsvc "agent-platform/backend/internal/service/trip"
 	"context"
@@ -92,10 +94,22 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	trips := tripsvc.NewWithQueries(repo, providers, time.Now).WithQueryNamespace(cfg.TravelQueryMode)
 	preferences := prefsvc.New(repo)
 	if modelClient, err := llm.New(ctx, cfg.ModelBaseURL, cfg.ModelID, cfg.ModelAPIKey); err == nil {
+		var search agenttools.WebSearcher
+		if cfg.WebSearchEnabled {
+			searchClient, searchErr := websearch.New(ctx, nil)
+			if searchErr != nil {
+				if rag != nil {
+					_ = rag.Close()
+				}
+				closeApp()
+				return nil, errors.New("web search initialization failed")
+			}
+			search = searchClient
+		}
 		var a *general.Agent
 		a = general.NewAgent(modelClient, settings, func(in contracts.RunInput) adk.CheckPointStore {
 			return &general.RepositoryStore{Store: repo, Input: in, Fingerprint: a.Fingerprint()}
-		}, cfg.ModelBaseURL+"/"+cfg.ModelID, time.Duration(cfg.PauseSeconds)*time.Second)
+		}, cfg.ModelBaseURL+"/"+cfg.ModelID, time.Duration(cfg.PauseSeconds)*time.Second, general.WithWebSearch(search))
 		registry.Register("general", a)
 		if travelModel, err := llm.NewTravel(ctx, cfg.ModelBaseURL, cfg.ModelID, cfg.ModelAPIKey); err == nil {
 			tripAgent, err := travel.NewAgent(travel.Config{Model: travelModel, Trips: trips, Preferences: preferences, Retriever: retriever, PlanningRounds: cfg.TravelPlanningRounds, ContextTokens: cfg.TravelContextTokens, TurnTimeout: time.Duration(cfg.TravelTurnSeconds) * time.Second, Decisions: repo, Checkpoints: repo, Context: memory.NewTravelContext(preferences, repo, cfg.TravelContextTokens*4), Identity: cfg.ModelBaseURL + "/" + cfg.ModelID})

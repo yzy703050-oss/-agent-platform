@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	WebSearchEnabled                                                                     bool
 	TravelPlanningRounds, TravelTurnSeconds, TravelContextTokens                         int
 	TravelQueryMode                                                                      string
 	TrainAPIKey, AMAPAPIKey                                                              string
@@ -24,6 +25,14 @@ type Config struct {
 
 func Load(get func(string) string) (Config, error) {
 	c := Config{DatabaseDSN: get("DB_DSN"), HTTPAddr: get("HTTP_ADDR"), ModelBaseURL: get("LLM_BASE_URL"), ModelID: get("LLM_MODEL"), ModelAPIKey: get("LLM_API_KEY")}
+	c.WebSearchEnabled = true
+	if raw := get("WEB_SEARCH_ENABLED"); raw != "" {
+		var err error
+		c.WebSearchEnabled, err = strconv.ParseBool(raw)
+		if err != nil {
+			return c, errors.New("invalid WEB_SEARCH_ENABLED")
+		}
+	}
 	c.TrainAPIKey, c.AMAPAPIKey = get("TRAIN_API_KEY"), get("AMAP_API_KEY")
 	c.TravelQueryMode = get("TRAVEL_QUERY_MODE")
 	if c.TravelQueryMode == "" {
