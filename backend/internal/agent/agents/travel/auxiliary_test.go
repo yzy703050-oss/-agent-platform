@@ -2,6 +2,7 @@ package travel
 
 import (
 	pm "agent-platform/backend/internal/model"
+	prefsvc "agent-platform/backend/internal/service/travelpreference"
 	"context"
 	"encoding/json"
 	em "github.com/cloudwego/eino/components/model"
@@ -93,8 +94,16 @@ func (f *analysisFixture) Update(context.Context, pm.TravelExecution, string, pm
 }
 func (f *analysisFixture) SaveAnalysis(_ context.Context, _ pm.TravelExecution, _ string, _ []pm.TravelMemoryUpdate, a pm.TravelPreferenceAnalysis, _ []string) (pm.TravelMemoryResult, error) {
 	f.writes++
-	raw, _ := json.Marshal(a)
-	f.rows = []pm.TravelPreference{{Key: "$analysis", Value: string(raw)}}
+	// Match production's cumulative coverage rather than replacing earlier IDs.
+	commit, err := prefsvc.PrepareNativeMemory(f.rows, nil, &a)
+	if err != nil {
+		return pm.TravelMemoryResult{}, err
+	}
+	for _, c := range commit.Changes {
+		if c.Key == "$analysis" {
+			f.rows = []pm.TravelPreference{{Key: c.Key, Value: c.Value, Origin: c.Origin}}
+		}
+	}
 	return pm.TravelMemoryResult{}, nil
 }
 
@@ -134,4 +143,27 @@ func TestTravelSourceAuxiliaryExecution(t *testing.T) {
 			t.Fatal("invalid coverage committed")
 		}
 	})
+}
+
+func TestTravelPreferenceCoverageSurvivesMultipleBatches(t *testing.T) {
+	f := &analysisFixture{}
+	m := &auxiliaryScriptModel{}
+	a := &PreferenceAgent{model: m, history: f, memory: f}
+	for _, group := range [][]string{{"one", "two", "three"}, {"four", "five", "six"}} {
+		for _, id := range group {
+			f.trips = append(f.trips, pm.TripPlan{ID: id, SourceRunID: "run-" + id, Status: "completed", UserConfirmed: true, Validation: pm.TripValidation{Status: "complete"}})
+		}
+		raw, _ := json.Marshal(map[string]any{"memories": []any{}, "covered_trip_ids": group})
+		m.answer = string(raw)
+		if err := a.Maintain(context.Background(), pm.TravelExecution{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := a.Maintain(context.Background(), pm.TravelExecution{}); err != nil || m.calls != 2 {
+		t.Fatalf("already covered trips triggered another analysis: calls=%d error=%v", m.calls, err)
+	}
+	var saved pm.TravelPreferenceAnalysis
+	if err := json.Unmarshal([]byte(f.rows[0].Value), &saved); err != nil || len(saved.CoveredTripIDs) != 6 {
+		t.Fatalf("analysis lost earlier covered trips: %+v %v", saved, err)
+	}
 }

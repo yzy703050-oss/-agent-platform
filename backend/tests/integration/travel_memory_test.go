@@ -139,6 +139,10 @@ func TestTravelMemoryIsolation(t *testing.T) {
 		t.Fatalf("unchanged history repeated summary: %d %v", summaryCount, err)
 	}
 	// Verify the actual source-Agent model input, not only a context helper.
+	activeMemory := "DIRECTLY_INJECTED_ACTIVE_MEMORY"
+	if _, err = prefs.Update(ctx, current, "active-memory", model.TravelMemoryCommand{Operation: "update", Updates: []model.TravelMemoryUpdate{{Op: "add", Text: &activeMemory}}}); err != nil {
+		t.Fatal(err)
+	}
 	capture := &sourceCaptureModel{}
 	agent, err := travelagent.NewAgent(travelagent.Config{Model: capture, Trips: tripsvc.New(f.repo, nil), Preferences: prefs, Context: builder, Decisions: f.repo, Checkpoints: f.repo, Identity: "source-isolation"})
 	if err != nil {
@@ -157,5 +161,24 @@ func TestTravelMemoryIsolation(t *testing.T) {
 	}
 	if capture.input == "" || strings.Contains(capture.input, "REPLACED_") || strings.Contains(capture.input, "EARLIER_VALID_PREFERENCE") {
 		t.Fatal("actual source model saw excluded/retracted data", capture.input)
+	}
+	var actualMessages []model.Message
+	if err = json.Unmarshal([]byte(capture.input), &actualMessages); err != nil {
+		t.Fatal(err)
+	}
+	injected := false
+	for _, message := range actualMessages {
+		if message.Role == "system" && strings.HasPrefix(message.Content, "当前上下文（数据）：") {
+			var data struct {
+				Complete bool `json:"memory_context_complete"`
+			}
+			if err = json.Unmarshal([]byte(strings.TrimPrefix(message.Content, "当前上下文（数据）：")), &data); err != nil {
+				t.Fatal(err)
+			}
+			injected = data.Complete && strings.Contains(message.Content, activeMemory)
+		}
+	}
+	if !injected {
+		t.Fatal("effective memory was not directly injected into the actual model input")
 	}
 }

@@ -18,6 +18,8 @@ var (
 	// User-authorized additions are versioned separately from the source baseline.
 	//go:embed prompts/correction.txt
 	correctionInstruction string
+	//go:embed prompts/no_followup.txt
+	interactionInstruction string
 )
 
 func roleInstruction(role string) string {
