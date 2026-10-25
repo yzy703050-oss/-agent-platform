@@ -28,6 +28,7 @@ import { AuthForm } from "./components/AuthForm";
 import { ConversationSidebar } from "./components/ConversationSidebar";
 import { AgentPicker } from "./components/AgentPicker";
 import { TravelResult } from "./components/TravelResult";
+import { WebSearchResult } from "./components/WebSearchResult";
 import { RunControls, activeStatuses } from "./components/RunControls";
 import "./styles.css";
 
@@ -215,14 +216,20 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
       else if (event.type.startsWith("tool."))
         setToolState(
           event.type === "tool.started"
-            ? event.payload.name === "get_my_settings"
-              ? "正在读取个人设置…"
-              : "正在执行差旅工具…"
+            ? event.payload.name === "web_search"
+              ? "正在联网搜索…"
+              : event.payload.name === "get_my_settings"
+                ? "正在读取个人设置…"
+                : "正在执行差旅工具…"
             : event.type === "tool.completed"
-              ? event.payload.name === "get_my_settings"
-                ? "已读取个人设置"
-                : "差旅工具已返回结果"
-              : "工具执行失败",
+              ? event.payload.name === "web_search"
+                ? "联网搜索已返回结果"
+                : event.payload.name === "get_my_settings"
+                  ? "已读取个人设置"
+                  : "差旅工具已返回结果"
+              : event.payload.name === "web_search"
+                ? "联网搜索失败"
+                : "工具执行失败",
         );
       else if (event.type === "travel.phase") {
         const labels: Record<string, string> = {
@@ -381,6 +388,14 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
   const partialInHistory = messages.some(
     (m) => m.run_id === run?.id && m.display_status === "partial",
   );
+  const toolNames = new Map<string, string>();
+  for (const message of messages) {
+    if (message.role === "assistant") {
+      for (const call of message.tool_calls || []) {
+        toolNames.set(`${message.run_id}:${call.id}`, call.name);
+      }
+    }
+  }
   return (
     <div className="app-shell">
       <ConversationSidebar
@@ -496,7 +511,11 @@ export default function App({ client = api }: { client?: PlatformAPI }) {
                         )}
                       </div>
                       {m.content &&
-                        (travel && m.role === "tool" ? (
+                        (m.role === "tool" &&
+                        toolNames.get(`${m.run_id}:${m.tool_call_id}`) ===
+                          "web_search" ? (
+                          <WebSearchResult content={m.content} />
+                        ) : travel && m.role === "tool" ? (
                           <TravelResult content={m.content} />
                         ) : (
                           <p>

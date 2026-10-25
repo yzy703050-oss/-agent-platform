@@ -90,11 +90,11 @@
 - App 从已有 messages.tool_calls 建立 ID→name 映射，仅匹配 web_search 的 ToolCallID 时用此组件。搜索事件文案为“正在联网搜索…”、“联网搜索已返回结果”、“联网搜索失败”；保留原设置和差旅事件显示。
 - PostgreSQL 测试使用现有 setup、Manager、General、RepositoryStore，与脚本模型/固定搜索器搭配；不增加生产接口或数据库字段。
 
-- [ ] **先写失败测试。** 前端一组综合断言：搜索事件、旧 attempt 过滤、正确配对的来源可点击、非法协议不生成链接、错误 JSON 安全回退及设置工具不误渲染。`TestGeneralSearchPersistenceAndRecovery` 真实 PG 保存工具调用/观察和事件，在已完成搜索后的支持边界暂停；重新加载只读历史不增加搜索次数；兼容恢复继续消费既有结果，开关导致指纹不同的恢复被拒绝。调用现有上下文隔离测试保证替代任务排除旧结果，不复制全套通用恢复测试。
-- [ ] **确认 RED。** `npm run test -- --run src/App.test.tsx src/components/WebSearchResult.test.tsx`；`go test ./tests/integration -run TestGeneralSearchPersistenceAndRecovery -count=1 -v`。PG 使用真实 TEST_DATABASE_URL，若跳过不得当通过。
-- [ ] **最小实现。** 完成显示组件与工具名映射；复用现有消息保存和恢复实现，新增测试若发现底座问题先查明并更新设计再修改，不顺带重构 Manager/Repository。
-- [ ] **确认 GREEN。** 重跑指定测试；验证搜索次数恢复前后没有重复，数据库中工具配对完整、事件可见、旧断点拒绝证据明确。
-- [ ] **完成记录。** 自审 XSS/协议、匹配范围、存储授权；任务表 3.1/3.2 勾选，提交本任务文件。
+- [x] **先写失败测试。** 前端一组综合断言：搜索事件、旧 attempt 过滤、正确配对的来源可点击、非法协议不生成链接、错误 JSON 安全回退及设置工具不误渲染。`TestGeneralSearchPersistenceAndRecovery` 真实 PG 保存工具调用/观察和事件，在已完成搜索后的支持边界暂停；重新加载只读历史不增加搜索次数；兼容恢复继续消费既有结果，开关导致指纹不同的恢复被拒绝。调用现有上下文隔离测试保证替代任务排除旧结果，不复制全套通用恢复测试。
+- [x] **确认 RED。** `npm run test -- --run src/App.test.tsx src/components/WebSearchResult.test.tsx`；`go test ./tests/integration -run TestGeneralSearchPersistenceAndRecovery -count=1 -v`。PG 使用真实 TEST_DATABASE_URL，若跳过不得当通过。
+- [x] **最小实现。** 完成显示组件与工具名映射；复用现有消息保存和恢复实现，新增测试若发现底座问题先查明并更新设计再修改，不顺带重构 Manager/Repository。
+- [x] **确认 GREEN。** 重跑指定测试；验证搜索次数恢复前后没有重复，数据库中工具配对完整、事件可见、旧断点拒绝证据明确。
+- [x] **完成记录。** 自审 XSS/协议、匹配范围、存储授权；任务表 3.1/3.2 勾选，提交本任务文件。
 
 ### Task 4: 真实验收、文档与规格核对（OpenSpec 4.1～4.3）
 

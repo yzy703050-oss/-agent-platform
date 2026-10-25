@@ -102,6 +102,87 @@ async function openPaused(client: PlatformAPI) {
   await screen.findByRole("button", { name: "继续任务" });
 }
 describe("平台交互", () => {
+  it("shows web search events and only renders sources for matched search calls", async () => {
+    const { client, paused } = fixture();
+    paused.status = "running";
+    const content = JSON.stringify({
+      status: "ok",
+      message: "搜索完成",
+      results: [
+        {
+          title: "Eino 来源",
+          url: "https://www.cloudwego.io/docs/eino/",
+          summary: "官方摘要",
+        },
+      ],
+    });
+    const base = {
+      conversation_id: "old",
+      run_id: "run-old",
+      content: "",
+      tool_call_id: "",
+      tool_calls: [],
+    };
+    vi.mocked(client.messages).mockResolvedValue({
+      items: [
+        {
+          ...base,
+          id: "call",
+          ordinal: 1,
+          role: "assistant",
+          tool_calls: [
+            { id: "s", name: "web_search", arguments: '{"query":"Eino"}' },
+            { id: "settings", name: "get_my_settings", arguments: "{}" },
+          ],
+        },
+        {
+          ...base,
+          id: "search",
+          ordinal: 2,
+          role: "tool",
+          tool_call_id: "s",
+          content,
+        },
+        {
+          ...base,
+          id: "settings-result",
+          ordinal: 3,
+          role: "tool",
+          tool_call_id: "settings",
+          content,
+        },
+      ],
+      next_after: 3,
+    });
+    render(<App client={client} />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "暂停的对话" }),
+    );
+    expect(
+      await screen.findByRole("link", { name: "Eino 来源" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Eino 来源" })).toHaveLength(1);
+    await waitFor(() => expect(client.subscribe).toHaveBeenCalled());
+    const listener = vi.mocked(client.subscribe).mock.calls[0][1];
+    const emit = (type: string, attempt = 1) =>
+      act(() =>
+        listener({
+          run_id: "run-old",
+          attempt,
+          seq: 1,
+          type,
+          payload: { name: "web_search" },
+        }),
+      );
+    emit("tool.started");
+    expect(screen.getByText(/正在联网搜索/)).toBeInTheDocument();
+    emit("tool.failed", 0);
+    expect(screen.queryByText(/联网搜索失败/)).not.toBeInTheDocument();
+    emit("tool.completed");
+    expect(screen.getByText(/联网搜索已返回结果/)).toBeInTheDocument();
+    emit("tool.failed");
+    expect(screen.getByText(/联网搜索失败/)).toBeInTheDocument();
+  });
   it("readyTravelWorksWithoutGeneral", async () => {
     const { client, paused } = fixture();
     vi.mocked(client.submit).mockResolvedValue({
