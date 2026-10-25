@@ -45,13 +45,13 @@
 
 对应 OpenSpec tasks 2.3；travel-execution。
 
-**Files:** 创建 `backend/internal/agent/agents/travel/ready_reply_test.go`、`ready_reply.go`；修改同目录 `flow.go`、`agent.go`，扩展 `source_scenarios_test.go`；扩展 `backend/tests/integration/travel_workflow_test.go`。若现有查询缓存复用回归通过，不改 service 查询代码。
+**Files:** 创建 `backend/internal/agent/agents/travel/ready_reply_test.go`、`backend/internal/agenttools/travel/completion_reply.go` 及对应测试；修改 `agent.go` 的指纹和 `agenttools/travel/native_tools.go`；扩展 `backend/tests/integration/travel_workflow_test.go`。现有 source_scenarios_test.go 保留真实修复保护；查询缓存回归通过则不改 service。
 
-**Interfaces:** 新增 `readySourceReply(batch traveltools.PreparedBatch, results []pm.TravelToolResult, plans map[string]pm.TripResult) (string, error)`；优先调用现有 `ReadyReply`，仅对完整、匹配且确已保存的 select/amend 结果使用实际计划确定性绑定回复；`afterBatch` 调用该函数。`ReadyReply`、`request_replan` 和查询作业接口保持兼容。
+**Interfaces:** 新增工具层纯判断 `completedStop(call PreparedCall, saved model.TripResult, operationID string) bool`；只有明确 allow_repair=false、完整匹配回执及全部校验通过时才在 Execute 中 BindReply，持久化 rendered_answer。`ReadyReply`、`request_replan` 和查询作业接口保持不变。技术复核修正：缺 reply 可能是还需语义修复，不能仅凭字段 complete 自动结束。
 
-- [ ] **Step 1: 写边界 RED。** `TestTravelCompletedSelectionWithoutReplyFinishes`：Main propose、程序 query、Verify select 成功但省略 reply，预期恰好两次 Generate、零第三次总结、最终含真实保存的候选；现有路径应因尝试第三次模型而失败。配套 `TestTravelIncompleteSelectionCannotFinish` 覆盖缺工具配对、失败回执、旧修订、硬冲突、无候选及未满足目标，均不能走完成回退。
+- [ ] **Step 1: 写边界 RED。** `TestTravelCompletedSelectionWithoutReplyFinishes`：Main propose、程序 query、Verify select 成功且明确 allow_repair=false、但省略 reply，预期恰好两次 Generate、零第三次总结、最终含真实保存的候选；现有路径应因尝试第三次模型而失败。配套 `TestCompletedExplicitStopReply` 覆盖缺工具配对、失败回执、旧修订、硬冲突、无候选及未满足目标，均不能走完成回退。
 - [ ] **Step 2: 确认 RED。** `go test ./internal/agent/agents/travel -run 'TestTravelCompletedSelectionWithoutReplyFinishes|TestTravelIncompleteSelectionCannotFinish' -count=1`，阅读失败原因并留存。已有带 reply 的正常两次测试作为保护回归，不伪称它原本失败。
-- [ ] **Step 3: 最小实现并 GREEN。** 在 ready_reply.go 实现上述适配，仅使用 call_id、实际计划 ID、修订、校验与回执。无冲突成功后直接返回文本；有真实冲突仍进入原版修复流程。更新语义指纹。运行 Step 2 命令并确认全部 PASS。
+- [ ] **Step 3: 最小实现并 GREEN。** 在 completion_reply.go/native_tools.go 实现上述判断及绑定，仅使用 call_id、实际计划 ID、修订、校验与回执。无冲突成功后直接返回文本；有真实冲突仍进入原版修复流程。更新语义指纹。运行 Step 2 命令并确认全部 PASS。
 - [ ] **Step 4: 完整路径与去重验证。** 新增 `TestTravelNormalPlanningTwoCalls`：有/无有效记忆、单程/往返/多城均用脚本模型断言 Main/Verifier 各一次、无主动历史读、每个规范物理查询实际供应方一次、只有必要写入。另测同查询自动项与独立 query 重叠只实际查询一次；使用现有缓存/singleflight，若失败先定位再改。保留 `TestTravelSourceFlowScenarios` 的 policy、replan、expiry、no_progress：真实重排必须交 Main、保留原计划与有效候选，不受两次硬限制。
 - [ ] **Step 5: 自审并记录。** `go test ./internal/agent/agents/travel ./internal/agenttools/travel ./internal/service/trip -count=1`，并运行 PostgreSQL 工作流/恢复回归。写明重复模型尝试、缓存命中和恢复重放的区别；更新 tasks 后提交，建议 `fix: finish verified travel selections without redundant model turns`。
 
@@ -72,4 +72,5 @@
 ## 计划审阅状态
 
 技术复核已完成；用户已审阅并于 2026-10-25 选择单代理执行。推荐单代理：任务共享 flow、指纹及验收夹具，连续实施及整体自审开销较少。多子代理按独立任务实施并作规格/质量双重评审，成本更高；本次尚未授权分派。
+
 

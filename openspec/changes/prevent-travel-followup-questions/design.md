@@ -41,7 +41,7 @@
 
 沿用既有 Main → 自动待查作业 → Verifier 路径，不重写成新的执行引擎。Main 首轮 `write_trip.propose` 包含 tripplan 与查询地图，`recordTrip`/`runJobs` 用已提交回执生成稳定作业并执行查询；自动项已有的查询不额外独立提交。
 
-Verifier 第二轮同时审查、选候选、提交 `reply`。`ReadyReply` 已可用 `RenderedAnswer` 从成功 select/amend 回执收尾，`afterBatch` 将最终文本交回内核，不另调用 Summary。保留工具提交与事务核验，这些步骤不是新的模型调用。正常请求不得通过把请求错误标记为 lookup 而绕过 tripplan，也不得靠 `allow_repair=false` 放弃实际未满足的硬目标凑两次。若选择确已成功且业务校验完整，但模型遗漏 reply，允许程序从实际保存结果确定性绑定完整回复；有真实阻断时仍按原版规则处理，不能由此假称完成。
+Verifier 第二轮同时审查、选候选、提交 `reply`。`ReadyReply` 已可用 `RenderedAnswer` 从成功 select/amend 回执收尾，`afterBatch` 将最终文本交回内核，不另调用 Summary。保留工具提交与事务核验，这些步骤不是新的模型调用。正常请求不得通过把请求错误标记为 lookup 而绕过 tripplan，也不得靠 `allow_repair=false` 放弃实际未满足的硬目标凑两次。模型遗漏 reply 不等于语义审查已完成。只有 select/amend 明确 allow_repair=false、实际保存回执精确匹配且业务校验完整时，才允许在工具适配层确定性绑定完整回复，并把 rendered_answer 连同原生工具结果持久化以支持安全回放。未明确结束或仍有真实阻断时按原版规则继续，避免跳过后续活动修复。
 
 收尾缺绑定 reply、重复 select、自动项与独立 query 重叠都需明确回归。重复动作的复用落在 flow/工具业务边界，使用规范查询键及真实候选引用/修订比较，不能依据自然语言解释或仅依据 call_id 判进展。已有 journal 幂等保护恢复重放；新模型调用产生的相同动作必须另行审计，不与恢复复用混为一谈。
 
@@ -67,3 +67,4 @@ Verifier 第二轮同时审查、选候选、提交 `reply`。`ReadyReply` 已�
 ## Migration Plan
 
 本次先完成文档审阅、技术复核和详细实施计划，再由用户选择单代理或多子代理实施。完成实际测试、自审及规格核对后归档，随后按分支收尾流程交付；CLI 当前没有 verify 命令，须明确使用人工矩阵核对及 strict validate。
+

@@ -110,3 +110,33 @@ func TestTravelSourceQueries(t *testing.T) {
 		}
 	})
 }
+
+func TestTravelEquivalentPhysicalQueriesIgnoreOtherDomainParty(t *testing.T) {
+	for _, domain := range []string{"train", "hotel"} {
+		t.Run(domain, func(t *testing.T) {
+			now := time.Now()
+			calls := 0
+			store := &sourceQueryStore{rows: map[string]model.TravelEvidence{}}
+			svc := NewWithQueries(store, sourceQueryClient(func(context.Context, model.TravelQuery) (model.TravelEvidence, error) {
+				calls++
+				return model.TravelEvidence{Status: "ok", Source: model.TravelSource{Provider: "supplier", FetchedAt: now}}, nil
+			}), func() time.Time { return now })
+			ref := model.TravelExecution{Scope: model.Scope{UserID: "u", SessionID: "s"}, RunID: "r", ConversationID: "c", Attempt: 1}
+			q := model.TravelQuery{SourceVersion: 1, Domain: domain, Origin: "上海", Destination: "杭州", Date: "2026-10-26", City: "杭州", Passengers: 1, Guests: 1}
+			if _, err := svc.Query(context.Background(), ref, q); err != nil {
+				t.Fatal(err)
+			}
+			if domain == "train" {
+				q.Guests = 0
+			} else {
+				q.Passengers = 0
+			}
+			if _, err := svc.Query(context.Background(), ref, q); err != nil {
+				t.Fatal(err)
+			}
+			if calls != 1 {
+				t.Fatalf("same physical %s query fetched twice due to unrelated party field: %d", domain, calls)
+			}
+		})
+	}
+}

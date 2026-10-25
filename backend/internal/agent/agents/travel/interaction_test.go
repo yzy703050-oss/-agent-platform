@@ -106,6 +106,9 @@ func (m *omitReplyModel) Generate(ctx context.Context, input []*schema.Message, 
 			var args map[string]any
 			if json.Unmarshal([]byte(out.ToolCalls[i].Function.Arguments), &args) == nil {
 				delete(args, "reply")
+				if plan, ok := args["tripplan"].(map[string]any); ok && plan["operation"] == "select" {
+					plan["allow_repair"] = false
+				}
 				raw, _ := json.Marshal(args)
 				out.ToolCalls[i].Function.Arguments = string(raw)
 			}

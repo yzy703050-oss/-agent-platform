@@ -239,8 +239,13 @@ func (r *Registry) Execute(ctx context.Context, call PreparedCall) (string, erro
 					view := NativeTripView(saved)
 					view["call_id"] = call.ID
 					view["name"] = call.Name
-					if call.Reply != nil {
-						bound, bindingErr := tripsvc.BindReply(saved, model.TripReplySpec{Tasks: call.Reply.Tasks, Explanation: call.Reply.Explanation})
+					if call.Reply != nil || completedStop(call, saved, id) {
+						spec := model.TripReplySpec{}
+						if call.Reply != nil {
+							spec.Tasks = call.Reply.Tasks
+							spec.Explanation = call.Reply.Explanation
+						}
+						bound, bindingErr := tripsvc.BindReply(saved, spec)
 						if bindingErr != nil {
 							err = bindingErr
 						} else {

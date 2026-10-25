@@ -34,6 +34,119 @@ type workflowModel struct {
 	repair     bool
 }
 
+type normalWorkflowModel struct {
+	workflowModel
+	inputs                       [][]*schema.Message
+	duplicateQuery, explicitStop bool
+}
+
+func (m *normalWorkflowModel) WithTools([]*schema.ToolInfo) (einomodel.ToolCallingChatModel, error) {
+	return m, nil
+}
+func (m *normalWorkflowModel) Generate(ctx context.Context, in []*schema.Message, opts ...einomodel.Option) (*schema.Message, error) {
+	m.inputs = append(m.inputs, perfInputCopy(in))
+	out, err := m.workflowModel.Generate(ctx, in, opts...)
+	if err != nil {
+		return out, err
+	}
+	for i := range out.ToolCalls {
+		var args map[string]any
+		if json.Unmarshal([]byte(out.ToolCalls[i].Function.Arguments), &args) != nil {
+			continue
+		}
+		plan, _ := args["tripplan"].(map[string]any)
+		if plan["operation"] == "select" {
+			if m.explicitStop {
+				plan["allow_repair"] = false
+			} else {
+				args["reply"] = map[string]any{}
+			}
+			raw, _ := json.Marshal(args)
+			out.ToolCalls[i].Function.Arguments = string(raw)
+		}
+	}
+	if m.duplicateQuery && len(m.inputs) == 1 {
+		duplicate := toolDecision("redundant-query", "query", `{"request_kind":"planning","query_plan":[{"domain":"train","parameters":{"origin":"上海","destination":"杭州","departure_date":"2026-10-25","passengers":1}}]}`)
+		out.ToolCalls = append(out.ToolCalls, duplicate.ToolCalls...)
+	}
+	return out, nil
+}
+func (m *normalWorkflowModel) Stream(ctx context.Context, in []*schema.Message, opts ...einomodel.Option) (*schema.StreamReader[*schema.Message], error) {
+	out, err := m.Generate(ctx, in, opts...)
+	return schema.StreamReaderFromArray([]*schema.Message{out}), err
+}
+
+func TestTravelNormalPlanningTwoCalls(t *testing.T) {
+	for _, name := range []string{"oneway", "roundtrip", "multicity", "with_memory", "duplicate_query", "explicit_stop_replay"} {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			f, ref, _ := travelFixture(t)
+			provider := &travelQueryProbe{}
+			service := tripsvc.NewWithQueries(f.repo, provider, time.Now)
+			prefs := prefsvc.New(f.repo)
+			cmd := travelCommand()
+			if name == "roundtrip" || name == "multicity" {
+				round := true
+				cmd.RoundTrip = &round
+				if name == "roundtrip" {
+					cmd.Tasks = append(cmd.Tasks, model.TripTask{Origin: "杭州", Destination: "上海", DepartureDate: "2026-10-27"})
+				} else {
+					cmd.Tasks = append(cmd.Tasks, model.TripTask{Origin: "杭州", Destination: "南京", DepartureDate: "2026-10-26"}, model.TripTask{Origin: "南京", Destination: "上海", DepartureDate: "2026-10-27"})
+				}
+			}
+			if name == "with_memory" {
+				text := "ACTIVE_SAVED_PREFERENCE"
+				if _, err := prefs.Update(ctx, ref, "seed-memory", model.TravelMemoryCommand{Operation: "update", Updates: []model.TravelMemoryUpdate{{Op: "add", Text: &text}}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			m := &normalWorkflowModel{workflowModel: workflowModel{command: &cmd}, duplicateQuery: name == "duplicate_query", explicitStop: name == "explicit_stop_replay"}
+			a, err := travelagent.NewAgent(travelagent.Config{Model: m, Trips: service, Preferences: prefs, Decisions: f.repo, Checkpoints: f.repo, Identity: "normal-two-stage"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			run, err := f.repo.GetRun(ctx, f.scope, ref.RunID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			in := contracts.RunInput{Scope: f.scope, Run: run, Messages: []model.Message{{RunID: run.ID, Role: "user", Content: "安排一次正常行程"}}, Limits: contracts.Limits{Iterations: 8, ToolTimeout: 5 * time.Second}}
+			execution, err := a.NewExecution(ctx, in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := execution.Start(ctx, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if m.calls.Load() != 2 || provider.calls.Load() != int32(len(cmd.Tasks)) || !strings.Contains(result.FinalText, "G1") {
+				t.Fatalf("normal path: models=%d providers=%d final=%q", m.calls.Load(), provider.calls.Load(), result.FinalText)
+			}
+			if name == "with_memory" {
+				for _, input := range m.inputs {
+					raw, _ := json.Marshal(input)
+					if !strings.Contains(string(raw), "ACTIVE_SAVED_PREFERENCE") {
+						t.Fatal("injected memory absent from a role")
+					}
+				}
+			}
+			var reads int
+			if err = f.pool.QueryRow(ctx, `SELECT count(*) FROM travel_decisions d CROSS JOIN LATERAL jsonb_array_elements(d.snapshot->'response'->'tool_calls') c WHERE c->>'name'='read'`).Scan(&reads); err != nil || reads != 0 {
+				t.Fatal("normal planning actively read history", reads, err)
+			}
+			if name == "explicit_stop_replay" {
+				execution, err = a.NewExecution(ctx, in)
+				if err != nil {
+					t.Fatal(err)
+				}
+				replayed, err := execution.Start(ctx, nil)
+				if err != nil || m.calls.Load() != 2 || provider.calls.Load() != 1 || replayed.FinalText != result.FinalText {
+					t.Fatal("receipt replay did not preserve two-call final reply", err, m.calls.Load(), replayed.FinalText)
+				}
+			}
+		})
+	}
+}
+
 func (m *workflowModel) WithTools([]*schema.ToolInfo) (einomodel.ToolCallingChatModel, error) {
 	return m, nil
 }

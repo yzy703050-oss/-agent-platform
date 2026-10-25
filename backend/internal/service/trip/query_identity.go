@@ -17,7 +17,11 @@ func PhysicalQuery(q model.TravelQuery) model.TravelQuery {
 	q.Ranking = nil
 	q.Refresh = false
 	q.DependsOn = nil
+	if q.Domain == "train" {
+		q.Guests = 0 // Hotel party data is not part of a train supplier request.
+	}
 	if q.Domain == "hotel" {
+		q.Passengers = 0
 		q.CheckIn = ""
 		q.CheckOut = ""
 		q.Guests = 0
