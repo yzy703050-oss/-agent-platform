@@ -1,0 +1,14 @@
+# 技术复核
+
+已读取proposal/spec/design/tasks并核对当前8e9094c及原Python对应实现。本次无第二轮需求访谈；用户已明确要求“之前总结的问题就改”，并再次说明最终输出也不标注模拟，按原先单代理方式执行。
+
+- 夹具污染不只来自IsDemo：用户query、供应方名称/候选名、政策正文及source都含演示文字，PolicyAgent还因IsDemo强制partial。直接删最终banner不足以解决问题；采用独立benchmark供应方，不修改线上demo来源。
+- 错误已持久化：journal.recordRejected保存TravelToolResult，sourceFlow.afterBatch保留LastBatchResults，previousSourceRound/resultSummary回传error/details。缺口是可执行性与根因配对，应沿现有链补齐而非另写重试循环。
+- PreparedBatch可增加内部FailedCallID，预检遍历时标记当前项，成功后清空。批次级冲突不错误归因给最后一个调用。现有每项结果配对、零副作用测试继续保留。
+- 模型参数不能自动修正：错位arrival_before只返回正确路径，business前置缺失只指导先query_policy，不能静默换用途或把推导期限改成用户证据。
+- 原版_capability_gap_only会接受证据ID属于hotel_*规则的policy_constraint_unverified；Go未覆盖。匹配必须限定规则ID与无报价已选酒店，不能将任何policy_unverified都一概视为能力缺口。
+- 冻结sourceProfile和原版提示继续作为来源基线。新增correction.txt属于用户授权的有效提示变化，必须计入指纹及实际输入日志，不更新旧golden冒充“没有改提示”。
+- 完整报价fixture和真实高德地点能力不同，报告明确两个测试目标：完整数据正常链路与缺字段部分收尾。线上能力不随benchmark增加。
+- 单次四场景验收足够本轮冒烟，真实模型零拒绝/零重复是效率判据；失败保留，不反复运行凑全绿。不改宿主预算或模型生成参数。
+
+未发现需要用户另作产品决策的实质性歧义。无新增依赖、迁移或分层改变；将以上约束交由详细计划及综合测试验证。

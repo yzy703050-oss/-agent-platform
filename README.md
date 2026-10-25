@@ -6,6 +6,8 @@
 
 > 原 Python 差旅助手的原文提示、工具契约、Main/Verifier/Summary 链路、校正及停止机制已迁入现有分层。2026-10-24 最后一轮真实模型＋模拟工具＋PostgreSQL 验收为12/12；2026-10-25核实代码提交dee12d8的Linux race CI通过，并完成[OpenSpec归档](openspec/changes/archive/2026-10-25-preserve-travel-source-flow/)。逐次指标、失败轮次和验收边界见[最新验收记录](docs/travel-source-fidelity-verification.md)。
 
+> **2026-10-25后续审计发现偏差：**12/12只通过了原有保存数量判据，多城样本存在business被改成visit、重复选择相同候选的问题，不能据此声称完整保真迁移完成。代码测试/CI通过与上述缺口同时存在。[逐次调用及完整参数](docs/travel-call-audit-2026-10-25.md)。
+
 ## 已实现的能力
 
 | 能力 | 实现情况 |
