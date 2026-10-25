@@ -64,11 +64,13 @@ run1原始JSON当时记为“效率通过”，但自审发现其两次相同选
 | 全部Go与真实PostgreSQL回归 | `REQUIRE_DATABASE_TESTS=1 go test ./... -count=1 -timeout180s` | 通过，integration36.979秒 |
 | Go静态检查/服务端构建 | `go vet ./...` / `go build ./cmd/server` | 通过 |
 | 前端 | `npm test -- --run` / `npm run build` | 15/15通过、构建通过 |
-| 当前提交Linux race/真实PostgreSQL | GitHub Actions | 待运行 |
-| 规格与任务一致性 | 人工逐项核对及OpenSpec strict validate | 待最终核验 |
+| 当前提交Linux race/真实PostgreSQL | [CI40155219953](https://github.com/yzy703050-oss/-agent-platform/actions/runs/40155219953)，`ca25daa6d08f4238ad304786c13541ec2d99657b` | 全部成功，race集成66.121秒，vet/build及前端均成功 |
+| 规格与任务一致性 | 单代理整体自审、人工逐项核对及OpenSpec strict validate | 通过；保留原一般错误与部分收尾场景，定向修复为补充 |
 
-未修改原Python项目；没有运行Python模型对照。本轮不包含真实聚合数据、高德、RAG MCP在线全链路、UI回归、部署、负载或生产稳定性验证。生产显式demo模式仍带来源说明，本次只改变性能测试夹具。公开报告不会把固定报价描述成真实可预订库存。
+对归档 `source-baseline.json` 列出的93个Python源码文件重新逐个核对原始字节SHA256，全部一致；没有运行Python模型对照。本轮不包含真实聚合数据、高德、RAG MCP在线全链路、UI回归、部署、负载或生产稳定性验证。生产显式demo模式仍带来源说明，本次只改变性能测试夹具。公开报告不会把固定报价描述成真实可预订库存。
 
-OpenSpec CLI没有verify命令，采用上表人工核对和strict validate，不声称运行OpenSpec verify。重要检查完成前不归档变更。
+OpenSpec CLI没有verify命令，采用上表人工核对和strict validate，不声称运行OpenSpec verify。检查完成后已执行OpenSpec archive，主规格同步成功，归档见[任务与完成证据](../openspec/changes/archive/2026-10-25-fix-travel-evaluation-and-correction/tasks.md)。
+
+CI结论对应上述代码提交；后续归档提交只更新文档、任务与主规格，不重写已测代码。
 
 首次Linux CI（`576e1d6`，[40154938191](https://github.com/yzy703050-oss/-agent-platform/actions/runs/40154938191)）在旧超时测试失败：race下schema初始化超过1秒，测试误把“剩余不足1秒”判断成期限错误。日志未报告数据竞争，数据库集成测试90.224秒通过。现将该断言改为绝对deadline相等，并在初始化后创建父context；本地定向连续5次通过。生产超时及本次真实模型预算未变，后续完整CI结果单独记录。

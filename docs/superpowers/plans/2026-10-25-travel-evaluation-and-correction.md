@@ -8,7 +8,7 @@
 
 **Tech Stack:** 当前Go/Eino/pgx、真实PostgreSQL、现有React测试；不加依赖。
 
-**Spec:** `openspec/changes/fix-travel-evaluation-and-correction/{proposal.md,design.md,tasks.md,specs/travel-source-fidelity/spec.md}`。产品行为只由这些OpenSpec文档定义。
+**Spec:** `openspec/changes/archive/2026-10-25-fix-travel-evaluation-and-correction/{proposal.md,design.md,tasks.md,specs/travel-source-fidelity/spec.md}`。产品行为只由这些OpenSpec文档定义。
 
 ## Global Constraints
 
@@ -36,11 +36,11 @@
 
 **Interfaces:** perfProvider继续实现trip.QueryClient；新增newPerfProvider(now func()time.Time)；perfPolicy.Search返回普通证据。录制包装实现Eino ToolCallingChatModel，记录完整脱敏messages/tools且仍只调用内部Generate一次。验收输出功能与效率两个独立结果。
 
-- [ ] 先写`TestTravelEvaluationContract`综合用例：旧perfPolicy及现有demo供应方导致“演示/IsDemo”断言失败；business→visit即使数量齐全仍失败；连续相同selection_refs被计为重复，纯解释变化也不能绕过；14→16修改后原候选ref不同应失败。首轮临时只让新constructor编译并复用旧demo，以观察实际失败，而不以编译错误充当RED。
-- [ ] 最小替换为独立完整报价fixture：车次/库存、入住退房全价、天气及政策引用语义正常，不含演示名称/ID/正文；报告fixture标签与模型材料分离。缺价负例单独构造。
-- [ ] 去除用户测试query中的演示说明及“出差但无需政策”的冲突指令；保留原四类请求、三段/两晚/两活动/硬预算/局部修改要求。一次捕获未来日期填充所有请求和种子数据，报告留实际prompt。
-- [ ] 录制实际模型输入并脱敏；验收schema字段、完整路线日期、活动时间、purpose、refs，记录root/collateral拒绝和重复select。传统Success不再只由数量得出，另给efficiency_success。
-- [ ] 运行`go test ./tests/integration -run '^TestTravelEvaluationContract$' -count=1`，Expected: GREEN；不连接真实模型。更新任务1及实施日志，提交该独立交付。
+- [x] 先写`TestTravelEvaluationContract`综合用例：旧perfPolicy及现有demo供应方导致“演示/IsDemo”断言失败；business→visit即使数量齐全仍失败；连续相同selection_refs被计为重复，纯解释变化也不能绕过；14→16修改后原候选ref不同应失败。首轮临时只让新constructor编译并复用旧demo，以观察实际失败，而不以编译错误充当RED。
+- [x] 最小替换为独立完整报价fixture：车次/库存、入住退房全价、天气及政策引用语义正常，不含演示名称/ID/正文；报告fixture标签与模型材料分离。缺价负例单独构造。
+- [x] 去除用户测试query中的演示说明及“出差但无需政策”的冲突指令；保留原四类请求、三段/两晚/两活动/硬预算/局部修改要求。一次捕获未来日期填充所有请求和种子数据，报告留实际prompt。
+- [x] 录制实际模型输入并脱敏；验收schema字段、完整路线日期、活动时间、purpose、refs，记录root/collateral拒绝和重复select。传统Success不再只由数量得出，另给efficiency_success。
+- [x] 运行`go test ./tests/integration -run '^TestTravelEvaluationContract$' -count=1`，Expected: GREEN；不连接真实模型。更新任务1及实施日志，提交该独立交付。
 
 ## Task 2：参数指引、批次归因与提示
 
@@ -50,10 +50,10 @@
 
 **Interfaces:** PreparedBatch新增内部FailedCallID；Registry.Preflight仍返回原PreparedBatch/error。POLICY_OBSERVATION_REQUIRED与misplaced_field的Details包含固定field、correct_path/next_action，保留字段值由模型重发。批次输出为根因原错误及其他BATCH_ABORTED，均executed=false、failed_call_id配对。原journal和resultSummary接口不变。
 
-- [ ] 在TestTravelSourceBatch补政策前置与错位路径综合断言，在真实Eino批次测试补“下一次Generate收到根因、正确路径/下一步、业务用途保持提示、两个配对结果”；先运行至RED。副作用次数为0，错误不echo任意用户值。
-- [ ] 最小实现明确反馈和FailedCallID；前置错误不能建议visit。对已知错位字段给出准确任务下标路径；没有明确归因的批次冲突仍作为批次错误，不伪造根因。
-- [ ] 补充correction.txt接入beforeModel，校验原文基线不变及补充实际存在；将内容和flow/batch版本纳入fingerprint。原版schema名称和阶段授权不变，不额外引入模型修复调用。
-- [ ] 运行`go test ./internal/agenttools/travel ./internal/agent/agents/travel -count=1`，Expected: GREEN，旧配对、零副作用、恢复、未知工具等回归不退化。更新任务2和日志并提交。
+- [x] 在TestTravelSourceBatch补政策前置与错位路径综合断言，在真实Eino批次测试补“下一次Generate收到根因、正确路径/下一步、业务用途保持提示、两个配对结果”；先运行至RED。副作用次数为0，错误不echo任意用户值。
+- [x] 最小实现明确反馈和FailedCallID；前置错误不能建议visit。对已知错位字段给出准确任务下标路径；没有明确归因的批次冲突仍作为批次错误，不伪造根因。
+- [x] 补充correction.txt接入beforeModel，校验原文基线不变及补充实际存在；将内容和flow/batch版本纳入fingerprint。原版schema名称和阶段授权不变，不额外引入模型修复调用。
+- [x] 运行`go test ./internal/agenttools/travel ./internal/agent/agents/travel -count=1`，Expected: GREEN，旧配对、零副作用、恢复、未知工具等回归不退化。更新任务2和日志并提交。
 
 ## Task 3：源能力收尾与真实模型复核
 
@@ -63,11 +63,11 @@
 
 **Interfaces:** finishSourcePlan沿原TripPlan/Validation返回StopReason，不加Repository或迁移接口。酒店policy rule.id证据缺失与hotel_place报价缺失对应时为provider_capability_missing；现有StopPlanning安全点负责最终渲染，不另调模型。
 
-- [ ] 先写综合RED：已选无报价酒店＋其hotel_*政策证据缺失应停止；包含无关policy_unverified、train_pending或硬冲突不得误判。真实Eino脚本断言该结果之后无下一次付费Generate、仍保留所存成果。
-- [ ] 按Python _capability_gap_only对齐最小分类；不改无进展阈值、用户硬约束或工具权限。
-- [ ] 运行相关模块检查到GREEN；再`REQUIRE_DATABASE_TESTS=1 go test ./... -count=1 -timeout180s`、vet、server build，以及前端已有test/build。Linux race按CI实际结果报告。
-- [ ] opt-in真实模型运行四场景各1次（通过环境变量选择repeats=1，默认历史3次模式仍可显式开启），输出新独立报告。正常完整证据应语义正确且零拒绝/零重复；超出正常路径的调用逐项解释，不靠最终落库隐藏。失败保留并先诊断，必要复跑不能拼成一次全绿。
-- [ ] 人工核对所有spec场景及实际messages/返回，运行`openspec validate fix-travel-evaluation-and-correction --strict`，只有全部满足才标任务完成/归档。源基线不改，公开披露实际提示补充及fixture能力边界。
+- [x] 先写综合RED：已选无报价酒店＋其hotel_*政策证据缺失应停止；包含无关policy_unverified、train_pending或硬冲突不得误判。真实Eino脚本断言该结果之后无下一次付费Generate、仍保留所存成果。
+- [x] 按Python _capability_gap_only对齐最小分类；不改无进展阈值、用户硬约束或工具权限。
+- [x] 运行相关模块检查到GREEN；再`REQUIRE_DATABASE_TESTS=1 go test ./... -count=1 -timeout180s`、vet、server build，以及前端已有test/build。Linux race按CI实际结果报告。
+- [x] opt-in真实模型运行四场景各1次（通过环境变量选择repeats=1，默认历史3次模式仍可显式开启），输出新独立报告。正常完整证据应语义正确且零拒绝/零重复；超出正常路径的调用逐项解释，不靠最终落库隐藏。失败保留并先诊断，必要复跑不能拼成一次全绿。
+- [x] 人工核对所有spec场景及实际messages/返回，运行`openspec validate fix-travel-evaluation-and-correction --strict`，只有全部满足才标任务完成/归档。源基线不改，公开披露实际提示补充及fixture能力边界。
 
 ## Pre-flight
 
@@ -79,3 +79,7 @@
 ## 执行授权与记录
 
 用户已审阅前文问题清单并明确说“校验反馈也改，你之前总结的问题就改”，继续采用已选单代理。方案按上述授权范围直接实施，不增加待选架构或新的产品行为；仅在发现超范围的重要选择时再询问。私有执行日志为.cache/execution/travel-evaluation-correction/progress.md，实施后按真实证据更新OpenSpec tasks。
+
+## 完成证据
+
+Task1：36dbf17；Task2：016ad3d；Task3：576e1d6及ca25daa。RED/GREEN日志保留在.cache/execution/travel-evaluation-correction；两次完整模型原始报告与人工核对矩阵见docs/travel-evaluation-correction-verification.md。run1失败未删，夹具物理请求及重复计数自审修正均有回归；run2四场景整体4/4。ca25daa的LinuxCI40155219953 race/真实PG、vet/build及前端全部成功。旧deadline测试改为比较继承的绝对deadline，不改产品预算。原Python93文件SHA一致。
