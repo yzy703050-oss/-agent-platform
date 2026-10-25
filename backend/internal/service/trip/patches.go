@@ -490,6 +490,17 @@ func finishSourcePlan(p *model.TripPlan, cmd model.TripCommand) {
 		return
 	}
 	p.StopReason = "awaiting_model"
+	conflict := sourceHardDateConflict(*p)
+	if slices.ContainsFunc(p.Validation.Issues, func(i model.TripIssue) bool {
+		return i.Blocking && (strings.Contains(i.Code, "hard") || i.Code == "start_date_conflict" || i.Code == "end_date_conflict")
+	}) && (!slices.Contains([]string{"propose", "query"}, cmd.Operation) || conflict != nil) {
+		p.StopReason = "hard_constraint_conflict"
+	}
+	if conflict != nil {
+		p.StopReason = "hard_constraint_conflict"
+		p.StopExplanation = conflict.Message
+		return
+	}
 	policyOnly := true
 	blocking := 0
 	for _, issue := range p.Validation.Issues {
@@ -502,12 +513,7 @@ func finishSourcePlan(p *model.TripPlan, cmd model.TripCommand) {
 	}
 	if blocking > 0 && policyOnly && slices.Contains([]string{"select", "amend", "confirm"}, cmd.Operation) {
 		p.StopReason = "policy_unverified"
-	}
-	if cmd.AllowRepair != nil && !*cmd.AllowRepair && slices.Contains([]string{"select", "confirm"}, cmd.Operation) {
-		p.StopReason = "repair_disabled"
-	}
-	if p.Validation.Status == "needs_input" {
-		p.StopReason = "needs_input"
+		return
 	}
 	gapOnly := blocking > 0
 	hotelRules := map[string]bool{}
@@ -533,11 +539,10 @@ func finishSourcePlan(p *model.TripPlan, cmd model.TripCommand) {
 	}
 	if gapOnly && slices.ContainsFunc(p.Tasks, func(t model.TripTask) bool { return t.Hotel != nil && t.Hotel.Candidate.PriceFen == nil }) {
 		p.StopReason = "provider_capability_missing"
+		return
 	}
-	if slices.ContainsFunc(p.Validation.Issues, func(i model.TripIssue) bool {
-		return i.Blocking && (strings.Contains(i.Code, "hard") || i.Code == "start_date_conflict" || i.Code == "end_date_conflict")
-	}) {
-		p.StopReason = "hard_constraint_conflict"
+	if cmd.AllowRepair != nil && !*cmd.AllowRepair && slices.Contains([]string{"select", "confirm"}, cmd.Operation) {
+		p.StopReason = "repair_disabled"
 	}
 }
 
