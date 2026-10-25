@@ -44,3 +44,6 @@ service/trip finishSourcePlan的gapOnly与Python _capability_gap_only对齐：�
 ## Verification
 
 三个实施任务各用有意义的综合RED→GREEN。重点是完整模型输入/输出无来源提示、根因及连带反馈回传、business不能改成visit过验收、相同选择检测、酒店政策报价缺失的安全收尾。最后跑完整Go/PostgreSQL、vet/build和已有前端检查；按实际情况验证Linux race。OpenSpec无verify命令，使用人工场景矩阵与strict validate。
+
+### D1 实际物理请求边界复核（run1后）
+真实run1多城失败揭示PhysicalQuery按现有地点接口去除酒店入住/离店信息，夹具却按日期解析后报错。保持产品投影及缓存行为，夹具改为本次所有单晚场景的固定城市报价300元，明确不覆盖按日变价或多晚库存；新增直接消费PhysicalQuery的离线回归。旧run1完整保留，不能用新结果覆盖失败。

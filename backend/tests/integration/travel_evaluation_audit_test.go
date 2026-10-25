@@ -206,7 +206,6 @@ func auditPerfEvents(s *perfSample) {
 			id = args.Tripplan.PlanID
 		}
 		if args.Tripplan.Operation != "select" {
-			delete(last, id)
 			continue
 		}
 		refs := map[string]any{}

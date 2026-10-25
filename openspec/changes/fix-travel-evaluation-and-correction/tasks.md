@@ -10,6 +10,6 @@
 
 ## 3 部分收尾与验证
 
-- [ ] 3.1 对齐原版酒店政策报价缺失的能力分类；正例无需重复select即可收尾，负例不误停。
+- [x] 3.1 TestSourceHotelPolicyCapabilityGap正例复现awaiting_model错误RED→GREEN；限定hotel_*规则ID及无报价已选酒店，负例覆盖无关政策、缺车次、硬冲突及已有报价。真实Eino能力结果后无额外Generate、保存成果仍可见的边界测试通过。
 - [ ] 3.2 完整Go/PostgreSQL、vet/build及前端回归；一次四场景真实模型验证并记录实际输入/调用/成本，缺项或失败不宣称完成。
 - [ ] 3.3 人工规格核对、strict validate、更新文档与任务；只有实际满足才归档并按既有授权保留当前分支。

@@ -37,14 +37,12 @@ func (c *perfFixtureClient) Search(ctx context.Context, q pm.TravelQuery) (pm.Tr
 			e.Candidates = append(e.Candidates, pm.TravelCandidate{ID: fmt.Sprintf("rail_%x_%d", digest[:6], i), Name: fmt.Sprintf("G%d", 1001+i), Origin: q.Origin, Destination: q.Destination, DepartureAt: &depart, ArrivalAt: &arrive, PriceFen: &price, TrainKind: "G", SeatClass: "二等座", Availability: "available", Remaining: &stock})
 		}
 	case "hotel":
-		in, ie := time.Parse(time.DateOnly, q.CheckIn)
-		out, oe := time.Parse(time.DateOnly, q.CheckOut)
-		if ie != nil || oe != nil || !out.After(in) {
-			return e, pm.ErrInvalidInput
-		}
-		price := int64(out.Sub(in)/(24*time.Hour)) * 30000
+		// The production places projection removes stay dates. These benchmark
+		// scenarios all stay one night; their city quote is fixed for that stay.
+		// This fixture does not model date-sensitive or multi-night inventory.
+		price := int64(30000)
 		stock := int64(6)
-		digest := sha256.Sum256([]byte(q.City + "|" + q.CheckIn + "|" + q.CheckOut))
+		digest := sha256.Sum256([]byte(q.City))
 		e.Candidates = []pm.TravelCandidate{{ID: fmt.Sprintf("hotel_%x", digest[:6]), Name: q.City + "商务酒店", City: q.City, Address: q.City + "商务区", PriceFen: &price, Availability: "available", Remaining: &stock}}
 	case "weather":
 		temp := 22.0

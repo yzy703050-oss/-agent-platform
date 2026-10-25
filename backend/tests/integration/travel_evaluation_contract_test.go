@@ -10,6 +10,7 @@ import (
 	"agent-platform/backend/internal/agent/contracts"
 	traveltools "agent-platform/backend/internal/agenttools/travel"
 	pm "agent-platform/backend/internal/model"
+	trip "agent-platform/backend/internal/service/trip"
 	em "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
@@ -65,6 +66,13 @@ func TestTravelEvaluationContract(t *testing.T) {
 			t.Error("policy injects fixture disclaimers instead of ordinary evidence")
 		}
 	})
+	t.Run("hotel_fixture_accepts_real_physical_request", func(t *testing.T) {
+		q := trip.PhysicalQuery(pm.TravelQuery{SourceVersion: 1, Domain: "hotel", City: "杭州", CheckIn: "2026-11-01", CheckOut: "2026-11-02", Guests: 1})
+		e, err := newPerfProvider(time.Now).Search(context.Background(), q)
+		if err != nil || e.Status != "ok" || len(e.Candidates) != 1 || e.Candidates[0].PriceFen == nil || *e.Candidates[0].PriceFen != 30000 {
+			t.Fatalf("one-night benchmark quote must survive production physical-query projection: %+v, %v", e, err)
+		}
+	})
 	t.Run("business_intent_and_duplicate_selection_are_not_quantity_success", func(t *testing.T) {
 		s := validPerfSample()
 		evaluatePerfSample(&s)
@@ -80,6 +88,13 @@ func TestTravelEvaluationContract(t *testing.T) {
 		s = validPerfSample()
 		args := `{"request_kind":"planning","tripplan":{"operation":"select","trip_plan_id":"p","expected_revision":2,"tasks":[{"task_id":"t1","selection_refs":{"train":{"query_id":"q1","result_revision":1,"candidate_id":"c1"}}}]}}`
 		for _, id := range []string{"a", "b", "c"} {
+			if id == "b" {
+				// An intervening amend is not proof of new selection evidence.
+				amend, _ := json.Marshal(pm.Message{Role: "assistant", ToolCalls: []pm.ToolCall{{ID: "amend", Name: "write_trip", Arguments: `{"tripplan":{"operation":"amend","trip_plan_id":"p"}}`}}})
+				result, _ := json.Marshal(pm.TravelToolResult{CallID: "amend", Name: "write_trip", Status: "partial", Operation: "amend", TripPlanID: "p", Revision: 4})
+				obs, _ := json.Marshal(pm.Message{Role: "tool", ToolCallID: "amend", Content: string(result)})
+				s.Events = append(s.Events, contracts.Event{Type: "message", Payload: amend}, contracts.Event{Type: "message", Payload: obs})
+			}
 			msg, _ := json.Marshal(pm.Message{Role: "assistant", ToolCalls: []pm.ToolCall{{ID: id, Name: "write_trip", Arguments: args}}})
 			result, _ := json.Marshal(pm.TravelToolResult{CallID: id, Name: "write_trip", Status: "partial", Operation: "select", TripPlanID: "p", Revision: 3})
 			obs, _ := json.Marshal(pm.Message{Role: "tool", ToolCallID: id, Content: string(result)})
@@ -88,6 +103,9 @@ func TestTravelEvaluationContract(t *testing.T) {
 		evaluatePerfSample(&s)
 		if s.Success {
 			t.Error("three identical committed selections passed acceptance")
+		}
+		if s.DuplicateSelections != 2 {
+			t.Errorf("intervening amend hid a repeated selection: duplicates=%d", s.DuplicateSelections)
 		}
 	})
 	t.Run("activity_edit_keeps_exact_train_ref", func(t *testing.T) {

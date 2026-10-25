@@ -510,9 +510,25 @@ func finishSourcePlan(p *model.TripPlan, cmd model.TripCommand) {
 		p.StopReason = "needs_input"
 	}
 	gapOnly := blocking > 0
+	hotelRules := map[string]bool{}
+	if p.PolicyContext != nil {
+		for _, rule := range p.PolicyContext.Constraints {
+			if strings.HasPrefix(rule.Field, "hotel_") {
+				hotelRules[rule.ID] = true
+			}
+		}
+	}
 	for _, issue := range p.Validation.Issues {
-		if issue.Blocking && issue.Code != "hotel_price_unknown" && issue.Code != "total_budget_unknown" {
-			gapOnly = false
+		if issue.Blocking {
+			capability := issue.Code == "hotel_price_unknown" || issue.Code == "total_budget_unknown"
+			if issue.Code == "policy_constraint_unverified" {
+				var ruleID string
+				_ = json.Unmarshal(issue.Evidence, &ruleID)
+				capability = hotelRules[ruleID]
+			}
+			if !capability {
+				gapOnly = false
+			}
 		}
 	}
 	if gapOnly && slices.ContainsFunc(p.Tasks, func(t model.TripTask) bool { return t.Hotel != nil && t.Hotel.Candidate.PriceFen == nil }) {

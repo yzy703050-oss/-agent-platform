@@ -4,9 +4,9 @@
 
 当前包含两个独立入口：**通用聊天**和**Go 原生差旅助手**。点击入口新建会话，历史保持原 Agent 归属。主 Agent 自动委派差旅尚未实现。
 
-> 原 Python 差旅助手的原文提示、工具契约、Main/Verifier/Summary 链路、校正及停止机制已迁入现有分层。2026-10-24 最后一轮真实模型＋模拟工具＋PostgreSQL 验收为12/12；2026-10-25核实代码提交dee12d8的Linux race CI通过，并完成[OpenSpec归档](openspec/changes/archive/2026-10-25-preserve-travel-source-flow/)。逐次指标、失败轮次和验收边界见[最新验收记录](docs/travel-source-fidelity-verification.md)。
+> 2026-10-25已完成参数反馈、测试材料与针对性提示修正，真实模型＋PostgreSQL四场景整组4/4通过；多城4次模型调用、28,506 Token、10.72秒，零拒绝与重复选择。原文提示基线保留，**实际提示新增correction-v1补充**。完整修改、失败首轮、实际输入与计量边界见[本次验收记录](docs/travel-evaluation-correction-verification.md)。
 
-> **2026-10-25后续审计发现偏差：**12/12只通过了原有保存数量判据，多城样本存在business被改成visit、重复选择相同候选的问题，不能据此声称完整保真迁移完成。代码测试/CI通过与上述缺口同时存在。[逐次调用及完整参数](docs/travel-call-audit-2026-10-25.md)。
+> **历史审计说明：**2026-10-24的12/12只通过旧保存数量判据，包含business改成visit、重复选择相同候选，不能作为完整保真证据。[旧逐次调用及完整参数](docs/travel-call-audit-2026-10-25.md)与[旧验收记录](docs/travel-source-fidelity-verification.md)原样保留；当前验收增加用途、路线日期、活动与原候选身份检查。本次固定供应方报价不证明真实高德具备酒店报价能力。
 
 ## 已实现的能力
 
