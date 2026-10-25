@@ -4,7 +4,7 @@
 
 当前包含两个独立入口：**通用聊天**和**Go 原生差旅助手**。点击入口新建会话，历史保持原 Agent 归属。主 Agent 自动委派差旅尚未实现。
 
-> 原 Python 差旅助手的原文提示、工具契约、Main/Verifier/Summary 链路、校正及停止机制已迁入现有分层。2026-10-24 最后一轮真实模型＋模拟工具＋PostgreSQL 验收为 12/12；此前失败轮次也完整保留。Linux race 和本次归档状态以 [最新验收记录](docs/travel-source-fidelity-verification.md) 为准，旧 MVP 的 CI 不作为当前提交的证据。
+> 原 Python 差旅助手的原文提示、工具契约、Main/Verifier/Summary 链路、校正及停止机制已迁入现有分层。2026-10-24 最后一轮真实模型＋模拟工具＋PostgreSQL 验收为12/12；2026-10-25核实代码提交dee12d8的Linux race CI通过，并完成[OpenSpec归档](openspec/changes/archive/2026-10-25-preserve-travel-source-flow/)。逐次指标、失败轮次和验收边界见[最新验收记录](docs/travel-source-fidelity-verification.md)。
 
 ## 已实现的能力
 

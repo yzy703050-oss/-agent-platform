@@ -1,6 +1,6 @@
 # 原版差旅保真迁移实施记录
 
-正式依据：`openspec/changes/preserve-travel-source-flow/`；详细计划：`docs/superpowers/plans/2026-10-24-preserve-travel-source-flow.md`。用户于 2026-10-24 审阅并批准按计划单代理实施。保持当前目录及非主分支原地迁移。
+正式依据：[已归档变更](../openspec/changes/archive/2026-10-25-preserve-travel-source-flow/)；详细计划：`docs/superpowers/plans/2026-10-24-preserve-travel-source-flow.md`。用户于2026-10-24审阅并批准按计划单代理实施。保持当前目录与已有分支原地迁移，时间顺序记录中的“待验证”以文末最终结果为准。
 
 ## Task 1：原文与契约基线
 
@@ -82,3 +82,21 @@ RED→GREEN：原生偏好批量端口缺失、精确批量回执/来源过滤�
 | 所有模型阶段计量及失败披露 | TestTravelMetricsAccounting、真实模型四组12次、全部76份历史与最终脱敏计量 |
 
 自审修复集中于以上实际模型发现及对应RED→GREEN，没有待掩盖的关键失败；历史README的32KB差旅预算、缺005迁移和RAG“没有命中”等陈旧描述已修正。原生Travel继续使用agent.go平台实现、kernel.go Eino装配、commands.go协议转换，没有独立adapter.go。当前OpenSpec CLI无verify命令，已运行strict validate退出0并人工逐条核对；Linux race及最终归档尚未标完成。外部真实供应方/RAG在线、浏览器和Docker部署本轮未重验，不作为本次通过证据。
+
+2026-10-25最终复核：dee12d8ae6b5ac8dc33a444cc3c42a1570f039be已推送。[CI 40099473344](https://github.com/yzy703050-oss/-agent-platform/actions/runs/40099473344) backend/frontend均success；实际步骤包含Linux go test -race ./... -count=1 -timeout180s及PostgreSQL、vet/build、npm测试/build。完整backend日志保留task6-linux-ci-dee12d8.log。本机Windows race失败仍如实保留，现有Linux结果解决该发布验收缺口。Task6的全部完成条件满足，Task7 strict validate及人工规格核对已通过；下一操作仅为同步规格与归档。
+
+分支收尾采用用户既有推送授权，保留feat/agent-platform-mvp；仓库默认分支本身就是该分支，且没有独立main/master，因此不擅自造一个基分支或创建自身到自身的PR。不删除工作目录，也不合并其他分支。所有业务改动停留在已通过CI的dee12d8，归档提交只包含文档。
+
+2026-10-25归档成功：OpenSpec将travel-execution/travel-planning的修改同步到主规格，新增travel-source-fidelity，共新增5项需求、修改3项。归档路径为openspec/changes/archive/2026-10-25-preserve-travel-source-flow。CLI当时12/13的唯一未完成项是7.2“执行归档”自身，非遗漏实施或测试；已按实际成功结果更新。最终分支保留并推送，后续文档提交不改变通过CI的代码。
+
+### 执行中的技术决定与代价
+
+- 复用当前分支和目录，不另建工作树，符合用户在本项目单代理迁移的要求；代价是需要依赖明确提交范围隔离改动。
+- fixture JSON换行统一LF，验证语义一致后更新字节基线；代价是fixture文件摘要与第一次Windows导出不同，提示原文字节未改。
+- 整路线输入采用带指针的TripTaskChange，保留省略与显式false/[]；代价是工具边界需要明确转换。
+- 不保留adapter.go，agent.go实现平台接口，kernel.go装配Eino，commands.go只做协议映射；代价是这些职责仍在同一Travel包内，需要继续维护同包边界。
+- 宿主MAX_ITERATIONS仍限制主决策，辅助模型和有限协议再生成另计但计入总调用/Token且共享Run期限；代价是实际总模型调用可超过主循环次数，报告不能把二者混称。
+- 原版普通Summary保留Main工具权限，只有停止后的只读收尾禁用工具；已有平台无预订/付款回执的事实保护继续适用，代价是最终展示必须同时遵守平台交易能力边界。
+- 查询作业状态不为每次claim写业务修订，整组实际查询观察形成一份不可变新修订；代价是修订数比旧MVP更高，展示和测试需要区分保存与查询观察。
+- 安全暂停允许只读预检与已领取的当前attempt查询结果提交，禁止新业务写/新查询claim；代价是暂停过渡期可能还有已开始I/O回执落盘，不能把pause请求当成瞬时切断所有工作。
+- 按用户选择完成单代理整体自审，不另派独立评审；代价是缺少新上下文评审者，保留真实数据库故障窗口、全套回归和Linux race作为可核验的交付证据。

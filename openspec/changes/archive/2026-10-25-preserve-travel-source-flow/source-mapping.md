@@ -1,6 +1,6 @@
 # 原版行为与 Go 分层映射
 
-本表是迁移追踪，不是另一套需求。行为依据 specs/，技术边界依据 design.md。源文件及静态提示基线见 source-baseline.json；映射的“目标”是待实施落点，不代表当前已经完成。
+本表是迁移追踪，不是另一套需求。行为依据specs/，技术边界依据design.md。源文件及静态提示基线见source-baseline.json；映射的“目标”表示职责落点，实际实施和验收证据见docs/travel-source-fidelity-execution.md及verification记录。变更于2026-10-25完成归档。
 
 ## 提示基线
 

@@ -64,10 +64,10 @@
 ## 验证与剩余边界
 
 - 本机完整 Go 测试（真实 PostgreSQL）、vet、server 构建和前端15项测试/build结果记录在实施记录中。模型验收为 opt-in，普通测试成功不代表它已运行。
-- 本机 Windows race 二进制以 0xc0000139 加载失败，不能称为通过；Linux race 由当前提交的 CI 结果单独确认。
+- 本机 Windows race 二进制以 0xc0000139 加载失败；2026-10-25 核实提交 `dee12d8ae6b5ac8dc33a444cc3c42a1570f039be` 的 [Linux CI](https://github.com/yzy703050-oss/-agent-platform/actions/runs/40099473344) 已成功。后台步骤 `go test -race ./... -count=1 -timeout 180s`（真实 PostgreSQL）、vet、构建全部成功；前端测试和构建亦成功。这一结论只对应该代码提交，随后归档仅改文档。
 - 本轮没有重新测试真实聚合数据/高德/RAG MCP 端到端，也没有重新做浏览器 UI 验收、Docker部署、负载测试或生产稳定性保证。已提供这些客户端不等于本轮均已验收。
 - 旧工作流断点与新指纹不兼容时拒绝继续，旧历史仍可查看；不导入 Python 旧用户数据；尚未做主 Agent 委派。
-- OpenSpec CLI 没有 verify 命令；使用人工逐条规格核对和 strict validate，不声称已运行 OpenSpec verify。归档状态另见 tasks.md。
+- OpenSpec CLI 没有 verify 命令；已人工逐条核对规格及运行 strict validate。2026-10-25实际完成[变更归档](../openspec/changes/archive/2026-10-25-preserve-travel-source-flow/tasks.md)，主规格同步成功；没有声称运行 OpenSpec verify。
 
 ## 本轮多城实际输出示例
 

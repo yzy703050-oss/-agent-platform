@@ -25,9 +25,9 @@
 ## 6. 效果与测量
 
 - [x] 6.1 固定模拟工具和真实模型运行四类场景各 3 次，按实际查询/保存/修改判定；最终 round6 为 12/12，全部六轮及定向探针共76份脱敏样本保留，见 docs/travel-source-fidelity-verification.md。
-- [ ] 6.2 运行必要 Go 单测/集成、构建、vet 与前端检查，按源映射自审；有失败不宣称完成。
+- [x] 6.2 本机完整 Go/PostgreSQL、vet/build、前端15项测试/build均通过；提交dee12d8的Linux CI 40099473344（含Go race及真实PostgreSQL）backend/frontend全部成功。单代理整体自审及源映射核对已记录；无独立子代理评审。
 
 ## 7. 一致性与交付
 
 - [x] 7.1 更新实施记录、README 的实际范围，逐项人工核对规格/设计/任务/证据；openspec validate preserve-travel-source-flow --strict 退出0，单代理整体自审与逐场景证据矩阵见实施记录；没有运行不存在的 verify。
-- [ ] 7.2 仅在关键偏差解决、任务及验证通过后同步归档；核对归档结果并按用户选择完成分支收尾。
+- [x] 7.2 全部实施/验证已通过后，于2026-10-25运行openspec archive preserve-travel-source-flow --yes成功，同步travel-execution/travel-planning并新增travel-source-fidelity主规格；核对归档与规格diff。沿用用户既有推送授权，保留当前默认分支，不创建自身到自身的PR或另作合并。CLI仅因本条归档元任务当时尚未完成显示12/13，现依据实际归档结果勾选。
