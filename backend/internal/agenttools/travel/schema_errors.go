@@ -3,6 +3,7 @@ package travel
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -12,6 +13,33 @@ import (
 )
 
 var validationSchemaPath = regexp.MustCompile(`^validating ([^:\n]+):`)
+
+// These hints describe fixed contract paths, not a guessed repair of user data.
+// The model must resubmit a legal call; no value or business intent is rewritten.
+func targetedParameterFeedback(profile, name string, instance any) error {
+	if name != "write_trip" {
+		return nil
+	}
+	root, _ := instance.(map[string]any)
+	plan, _ := root["tripplan"].(map[string]any)
+	tasks, _ := plan["tasks"].([]any)
+	for i, value := range tasks {
+		task, _ := value.(map[string]any)
+		if profile == "pre_policy" && plan["operation"] == "propose" && task["purpose"] == "business" {
+			return ruleError("POLICY_OBSERVATION_REQUIRED", "出差规划尚无政策观察。保持business，先单独调用query_policy；不要改成visit来绕过政策前置步骤。", map[string]json.RawMessage{
+				"next_action": mustJSON("query_policy"),
+				"fields":      mustJSON([]any{map[string]any{"field": fmt.Sprintf("tripplan.tasks[%d].purpose", i), "type": "missing_prerequisite", "preserve_value": "business", "message": "该用途正确；缺少的是政策查询结果，不是需要改用途。"}}),
+			})
+		}
+		conditions, _ := task["conditions"].(map[string]any)
+		filters, _ := conditions["constraints"].(map[string]any)
+		if _, misplaced := filters["arrival_before"]; misplaced {
+			correct := fmt.Sprintf("tripplan.tasks[%d].conditions.arrival_before", i)
+			return ruleError("INVALID_ARGUMENTS", "arrival_before属于任务conditions，不属于conditions.constraints。请按正确路径重发，不改原期限、来源或强度。", map[string]json.RawMessage{"fields": mustJSON([]any{map[string]string{"field": fmt.Sprintf("tripplan.tasks[%d].conditions.constraints.arrival_before", i), "correct_path": correct, "type": "misplaced_field", "message": "精确到达期限放在conditions.arrival_before；只有用户提供精确期限时才填写，不能由会议时间擅自推导硬期限。"}})})
+		}
+	}
+	return nil
+}
 
 func nativeSchemaError(err error, validators ...*js.Resolved) error {
 	field := "arguments"

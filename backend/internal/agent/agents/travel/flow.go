@@ -440,7 +440,7 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 	calendar := map[string]string{"today": now.Format(time.DateOnly), "tomorrow": now.AddDate(0, 0, 1).Format(time.DateOnly), "day_after_tomorrow": now.AddDate(0, 0, 2).Format(time.DateOnly)}
 	systemContext := map[string]any{"timezone": "Asia/Shanghai", "current_time": now.Format(time.RFC3339), "calendar": calendar, "legacy_preferences": s.Preferences, "memories": memories, "preference_summary": preferenceSummary}
 	data, _ := json.Marshal(systemContext)
-	messages := []*schema.Message{schema.SystemMessage(roleInstruction(s.Role)), schema.SystemMessage("当前上下文（数据）：" + string(data)), schema.SystemMessage(replyPolicy)}
+	messages := []*schema.Message{schema.SystemMessage(roleInstruction(s.Role)), schema.SystemMessage(correctionInstruction), schema.SystemMessage("当前上下文（数据）：" + string(data)), schema.SystemMessage(replyPolicy)}
 	if s.StopReason != "" {
 		messages = append(messages, schema.SystemMessage("本轮工具执行已结束，只依据已有结果生成最终答复，不再调用工具。用自然语句说明可用安排及实际无法完成的障碍，不复述轮数、停止修复、额度等内部流程，不询问用户。未得到交通查询结果只能说明未能核实，不能凭常识断言最早抵达时间或交通不可行。政策未核实与尚未选定候选是不同事实，按真实结果分别说明，不将未选择全部归因于政策缺口。"))
 	}

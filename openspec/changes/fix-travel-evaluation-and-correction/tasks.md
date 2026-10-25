@@ -5,8 +5,8 @@
 
 ## 2 定向提示与可执行纠错
 
-- [ ] 2.1 保留原文基线，版本化纠错提示并接入真实模型输入及指纹。
-- [ ] 2.2 政策前置与arrival_before错位返回明确指引；根因和连带取消可区分，完整Eino脚本证明下一次模型实际收到、全部配对且副作用为零。
+- [x] 2.1 原文golden保留，correction-v1补充接入真实beforeModel，加入flow-v5/batch-v5指纹；原提示/契约校验及当前实际输入断言通过。
+- [x] 2.2 政策前置与错位路径反馈、FailedCallID和BATCH_ABORTED已完成；TestTravelCorrectionFeedback/ReachesNextModel综合RED→GREEN验证下一次真实Eino Generate收到详情、两个journal结果配对、零写入。完整受影响模块通过。
 
 ## 3 部分收尾与验证
 

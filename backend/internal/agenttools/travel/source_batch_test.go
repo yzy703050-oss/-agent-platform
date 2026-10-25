@@ -55,7 +55,7 @@ func TestTravelSourceBatch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		call := nativeCall("p", "write_trip", `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"上海","destination":"杭州","conditions":{"departure_date":"2026-10-26","constraints":{"arrival_before":"2026-10-26T13:00:00+08:00","PRIVATE_PARAMETER_VALUE":1}}}]}}`)
+		call := nativeCall("p", "write_trip", `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"上海","destination":"杭州","conditions":{"departure_date":"2026-10-26","constraints":{"PRIVATE_PARAMETER_VALUE":1}}}]}}`)
 		_, err = r.Preflight(context.Background(), ProfileRequest{Role: "main"}, []NativeCall{call})
 		var rule *model.TravelRuleError
 		if !errors.As(err, &rule) {

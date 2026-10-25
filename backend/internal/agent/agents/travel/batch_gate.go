@@ -227,6 +227,31 @@ func correctableBatchError(err error) *pm.TravelRuleError {
 	}
 	return &pm.TravelRuleError{Code: "TOOL_ERROR", Message: "工具预检失败，未执行本批操作。"}
 }
+
+// A batch is rejected atomically; a valid sibling did not itself fail schema
+// validation. Copy the error so parallel tool wrappers cannot mutate each other.
+func batchRejection(b nativeBatchState, callID string) *pm.TravelRuleError {
+	if b.Rejected == nil {
+		return nil
+	}
+	reason := *b.Rejected
+	reason.Details = map[string]json.RawMessage{}
+	for k, v := range b.Rejected.Details {
+		reason.Details[k] = v
+	}
+	reason.Details["executed"] = json.RawMessage("false")
+	if root := b.Batch.FailedCallID; root != "" {
+		reason.Details["failed_call_id"] = mustMarshal(root)
+		if callID != root {
+			reason.Code = "BATCH_ABORTED"
+			reason.Message = "本批其他调用预检失败，本调用未执行；先按failed_call_id修正根因。"
+			reason.Details = map[string]json.RawMessage{"executed": json.RawMessage("false"), "failed_call_id": mustMarshal(root), "cause_code": mustMarshal(b.Rejected.Code)}
+		}
+	} else {
+		reason.Details["scope"] = mustMarshal("batch")
+	}
+	return &reason
+}
 func (h *nativeBatchGate) runtimeFor(b nativeBatchState) *batchRuntime {
 	if h.runtime == nil || h.runtime.sequence != b.Sequence {
 		h.runtime = &batchRuntime{sequence: b.Sequence, done: map[string]chan struct{}{}, claimed: map[string]bool{}}
@@ -262,7 +287,7 @@ func (h *nativeBatchGate) WrapInvokableToolCall(_ context.Context, next adk.Invo
 			return "", err
 		}
 		if b.Rejected != nil {
-			prepared := traveltools.PreparedCall{NativeCall: traveltools.NativeCall{ID: t.CallID, Name: t.Name, Arguments: json.RawMessage(args)}, Rejected: b.Rejected}
+			prepared := traveltools.PreparedCall{NativeCall: traveltools.NativeCall{ID: t.CallID, Name: t.Name, Arguments: json.RawMessage(args)}, Rejected: batchRejection(b, t.CallID)}
 			h.mu.Unlock()
 			out, err := next(traveltools.WithPreparedCall(ctx, prepared), args, opts...)
 			if err != nil {
@@ -380,7 +405,11 @@ func (h *nativeBatchGate) unknownTool(ctx context.Context, name, args string) (s
 		if call.Name == name && traveltools.SameNativeArguments(string(call.Arguments), args) && !runtime.claimed[call.ID] {
 			runtime.claimed[call.ID] = true
 			h.mu.Unlock()
-			result := pm.TravelToolResult{CallID: call.ID, Name: name, Status: "rejected", Error: &pm.TravelRuleError{Code: "UNKNOWN_TOOL", Message: "unknown_tool:" + name}}
+			reason := batchRejection(b, call.ID)
+			if reason == nil {
+				reason = &pm.TravelRuleError{Code: "UNKNOWN_TOOL", Message: "unknown_tool:" + name}
+			}
+			result := pm.TravelToolResult{CallID: call.ID, Name: name, Status: "rejected", Reason: reason.Message, Error: reason}
 			raw := ""
 			if h.cfg.NativeRejected != nil {
 				raw, err = h.cfg.NativeRejected(ctx, call, result.Error)

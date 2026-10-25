@@ -42,9 +42,10 @@ type PreparedCall struct {
 	Reply      *NativeReply               `json:"reply,omitempty"`
 }
 type PreparedBatch struct {
-	Request   ProfileRequest `json:"request"`
-	Calls     []PreparedCall `json:"calls"`
-	QueryKeys []string       `json:"query_keys,omitempty"`
+	FailedCallID string         `json:"failed_call_id,omitempty"`
+	Request      ProfileRequest `json:"request"`
+	Calls        []PreparedCall `json:"calls"`
+	QueryKeys    []string       `json:"query_keys,omitempty"`
 }
 type NativeConfig struct {
 	OperationID func(context.Context, string) (string, error)
@@ -175,6 +176,7 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 	requestKind := ""
 	hasPolicy, hasWrite, hasReplan := false, false, false
 	for _, call := range calls {
+		batch.FailedCallID = call.ID
 		if call.ID == "" || ids[call.ID] {
 			return batch, ruleError("DUPLICATE_CALL_ID", "duplicate_call_id", nil)
 		}
@@ -193,6 +195,9 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 		var instance any
 		if err = json.Unmarshal(normalized, &instance); err != nil {
 			return batch, ruleError("INVALID_ARGUMENTS", "invalid tool JSON", nil)
+		}
+		if err = targetedParameterFeedback(profile, call.Name, instance); err != nil {
+			return batch, err
 		}
 		if err = validator.Validate(instance); err != nil {
 			if call.Name == "write_trip" {
@@ -340,6 +345,7 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 		}
 		batch.Calls = append(batch.Calls, prepared)
 	}
+	batch.FailedCallID = ""
 	if hasReplan && len(calls) != 1 {
 		return batch, ruleError("REPLAN_BATCH_CONFLICT", "request_replan must be submitted alone", nil)
 	}

@@ -85,7 +85,7 @@ func NewAgent(cfg Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + string(contractsJSON) + "travel-source-flow-v4:batch-v4:durable-query-v1:generation-temp0.3-max8192-deepseek-thinking-disabled:eino-v0.9.0-beta.1"))
+	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + correctionInstruction + string(contractsJSON) + "travel-source-flow-v5:batch-v5:correction-v1:durable-query-v1:generation-temp0.3-max8192-deepseek-thinking-disabled:eino-v0.9.0-beta.1"))
 	return &Agent{cfg: cfg, preference: preference, fingerprint: hex.EncodeToString(sum[:])}, nil
 }
 func (a *Agent) Fingerprint() string { return a.fingerprint }

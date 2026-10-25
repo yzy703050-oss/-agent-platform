@@ -15,6 +15,9 @@ var (
 	replyPolicy string
 	//go:embed prompts/rail.txt
 	railPlanningPolicy string
+	// User-authorized additions are versioned separately from the source baseline.
+	//go:embed prompts/correction.txt
+	correctionInstruction string
 )
 
 func roleInstruction(role string) string {
