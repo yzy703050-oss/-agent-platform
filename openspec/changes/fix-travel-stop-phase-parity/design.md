@@ -16,6 +16,8 @@
 
 转换边：deciding→executing/reply_ready/stopping/paused；executing→validating/stopping/paused；validating→deciding/repair_required/reply_ready/stopping/paused；repair_required→deciding/executing/reply_ready/stopping/paused；stopping→reply_ready/paused；reply_ready→completed/stopped；completed/stopped/paused无外出边。同阶段为幂等。
 
+接入复核：Eino的WrapModel可先保存纯文本最终答复，AfterModel才观察同一答复。仅当completed/stopped且正文与已保存FinalText完全相同、没有工具调用时，该观察幂等返回；不允许终态转回reply_ready。未知快照阶段返回INVALID_EXECUTION_STATE，暂停快照拒绝模型决策；已完成的缓存答复直接重放，均零额外Generate/业务写入。
+
 ### D3 现有执行钩子接入
 flow.reserve/modelObserved、afterBatch、beforeModel、FlowState.ObserveReview、protocol与finalize均使用统一入口；终态和summaryOnly拦截后续工具。批次结果先进入validating，错误观察转repair_required，beforeModel保留该阶段再进入executing。无进展/预算/协议错误使用stop；有最终答复时先reply_ready再completed/stopped。测试中已有简化钩子也必须走合法边，不为旧测试放宽状态表。
 

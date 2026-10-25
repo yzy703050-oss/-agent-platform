@@ -64,12 +64,18 @@ func TestSourceReviewProjection(t *testing.T) {
 
 func TestSourceProgressCanonicalizesJSONB(t *testing.T) {
 	p := pm.TripResult{Plan: pm.TripPlan{ID: "p", Tasks: []pm.TripTask{{ID: "t", Conditions: pm.TripConditions{"constraints": json.RawMessage(`{"seat_class":"二等座","train_max_total_cny":500}`)}}}}}
-	s := FlowState{Plans: map[string]pm.TripResult{"p": p}}
-	s.ObserveReview()
+	s := FlowState{Phase: "deciding", Plans: map[string]pm.TripResult{"p": p}}
+	if err := s.ObserveReview(); err != nil {
+		t.Fatal(err)
+	}
 	p.Plan.Tasks[0].Conditions["constraints"] = json.RawMessage(`{"train_max_total_cny":500,"seat_class":"二等座"}`)
 	s.Plans["p"] = p
-	s.ObserveReview()
-	s.ObserveReview()
+	if err := s.ObserveReview(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ObserveReview(); err != nil {
+		t.Fatal(err)
+	}
 	if s.StopReason != "no_progress" {
 		t.Fatal("JSONB key ordering caused false business progress", s.UnchangedReviews)
 	}

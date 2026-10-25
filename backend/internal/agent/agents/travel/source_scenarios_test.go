@@ -3,6 +3,7 @@ package travel
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -149,6 +150,10 @@ func TestTravelSourceFlowScenarios(t *testing.T) {
 					break
 				}
 				if event.Err != nil {
+					var rule *pm.TravelRuleError
+					if errors.As(event.Err, &rule) {
+						t.Fatalf("%v: details=%s lastPhase=%s", event.Err, mustMarshal(rule.Details), state.Phase)
+					}
 					t.Fatal(event.Err)
 				}
 			}

@@ -74,11 +74,14 @@ func generateSourceTurn(ctx context.Context, inner em.BaseChatModel, input []*sc
 		}
 		s.GenerationFailures++
 		if len(s.Plans) > 0 && s.Role == "verifier" {
-			s.ObserveReview()
+			if err = s.ObserveReview(); err != nil {
+				return nil, input, err
+			}
 		}
 		if s.GenerationFailures > 2 {
-			s.StopReason = failure
-			s.Phase = "stopping"
+			if err = s.stop(failure); err != nil {
+				return nil, input, err
+			}
 		}
 		input = withRegenerationInstruction(input)
 		s.PreparedMessages = input

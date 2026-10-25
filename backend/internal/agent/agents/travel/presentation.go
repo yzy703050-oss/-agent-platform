@@ -182,9 +182,15 @@ func (f *sourceFlow) finalize(ctx context.Context, answer string) (string, error
 		return "", err
 	}
 	s.FinalText = answer
-	s.Phase = "completed"
+	if err = s.transition("reply_ready"); err != nil {
+		return "", err
+	}
+	next := "completed"
 	if s.StopReason != "" {
-		s.Phase = "stopped"
+		next = "stopped"
+	}
+	if err = s.transition(next); err != nil {
+		return "", err
 	}
 	return answer, f.save(ctx, s)
 }

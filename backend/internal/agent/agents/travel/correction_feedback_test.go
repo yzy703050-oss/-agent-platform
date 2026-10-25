@@ -23,7 +23,7 @@ type correctionProbeModel struct {
 func (m *correctionProbeModel) WithTools([]*schema.ToolInfo) (em.ToolCallingChatModel, error) {
 	return m, nil
 }
-func (m *correctionProbeModel) Generate(_ context.Context, messages []*schema.Message, _ ...em.Option) (*schema.Message, error) {
+func (m *correctionProbeModel) Generate(ctx context.Context, messages []*schema.Message, _ ...em.Option) (*schema.Message, error) {
 	m.calls++
 	if m.calls == 1 {
 		args := `{"request_kind":"planning","tripplan":{"operation":"propose","tasks":[{"origin":"上海","destination":"杭州","purpose":"business","conditions":{"departure_date":"2026-11-01"}}]}}`
@@ -33,6 +33,13 @@ func (m *correctionProbeModel) Generate(_ context.Context, messages []*schema.Me
 		return &schema.Message{Role: schema.Assistant, ToolCalls: []schema.ToolCall{{ID: "read", Type: "function", Function: schema.FunctionCall{Name: "read", Arguments: `{"request_kind":"planning","resource":"trip_summaries"}`}}, {ID: "bad", Type: "function", Function: schema.FunctionCall{Name: "write_trip", Arguments: args}}}}, nil
 	}
 	raw, _ := json.Marshal(messages)
+	value, _ := adk.GetSessionValue(ctx, flowKey)
+	var state FlowState
+	textState, _ := value.(string)
+	_ = json.Unmarshal([]byte(textState), &state)
+	if state.Phase != "repair_required" {
+		m.t.Errorf("rejected batch must reach next model in repair_required, got %s", state.Phase)
+	}
 	text := string(raw)
 	expected := "POLICY_OBSERVATION_REQUIRED"
 	hint := "query_policy"
@@ -89,7 +96,7 @@ func TestTravelCorrectionReachesNextModel(t *testing.T) {
 			flow.registry = registry
 			h := &journal{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}, store: store, ref: ref, native: true, flow: flow}
 			m := &correctionProbeModel{t: t, mode: mode}
-			kernel, err := NewKernel(ctx, KernelConfig{Model: m, Registry: registry, MaxIterations: 4, NativeBeforeModel: flow.beforeModel, NativeReserveBatch: flow.reserve, NativeProfile: flow.profile, NativeAfterBatch: flow.afterBatch, NativeRejected: h.recordRejected, Handlers: []adk.ChatModelAgentMiddleware{h}})
+			kernel, err := NewKernel(ctx, KernelConfig{Model: m, Registry: registry, MaxIterations: 4, NativeBeforeModel: flow.beforeModel, NativeModelObserved: flow.modelObserved, NativeReserveBatch: flow.reserve, NativeProfile: flow.profile, NativeAfterBatch: flow.afterBatch, NativeRejected: h.recordRejected, Handlers: []adk.ChatModelAgentMiddleware{h}})
 			if err != nil {
 				t.Fatal(err)
 			}
