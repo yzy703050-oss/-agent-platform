@@ -38,13 +38,12 @@ func nativeCall(id, name, args string) NativeCall {
 const sourceProposal = `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"上海","destination":"杭州","conditions":{"departure_date":"2026-10-26"},"items":[{"domain":"train"}]}]}}`
 
 type sourcePolicyBudgetProbe struct {
-	remaining time.Duration
+	deadline  time.Time
 	retrieval time.Duration
 }
 
 func (p *sourcePolicyBudgetProbe) Query(ctx context.Context, _ model.TravelExecution, request model.TravelPolicyQuery) (model.SourcePolicyContext, error) {
-	deadline, _ := ctx.Deadline()
-	p.remaining = time.Until(deadline)
+	p.deadline, _ = ctx.Deadline()
 	p.retrieval = request.RetrievalTimeout
 	return model.SourcePolicyContext{Status: "no_knowledge"}, nil
 }
@@ -83,20 +82,23 @@ func TestTravelSourceBatch(t *testing.T) {
 		}
 	})
 	t.Run("auxiliary_model_keeps_run_deadline_and_retrieval_keeps_tool_deadline", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
 		probe := &sourcePolicyBudgetProbe{}
 		r, err := NewRegistry(NativeConfig{Config: Config{Trips: &sourceTripsFixture{}, Timeout: 20 * time.Millisecond}, SourcePolicy: probe})
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Schema compilation under -race can consume over a second. Verify
+		// deadline identity, not how much scheduler time setup happened to use.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		deadline, _ := ctx.Deadline()
 		batch, err := r.Preflight(ctx, ProfileRequest{Role: "main"}, []NativeCall{nativeCall("p", "query_policy", `{"request_kind":"planning","context":{}}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
 		_, err = r.Execute(WithOperationID(ctx, "accepted-policy"), batch.Calls[0])
-		if err != nil || probe.remaining < time.Second || probe.retrieval != 20*time.Millisecond {
-			t.Fatal("auxiliary model incorrectly limited as external tool IO", probe.remaining, probe.retrieval, err)
+		if err != nil || !probe.deadline.Equal(deadline) || probe.retrieval != 20*time.Millisecond {
+			t.Fatal("auxiliary model incorrectly limited as external tool IO", probe.deadline, deadline, probe.retrieval, err)
 		}
 	})
 	ctx := context.Background()

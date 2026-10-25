@@ -39,6 +39,15 @@ run1原始JSON当时记为“效率通过”，但自审发现其两次相同选
 
 多城四次模型调用依次是：Main 调政策 → 政策辅助模型提取 → Main 提交三段规划并触发确定性查询 → Verifier 一次选择三段车次及两处酒店，绑定最终答复。最终渲染直接使用已保存结果，无第五次模型总结。局部修改两次均为 Main，不重新查询供应方。
 
+| 多城次序 | 阶段与动作 | 模型秒 | 输入Token | 输出Token | 总Token |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 1 | Main：query_policy | 1.646 | 7,116 | 162 | 7,278 |
+| 2 | Policy：证据提取 | 1.878 | 965 | 431 | 1,396 |
+| 3 | Main：write_trip propose | 4.627 | 7,569 | 1,349 | 8,918 |
+| 4 | Verifier：write_trip select并绑定reply | 2.195 | 10,385 | 529 | 10,914 |
+
+参数出错不会另建一个“纠错模型”：本批工具观察里的 `error.details.fields` 给出具体字段及正确路径/动作，连带调用由 `failed_call_id` 指向根因；原循环下一轮通过 `previous_round_summary.results` 看到这些反馈后重发。原有阶段权限、有限校正和停止机制仍生效。
+
 计量从 `NewExecution + Start` 到最终 Run 持久化，排除迁移、夹具初始化及活动修改种子准备；包含本机数据库耗时，未包含浏览器/HTTP/SSE。Token仅来自供应方Usage；本轮均完整。模型次数统计实际Generate，SDK内部HTTP重试不另算。差旅为非流式，first_event不是首Token延迟。供应方提示缓存不受控。
 
 ## 验证证据及规格核对
@@ -52,7 +61,7 @@ run1原始JSON当时记为“效率通过”，但自审发现其两次相同选
 | 酒店政策报价缺口及误判保护 | `TestSourceHotelPolicyCapabilityGap` RED→GREEN | 通过 |
 | 保存能力结果后不再调用模型 | `TestCapabilityResultStopsWithoutAnotherModelCall` | 通过 |
 | 测试供应方遵守实际物理查询 | `TestTravelEvaluationContract/hotel_fixture_accepts_real_physical_request` RED→GREEN | 通过 |
-| 全部Go与真实PostgreSQL回归 | `REQUIRE_DATABASE_TESTS=1 go test ./... -count=1 -timeout180s` | 通过，integration37.845秒 |
+| 全部Go与真实PostgreSQL回归 | `REQUIRE_DATABASE_TESTS=1 go test ./... -count=1 -timeout180s` | 通过，integration36.979秒 |
 | Go静态检查/服务端构建 | `go vet ./...` / `go build ./cmd/server` | 通过 |
 | 前端 | `npm test -- --run` / `npm run build` | 15/15通过、构建通过 |
 | 当前提交Linux race/真实PostgreSQL | GitHub Actions | 待运行 |
@@ -61,3 +70,5 @@ run1原始JSON当时记为“效率通过”，但自审发现其两次相同选
 未修改原Python项目；没有运行Python模型对照。本轮不包含真实聚合数据、高德、RAG MCP在线全链路、UI回归、部署、负载或生产稳定性验证。生产显式demo模式仍带来源说明，本次只改变性能测试夹具。公开报告不会把固定报价描述成真实可预订库存。
 
 OpenSpec CLI没有verify命令，采用上表人工核对和strict validate，不声称运行OpenSpec verify。重要检查完成前不归档变更。
+
+首次Linux CI（`576e1d6`，[40154938191](https://github.com/yzy703050-oss/-agent-platform/actions/runs/40154938191)）在旧超时测试失败：race下schema初始化超过1秒，测试误把“剩余不足1秒”判断成期限错误。日志未报告数据竞争，数据库集成测试90.224秒通过。现将该断言改为绝对deadline相等，并在初始化后创建父context；本地定向连续5次通过。生产超时及本次真实模型预算未变，后续完整CI结果单独记录。
