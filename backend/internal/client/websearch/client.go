@@ -34,6 +34,24 @@ type Response struct {
 }
 type Client struct{ search duckduckgo.Search }
 
+// NewWithProxy isolates optional search proxy settings from other platform clients.
+func NewWithProxy(ctx context.Context, proxyURL string) (*Client, error) {
+	if proxyURL == "" {
+		return New(ctx, nil)
+	}
+	u, err := url.Parse(proxyURL)
+	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		return nil, ErrUnavailable
+	}
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, ErrUnavailable
+	}
+	transport := base.Clone()
+	transport.Proxy = http.ProxyURL(u)
+	return New(ctx, transport)
+}
+
 func New(ctx context.Context, transport http.RoundTripper) (*Client, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

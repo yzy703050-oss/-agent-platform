@@ -96,7 +96,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	if modelClient, err := llm.New(ctx, cfg.ModelBaseURL, cfg.ModelID, cfg.ModelAPIKey); err == nil {
 		var search agenttools.WebSearcher
 		if cfg.WebSearchEnabled {
-			searchClient, searchErr := websearch.New(ctx, nil)
+			searchClient, searchErr := websearch.NewWithProxy(ctx, cfg.WebSearchProxyURL)
 			if searchErr != nil {
 				if rag != nil {
 					_ = rag.Close()

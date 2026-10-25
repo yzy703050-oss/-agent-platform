@@ -44,6 +44,8 @@ Handler → Application/chat → AgentManager
 
 注入平台私有 HTTPClient/Transport：仅访问固定搜索端点；禁止重定向；用默认 Transport 的克隆保留环境代理；网络响应在 Transport 内最多读取 1 MiB + 1 字节检测超限并关闭原 Body，交给官方解析器的是有界内存响应。处理非 200、截断、过大响应、典型验证页面及无法识别的 HTML；正常空结果需有可识别搜索页面标记。不修改共享 providerhttp 的重试语义，也不 fork 官方解析器。
 
+实际验收发现 Windows 系统代理已启用，但 Go 的 ProxyFromEnvironment 不自动读取该设置，直连搜索超时；进程内使用现有代理后公网和模型搜索闭环均通过。因此增加可选 `WEB_SEARCH_PROXY_URL`，仅用于搜索客户端的 Transport 克隆，空值沿用环境代理。地址只填本地 .env，支持 http/https；不修改系统代理或其他客户端的网络路径。增加 `NewWithProxy(ctx, proxyURL)` 组装入口，原 New(ctx, transport) 继续用于协议测试。这是已验证网络环境下的技术配置补足，不改变工具行为或供应商。
+
 网络使用父 context 与工具期限；官方分页等待可能让同步返回比期限最多晚约 3 秒，必须在恢复网络请求前检查 context，返回后再次检查期限并丢弃迟到结果。文档如实记录这一组件限制，不用丢弃的后台 goroutine 制造“立即取消”的假象。单次客户端搜索以官方 MaxResults=5 限制；运行仍受平台总预算限制。
 
 ### 4. 提示、注册与兼容

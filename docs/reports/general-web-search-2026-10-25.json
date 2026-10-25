@@ -1,0 +1,147 @@
+{
+  "runs": [
+    {
+      "answer": "搜索没有成功：这次联网搜索超时，未取得可用结果。按你的要求，我只搜索了一次，没有重试，因此我没有可核实的来源链接。\n\n这次搜索失败，所以下面这部分内容只是我**已有的背景知识**（并非本次搜索的结果，请自行核对官方文档）：\n\n- **CloudWeGo** 是字节跳动开源的企业级云原生中间件与基础库集合，其中包含 Kitex（RPC 框架）、Hertz（HTTP 框架）等项目。\n- **Eino** 是 CloudWeGo 生态下的 **Go 语言 LLM 应用开发框架**，主要提供大模型应用编排能力，例如组件抽象（ChatModel、Tool、Retriever、Prompt 等）、基于图（Graph/Chain）的工作流编排、流式处理，以及 agent 等场景的支持。它的设计思路与 Python 生态中的 LangChain/LangGraph 相似，但面向 Go 技术栈。\n\n以上关于 Eino 的具体定位和能力描述，我无法在本次会话中提供经过联网核实的官方链接。建议你直接访问 CloudWeGo 官网（cloudwego.io）或其 GitHub 组织页面查找 Eino 的文档。如果你愿意，我可以在之后的新一轮对话中再尝试联网搜索一次，或者你把文档内容发给我，我帮你解读。",
+      "case": "public-search",
+      "elapsed_ms": 13909,
+      "error_code": "",
+      "model": "deepseek-flash",
+      "model_calls": 2,
+      "search_calls": 1,
+      "sources": [],
+      "status": "succeeded",
+      "tokens": {
+        "input": 1539,
+        "output": 347,
+        "total": 1886
+      },
+      "usage_complete": true,
+      "usage_reported_calls": 2,
+      "round": "direct-first"
+    },
+    {
+      "answer": "你好。",
+      "case": "direct-reply",
+      "elapsed_ms": 683,
+      "error_code": "",
+      "model": "deepseek-flash",
+      "model_calls": 1,
+      "search_calls": 0,
+      "sources": [],
+      "status": "succeeded",
+      "tokens": {
+        "input": 684,
+        "output": 3,
+        "total": 687
+      },
+      "usage_complete": true,
+      "usage_reported_calls": 1,
+      "round": "direct-first"
+    },
+    {
+      "answer": "本次联网搜索**没有成功**：搜索工具返回的状态是 `search_unavailable`，也就是这次搜索不可用，没有取得任何可用结果。\n\n按照你的要求，我不会重试，也不会引用任何猜测或凭记忆拼凑的来源链接。因此，我无法在本次回复中为你提供经联网核实的 Eino 官方文档地址。\n\n如果你想继续，可以选择：\n- 稍后让我再试一次（由你明确要求后我再搜索）；\n- 你手头已有链接或文档片段，发给我，我可以帮你解读、整理或总结；\n- 需要的话，我可以先说明“Eino 是什么、官方文档一般包含哪些内容”这类常识性说明，但会明确标注**未经联网核实**。\n\n另外提醒：如果你要规划差旅相关事项，平台有独立的差旅助手入口，你可以在那里新建会话办理。",
+      "case": "failure-feedback",
+      "elapsed_ms": 2592,
+      "error_code": "",
+      "model": "deepseek-flash",
+      "model_calls": 2,
+      "search_calls": 1,
+      "sources": [],
+      "status": "succeeded",
+      "tokens": {
+        "input": 1495,
+        "output": 221,
+        "total": 1716
+      },
+      "usage_complete": true,
+      "usage_reported_calls": 2,
+      "round": "direct-first"
+    },
+    {
+      "answer": "这是一次联网搜索的结果总结；我只查看了搜索摘要，没有读取网页正文。\n\n## Eino 是什么\n\nCloudWeGo Eino 是基于 **Go 语言**的大模型（LLM）应用开发框架：\n\n- **定位**：旨在提供面向 Go 的大模型应用开发框架。它的名称读音近似 “i know”，体现了希望“让框架真正理解并支撑业务”的愿景。\n- **灵感来源**：借鉴了 LangChain、LlamaIndex 等开源 LLM 应用框架的思路，并结合前沿研究与实际应用经验。\n- **设计取向**：强调简洁性、可扩展性、可靠性与有效性。\n- **核心抽象**：围绕大模型的两种核心能力，即基于语义的文本处理能力和智能决策能力，提供组件（Components）抽象，例如 Tool、Graph、Callback、Interrupt 等；官方文档还提供快速开始、组件使用、以及与 eino-ext 扩展技能对接等章节。\n\n## 搜索来源链接\n\n1. Eino 用户手册 | CloudWeGo — https://www.cloudwego.io/zh/docs/eino/\n2. 概述 | CloudWeGo — https://www.cloudwego.io/zh/docs/eino/overview/\n3. 快速开始 | CloudWeGo — https://www.cloudwego.io/zh/docs/eino/quick_start/\n4. Components 组件 | CloudWeGo — https://www.cloudwego.io/zh/docs/eino/core_modules/components/\n5. Eino User Manual（英文版）— https://www.cloudwego.io/docs/eino/\n\n以上信息来自搜索摘要。具体 API 细节和最新版本特性，建议点开上述官方链接确认。另外，如果你要规划差旅，请从差旅助手入口新建会话；当前会话无法代为执行差旅操作。",
+      "case": "public-search",
+      "elapsed_ms": 5303,
+      "error_code": "",
+      "model": "deepseek-flash",
+      "model_calls": 2,
+      "search_calls": 1,
+      "sources": [
+        "https://www.cloudwego.io/zh/docs/eino/",
+        "https://www.cloudwego.io/zh/docs/eino/quick_start/",
+        "https://www.cloudwego.io/zh/docs/eino/overview/",
+        "https://www.cloudwego.io/docs/eino/",
+        "https://www.cloudwego.io/zh/docs/eino/core_modules/components/"
+      ],
+      "status": "succeeded",
+      "tokens": {
+        "input": 1921,
+        "output": 421,
+        "total": 2342
+      },
+      "usage_complete": true,
+      "usage_reported_calls": 2,
+      "round": "existing-proxy-success"
+    },
+    {
+      "answer": "这次联网搜索没有成功：工具返回 **search_unavailable**，表示此次搜索服务不可用，未取得任何可用结果。按照你的要求，我没有再重试，因此也无法给出真实的来源链接，也不能编造文档地址或摘要。\n\n以下是我基于已有知识对 Eino 的说明，**未经本次联网核实，也不附带来源链接**。\n\n**Eino 是什么，大致如下**\n\n- Eino 是 CloudWeGo 开源社区推出的 **Go 语言大模型（LLM）应用开发框架**。CloudWeGo 是字节跳动发起的云原生微服务中间件开源项目集合，其中包含 Kitex、Hertz、Netpoll 等组件。\n- 它的定位类似 Python 生态中的 LangChain、LlamaIndex：提供一套抽象，把「提示词 → 模型调用 → 工具/函数调用 → 检索 → 编排 → 输出解析」这些环节组织成可复用、可组合的组件与流程。\n- 主要特点（记忆中的要点，可能有出入）：\n  - **组件化抽象**：ChatModel、Prompt、Tool、Retriever、Embedding、Indexer 等统一接口，便于替换不同厂商模型。\n  - **编排能力**：支持链式（Chain）与图式（Graph）编排，带分支、并行、循环等控制流。\n  - **流式处理**：原生支持流式输入输出，适配对话式场景。\n  - **类型安全与 Go 生态契合**：利用 Go 的接口与泛型，强调编译期检查、并发与性能。\n  - 通常还配有示例仓库和一套文档站点（文档域名我记得与 CloudWeGo 主站相关，但具体路径不敢确认，未核实前不建议直接引用）。\n\n**建议的核实方式**：直接访问 CloudWeGo 官网（cloudwego.io）或其 GitHub 组织页（github.com/cloudwego），在项目列表里找 Eino 的仓库与文档入口；文档里通常会有「快速开始 / 概念 / 编排」等章节。如果你愿意，也可以稍后再让我重新搜索一次——这次只是单一网络请求失败，不代表资料不存在。\n\n另外提醒一下：差旅规划有独立的差旅助手入口，如果需要订票、行程安排，可以切换到那个入口新建会话。",
+      "case": "public-search",
+      "elapsed_ms": 5994,
+      "error_code": "",
+      "model": "deepseek-flash",
+      "model_calls": 2,
+      "search_calls": 1,
+      "sources": [],
+      "status": "succeeded",
+      "tokens": {
+        "input": 1538,
+        "output": 594,
+        "total": 2132
+      },
+      "usage_complete": true,
+      "usage_reported_calls": 2,
+      "round": "search-only-proxy"
+    },
+    {
+      "answer": "你好。",
+      "case": "direct-reply",
+      "elapsed_ms": 780,
+      "error_code": "",
+      "model": "deepseek-flash",
+      "model_calls": 1,
+      "search_calls": 0,
+      "sources": [],
+      "status": "succeeded",
+      "tokens": {
+        "input": 684,
+        "output": 3,
+        "total": 687
+      },
+      "usage_complete": true,
+      "usage_reported_calls": 1,
+      "round": "search-only-proxy"
+    },
+    {
+      "answer": "这次搜索没有成功：搜索工具返回“search_unavailable（联网搜索不可用）”，我没有获得任何搜索结果或来源链接。\n\n按照您的要求，我不会重试，也不引用任何猜测的链接或内容。因此，目前我无法提供 Eino 官方文档的地址或摘要。\n\n如果您需要，我可以：\n- 稍后再帮您尝试一次（您明确要求时再执行）；\n- 或者您直接告诉我文档链接，我来帮您阅读、梳理和解答相关问题。\n\n另外说明：如果需要做差旅方面的规划和操作，平台有独立的差旅助手入口，可以直接切换入口新建会话。",
+      "case": "failure-feedback",
+      "elapsed_ms": 2374,
+      "error_code": "",
+      "model": "deepseek-flash",
+      "model_calls": 2,
+      "search_calls": 1,
+      "sources": [],
+      "status": "succeeded",
+      "tokens": {
+        "input": 1530,
+        "output": 203,
+        "total": 1733
+      },
+      "usage_complete": true,
+      "usage_reported_calls": 2,
+      "round": "search-only-proxy"
+    }
+  ],
+  "measurement": "Supplier usage; actual streaming; end-to-end Manager+Eino+tool+PostgreSQL, excludes browser/HTTP/SSE",
+  "date": "2026-10-25",
+  "timezone": "Asia/Shanghai",
+  "current_acceptance": "blocked_by_duckduckgo_http_202_challenge"
+}

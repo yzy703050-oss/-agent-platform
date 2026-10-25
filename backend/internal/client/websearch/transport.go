@@ -47,7 +47,14 @@ func (t *boundedTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		return nil, ErrUnavailable
 	}
 	// A parser miss is not evidence of a genuine empty search. Recognize known pages.
-	results := doc.Find("#links .web-result h2.result__title > a").Length() > 0
+	results := false
+	doc.Find("#links .web-result").EachWithBreak(func(_ int, item *goquery.Selection) bool {
+		if item.Find("h2.result__title > a").Length() > 0 && item.Find("a.result__snippet").Length() > 0 {
+			results = true
+			return false
+		}
+		return true
+	})
 	empty := doc.Find("#links .no-results, #links .result--no-result").Length() > 0
 	if !results && !empty {
 		return nil, ErrUnavailable

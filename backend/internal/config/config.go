@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	WebSearchProxyURL                                                                    string
 	WebSearchEnabled                                                                     bool
 	TravelPlanningRounds, TravelTurnSeconds, TravelContextTokens                         int
 	TravelQueryMode                                                                      string
@@ -26,6 +27,7 @@ type Config struct {
 func Load(get func(string) string) (Config, error) {
 	c := Config{DatabaseDSN: get("DB_DSN"), HTTPAddr: get("HTTP_ADDR"), ModelBaseURL: get("LLM_BASE_URL"), ModelID: get("LLM_MODEL"), ModelAPIKey: get("LLM_API_KEY")}
 	c.WebSearchEnabled = true
+	c.WebSearchProxyURL = get("WEB_SEARCH_PROXY_URL")
 	if raw := get("WEB_SEARCH_ENABLED"); raw != "" {
 		var err error
 		c.WebSearchEnabled, err = strconv.ParseBool(raw)

@@ -14,7 +14,7 @@
 | --- | --- |
 | 用户与设置 | 注册、登录、登出、当前用户、主题和回复偏好；服务端 Session、HttpOnly Cookie、CSRF 和来源检查 |
 | 会话历史 | 创建、重命名、受控删除、游标分页；两个入口共用历史和权限体系 |
-| 普通聊天 | 真实 OpenAI 兼容模型、只读设置工具、流式输出、Eino 工具循环 |
+| 普通聊天 | 真实 OpenAI 兼容模型、只读设置工具、可选官方 DuckDuckGo v2 联网搜索、流式输出、Eino 工具循环 |
 | 差旅行程 | 多段与返程、日期和住宿、活动、硬软约束、按分计算预算、增量修改与依赖失效 |
 | 外部查询 | 聚合数据车次、高德酒店地点、wttr.in 天气客户端；可显式切换带标识的演示数据 |
 | 候选选择 | 核验身份、会话、查询、行程、修订、候选 ID 与时效；酒店地点没有房价/库存保证 |
@@ -58,6 +58,8 @@ flowchart TD
     K --> MEM[Memory：有效来源 / 预算 / 摘要]
     TOOLS --> TS[Trip / TravelPreference Service]
     TOOLS --> S
+    TOOLS --> WS[WebSearch Client / 官方 DuckDuckGo v2]
+    WS --> WEB[公开网络搜索]
     TS --> R[Repository / PostgreSQL]
     S --> R
     M --> R
@@ -76,6 +78,7 @@ Repository 是统一的数据访问实现层，**不表示所有调用都可以�
 - 行程与偏好变更：Tool → Service → Repository。
 - Run、事件、消息、Checkpoint：平台组件 → 消费方 Store 接口 → Repository。
 - 外部模型、供应方和 MCP：对应 Client；网络请求不放在数据库事务里。
+- 公开联网搜索：WebSearchTool → WebSearch Client → 官方组件；没有业务写规则时不增加透传 Service，结果和事件沿用平台 Repository。
 - bootstrap 创建并注入组件，Repository 不反向依赖具体 Agent。
 
 ### Agent 内部职责
@@ -84,7 +87,7 @@ Repository 是统一的数据访问实现层，**不表示所有调用都可以�
 | --- | --- |
 | `agent/contracts` | Agent、Execution、事件和执行限制；不包含差旅行程规则 |
 | `agent/manager` | 静态注册、按会话选择 Agent、Run 状态、配额、租约、通知和恢复对账 |
-| `agents/general` | 普通聊天配置、设置工具、平台消息转换 |
+| `agents/general` | 普通聊天配置、设置/搜索工具注册、条件提示、平台消息转换与兼容指纹 |
 | `agents/travel` | 同一 Eino 内的 Main/Verifier/Summary、原文提示、政策/偏好/压缩辅助角色、决策与恢复；无独立 adapter 层 |
 | `agent/einoruntime` | 共用 Eino TurnLoop、停止确认、断点包络与 Repository 适配 |
 | `agent/memory` | 授权历史、完整 Run 裁剪、偏好注入、来源受限摘要及低频维护 |
@@ -208,6 +211,20 @@ docs/                          # 计划、职责、自审、验收与运行说�
 当前实例通过 PostgreSQL advisory lock 防止误启动两个 API。每会话一个非终态任务、每用户最多三个活动执行、进程最多八个。数据库不可用时不回退到内存假成功。
 
 ## 本地配置与运行
+
+### 通用聊天联网搜索
+
+`WEB_SEARCH_ENABLED=true` 为默认值，无需搜索 API Key。模型在用户明确要求联网或问题需要最新公开资料时选择 `web_search`，普通问题可以直接回答；差旅入口保持独立。前端显示搜索状态，并在工具结果中提供标题、摘要与可点击来源。
+
+链路为 `General → Eino → agenttools.WebSearchTool → client/websearch → 官方 DuckDuckGo v2`。工具只接受 `query`（1～500 字符）和可选 `time_range`（空/d/w/m/y），最多返回 5 条结果、16 KiB 完整 JSON；HTTP 原响应限制 1 MiB。参数错误和搜索失败以结构化观察交还模型，包含工具状态及耗时，不伪装成功；父任务取消沿用平台规则。
+
+设置工具仍经 Settings Service 授权读取；搜索调用、观察、事件及断点都复用现有 Repository，不新增数据表、缓存或 RAG。搜索开关、提示、契约和组件版本参与断点兼容指纹；修改后不兼容的旧任务不能继续，历史仍可查看。
+
+如本机需要代理，在本地 `.env` 配置 `WEB_SEARCH_PROXY_URL` 为可用的 HTTP(S) 代理地址；它只影响搜索客户端，不改变模型、差旅客户端或系统代理。空值沿用 Go 的环境代理机制；Go 不会自动读取 Windows 系统代理。关闭功能可设 `WEB_SEARCH_ENABLED=false`。修改配置需重启 API。
+
+官方组件使用 HTML 搜索接口，可能返回验证页面或限流；本机实际出现 HTTP 202 challenge，此时模型会收到 `search_unavailable`。已记录一次真实模型搜索成功：2 次模型调用、1 次搜索、2,342 tokens、5.303 秒；之后正式配置复测被验证页面阻断，不能将该成功样例当作稳定性承诺。官方分页固定等待可能使取消返回晚约 3 秒，不能保证任意时刻立即停止。
+
+显式验收：加载本地配置后设置 `RUN_WEB_SEARCH_LIVE=1` / `RUN_GENERAL_SEARCH_REAL=1`，在 backend 运行 `go test ./tests/integration -run 'Test(WebSearchLive|GeneralSearchRealModel)$' -count=1 -v`。常规测试与 CI 不依赖公网或真实模型。包括首轮失败在内的结果见[联网搜索验收记录](docs/general-web-search-verification.md)和[真实计量数据](docs/reports/general-web-search-2026-10-25.json)。
 
 `TRAVEL_QUERY_MODE=live`（默认）使用真实查询；显式设为 `demo` 后，车次、酒店地点、天气使用确定性模拟结果。证据和选中候选保存 `is_demo`，界面与最终回复标注“演示数据”；真实模式失败不会自动回退。两种模式缓存隔离，酒店房价/库存仍未知，行程事务、鉴权、断点和模型调用仍是真实实现。
 

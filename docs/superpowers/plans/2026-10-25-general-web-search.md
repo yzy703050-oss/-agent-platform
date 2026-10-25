@@ -106,6 +106,8 @@
 
 **Interfaces:** 公网冒烟由 `RUN_WEB_SEARCH_LIVE=1` 显式启用；真实模型冒烟另由 `RUN_GENERAL_SEARCH_REAL=1` 启用。普通 CI 不访问公网/模型。复用 llm.New 及只在测试中包装的模型调用记录器，取供应商报告 usage，缺失不按字符估算成真实 token。
 
+技术补充（实际网络证据）：直连超时，进程内使用本机已配置代理后官方搜索与模型来源回答通过。按 design 增加可选 `Config.WebSearchProxyURL`/`WEB_SEARCH_PROXY_URL`，bootstrap 和显式冒烟统一调用 `websearch.NewWithProxy(ctx, proxyURL)`；只修改搜索私有 Transport，不改变模型/差旅出站路径。先写无效代理配置测试，再实现并验证；本地实际代理地址不进入 Git。自审补充 parser-miss 的 RED→GREEN，结构不兼容不得当作正常空结果。
+
 - [ ] **准备可核对验收。** 新增 opt-in `TestWebSearchLive`：实际官方客户端查询公开 CloudWeGo/Eino 资料，至少一条有效来源才通过；`TestGeneralSearchRealModel`：本地已配置模型执行明确搜索问题，至少 1 次实际搜索、最终回复带返回来源；另做普通直答及搜索失败反馈检查。先运行离线综合测试检验记录器不重发请求、不漏 Stream usage，不新增大量测试组合。
 - [ ] **实际运行。** `go test ./... -count=1 -timeout 180s`（REQUIRE_DATABASE_TESTS=1）、`go vet ./...`、`go build ./cmd/server`；前端 `npm run test -- --run`、`npm run build`。Linux CI 使用已有 `go test -race ./... -count=1 -timeout 180s`，Windows 不声称完成 race。
 - [ ] **公网与模型验收。** 分别设置上述开关后运行指定冒烟，记录真实日期、模型、延时、模型调用数、搜索调用数、供应商 tokens、来源及失败情况。网络失败停止标记公网通过，分析后报告限制；不得以 mock 或 web 工具代替应用客户端验收。无须跑 Python 模型对比。

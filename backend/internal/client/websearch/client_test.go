@@ -38,6 +38,23 @@ func (b *trackedBody) Close() error {
 func htmlResult(title, link, summary string) string {
 	return fmt.Sprintf(`<div class="web-result"><h2 class="result__title"><a href="%s">%s</a></h2><a class="result__snippet">%s</a></div>`, link, title, summary)
 }
+
+func TestSearchProxyConfiguration(t *testing.T) {
+	for _, invalid := range []string{"missing-scheme:123", "socks5://127.0.0.1:7890", "https:///", "http://127.0.0.1:7890/path", "http://127.0.0.1:7890?q=secret"} {
+		if _, err := NewWithProxy(context.Background(), invalid); err == nil {
+			t.Fatalf("accepted invalid proxy %q", invalid)
+		}
+	}
+	original := http.DefaultTransport
+	for _, valid := range []string{"", "http://127.0.0.1:7890", "https://127.0.0.1:7890"} {
+		if _, err := NewWithProxy(context.Background(), valid); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if http.DefaultTransport != original {
+		t.Fatal("search proxy mutated the global transport")
+	}
+}
 func TestClientOfficialParserAndBounds(t *testing.T) {
 	var body *trackedBody
 	cli, err := New(context.Background(), roundTripFunc(func(r *http.Request) (*http.Response, error) {
@@ -91,6 +108,7 @@ func TestClientFailureAndCancellation(t *testing.T) {
 		{"refused", "blocked", 202, "error"},
 		{"challenge", `<html><form id="challenge-form">Verify you are human</form></html>`, 200, "error"},
 		{"unexpected", `<html>maintenance</html>`, 200, "error"},
+		{"parser-miss", `<div id="links"><div class="web-result"><h2 class="result__title"><a href="https://example.org">Changed markup</a></h2></div></div>`, 200, "error"},
 		{"oversize", strings.Repeat("a", (1<<20)+1), 200, "error"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
