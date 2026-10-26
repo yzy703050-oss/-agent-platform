@@ -128,12 +128,51 @@ func TestTravelInteractionInstructions(t *testing.T) {
 			for _, input := range m.inputs {
 				count := 0
 				for _, msg := range input {
-					if msg.Role == schema.System && strings.Contains(msg.Content, "差旅交互与执行约束（interaction-v1）") {
+					if msg.Role == schema.System && strings.Contains(msg.Content, "差旅交互与执行约束（interaction-v2）") {
 						count++
 					}
 				}
 				if count != 1 {
 					t.Errorf("role %q received %d interaction instructions, want 1", strings.SplitN(input[0].Content, "\n", 2)[0], count)
+				}
+			}
+		})
+	}
+}
+
+func TestTravelPlanningDefaultsAcrossRoles(t *testing.T) {
+	for _, mode := range []string{"normal", "lookup"} {
+		t.Run(mode, func(t *testing.T) {
+			m, _, _, _ := runInteractionScenario(t, mode, &interactionMemory{rows: []pm.TravelPreference{{Key: "home_location", Value: "上海", Origin: "explicit"}}}, false, false)
+			for _, input := range m.inputs {
+				var data struct {
+					Defaults      map[string]any    `json:"planning_defaults"`
+					Preferences   map[string]string `json:"legacy_preferences"`
+					OriginalQuery string            `json:"original_query"`
+				}
+				for _, msg := range input {
+					if msg.Role == schema.System && strings.HasPrefix(msg.Content, "当前上下文（数据）：") {
+						if err := json.Unmarshal([]byte(strings.TrimPrefix(msg.Content, "当前上下文（数据）：")), &data); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				if data.Defaults["origin"] != "重庆" || data.Defaults["passengers"] != float64(1) || data.Defaults["seat_class"] != "二等座" || data.Defaults["round_trip"] != true || data.Defaults["source"] != "proposal" || data.Defaults["strength"] != "soft" {
+					t.Fatalf("role has no authorized soft planning defaults: %+v", data.Defaults)
+				}
+				if data.Preferences["home_location"] != "上海" {
+					t.Fatalf("default overwrote effective preference: %+v", data.Preferences)
+				}
+				if data.OriginalQuery != "安排上海到杭州的单程行程" || data.Defaults["apply_only_if_missing"] != true {
+					t.Fatal("actual original request and fallback-only priority missing from role context")
+				}
+				for _, instruction := range []string{interactionInstruction, interactionRegenerationInstruction} {
+					if !strings.Contains(instruction, "重庆") || !strings.Contains(instruction, "去程") || !strings.Contains(instruction, "返程") || !strings.Contains(instruction, "住宿") {
+						t.Fatal("role/regeneration instructions do not resolve missing information with full planning")
+					}
+					if strings.Contains(instruction, "缺出发地不猜城市") || strings.Contains(instruction, "未知起点只陈述交通缺口") {
+						t.Fatal("obsolete missing-origin stop rule still active")
+					}
 				}
 			}
 		})

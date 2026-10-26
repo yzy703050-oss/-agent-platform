@@ -40,10 +40,39 @@ type interactionReport struct {
 type interactionProvider struct {
 	inner            *perfProvider
 	replan, hotelGap bool
+	longDistance     bool
+	firstClass       bool
 }
 
 func (p *interactionProvider) Search(ctx context.Context, q pm.TravelQuery) (pm.TravelEvidence, error) {
 	e, err := p.inner.Search(ctx, q)
+	if p.firstClass && q.Domain == "train" {
+		for i := range e.Candidates {
+			e.Candidates[i].SeatClass = "一等座"
+		}
+	}
+	if p.longDistance && q.Domain == "train" && (q.Origin == "重庆" || q.Destination == "重庆") {
+		// Long-distance route: do not use the benchmark's two-hour regional train.
+		day, parseErr := time.ParseInLocation(time.DateOnly, q.Date, time.FixedZone("Asia/Shanghai", 8*3600))
+		if parseErr != nil {
+			return e, parseErr
+		}
+		for i := range e.Candidates {
+			departure := day.Add(time.Duration(8+i) * time.Hour)
+			arrival := departure.Add(10 * time.Hour)
+			e.Candidates[i].DepartureAt = &departure
+			e.Candidates[i].ArrivalAt = &arrival
+			price := int64(80000 + i*5000)
+			e.Candidates[i].PriceFen = &price
+		}
+	}
+	if p.longDistance && q.Domain == "hotel" {
+		// Fixed total stay quote; no claim of real date-sensitive inventory.
+		for i := range e.Candidates {
+			price := int64(60000)
+			e.Candidates[i].PriceFen = &price
+		}
+	}
 	if p.replan && q.Domain == "train" && q.Origin == "上海" && q.Destination == "杭州" {
 		e.Candidates = nil
 		e.Status = "no_results"
@@ -80,6 +109,7 @@ func TestTravelInteractionModel(t *testing.T) {
 	d := []string{tomorrow.Format(time.DateOnly), tomorrow.AddDate(0, 0, 1).Format(time.DateOnly), tomorrow.AddDate(0, 0, 2).Format(time.DateOnly)}
 	cases := []interactionCase{
 		{name: "sparse", prompt: "帮我规划明天去上海的旅途", sparse: true, repeats: repeats},
+		{name: "explicit_defaults_override", prompt: fmt.Sprintf("安排%s上海到杭州单程旅游，2人，高铁一等座，不返程、不住宿，不安排活动。请选择车次并保存。", d[0]), tasks: 1, repeats: 1},
 		{name: "memory_defaults", prompt: "帮我规划明天去杭州的旅途，后天返回。", memory: "我的常住地和出行起点是上海，喜欢高铁二等座，旅游时喜欢自然风景。", tasks: 2, hotels: 1, repeats: repeats},
 		{name: "normal_roundtrip", prompt: fmt.Sprintf("请安排%s上海到杭州旅游，%s下午返回上海，住一晚。去程当天下午游览西湖，返程当天上午游览灵隐寺，优先高铁二等座。请选择车次和酒店并保存完整行程。", d[0], d[1]), tasks: 2, hotels: 1, repeats: repeats},
 		{name: "multicity", prompt: fmt.Sprintf("安排三段旅游：%s上海到杭州，%s杭州到南京，%s南京返回上海。杭州%s入住%s退房，南京%s入住%s退房，各一晚。首日14:00西湖游览，次日14:00南京博物院游览，优先高铁二等座，选择三段车次及两处酒店并保存完整计划。", d[0], d[1], d[2], d[0], d[1], d[1], d[2]), tasks: 3, hotels: 2, repeats: repeats},
@@ -123,7 +153,7 @@ func runInteractionModelCase(t *testing.T, c interactionCase, repeat int) intera
 	defer cancel()
 	f, ref, _ := travelFixture(t)
 	provider := newPerfProvider(time.Now)
-	client := &interactionProvider{inner: provider, replan: c.replan, hotelGap: c.hotelGap}
+	client := &interactionProvider{inner: provider, replan: c.replan, hotelGap: c.hotelGap, longDistance: c.sparse, firstClass: c.name == "explicit_defaults_override"}
 	service := trip.NewWithQueries(f.repo, client, time.Now).WithQueryNamespace("interaction-acceptance")
 	preferences := prefs.New(f.repo)
 	if c.memory != "" {
@@ -260,21 +290,9 @@ func runInteractionModelCase(t *testing.T, c interactionCase, repeat int) intera
 		fail("unsupported_flight_capability")
 	}
 	if c.sparse {
-		if !strings.Contains(s.FinalText, "上海") {
-			fail("missing_destination_suggestions")
-		}
-		for _, p := range s.Plans {
-			for _, task := range p.Tasks {
-				if task.Origin != "" {
-					fail("invented_origin")
-				}
-				if task.Train != nil {
-					fail("invented_origin_transport")
-				}
-			}
-		}
-		if !slices.ContainsFunc([]string{"外滩", "豫园", "陆家嘴", "南京路", "上海博物馆", "武康路"}, func(place string) bool { return strings.Contains(s.FinalText, place) }) {
-			fail("no_useful_destination_suggestions")
+		tomorrow := time.Now().In(time.FixedZone("Asia/Shanghai", 8*3600)).AddDate(0, 0, 1).Format(time.DateOnly)
+		for _, reason := range defaultPlanningFailures(s.perfSample, tomorrow) {
+			fail(reason)
 		}
 	} else if c.lookup {
 		if len(s.Plans) != 0 || provider.Calls["train"] != 1 || provider.Calls["weather"] != 1 {
@@ -332,6 +350,12 @@ func runInteractionModelCase(t *testing.T, c interactionCase, repeat int) intera
 			}
 			if c.name == "policy" {
 				expected = []string{"上海", "杭州"}
+			}
+			if c.name == "explicit_defaults_override" {
+				expected = []string{"上海", "杭州"}
+				if p.RoundTrip || p.Tasks[0].RequiresHotel || p.Tasks[0].Passengers != 2 || p.Tasks[0].Train == nil || p.Tasks[0].Train.Candidate.SeatClass != "一等座" {
+					fail("explicit_conditions_overwritten_by_defaults")
+				}
 			}
 			if c.replan {
 				expected = []string{"上海", "南京", "杭州", "上海"}

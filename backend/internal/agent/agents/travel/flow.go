@@ -440,6 +440,9 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 	now := f.cfg.Now().In(time.FixedZone("Asia/Shanghai", 8*60*60))
 	calendar := map[string]string{"today": now.Format(time.DateOnly), "tomorrow": now.AddDate(0, 0, 1).Format(time.DateOnly), "day_after_tomorrow": now.AddDate(0, 0, 2).Format(time.DateOnly)}
 	systemContext := map[string]any{"timezone": "Asia/Shanghai", "current_time": now.Format(time.RFC3339), "calendar": calendar, "legacy_preferences": s.Preferences, "memories": memories, "preference_summary": preferenceSummary, "memory_context_complete": true}
+	systemContext["planning_defaults"] = map[string]any{"origin": "重庆", "departure_date": calendar["tomorrow"], "purpose": "visit", "passengers": 1, "guests": 1, "train_kind": "high_speed", "seat_class": "二等座", "round_trip": true, "tour_days": "2～3天可调整，计入长途交通占用", "hotel": "覆盖必要过夜，合理价位，逐晚衔接返程", "source": "proposal", "strength": "soft", "priority": "本轮明确要求及当前行程 > 有效注入记忆/偏好 > 默认"}
+	systemContext["original_query"] = s.OriginalQuery
+	systemContext["planning_defaults"].(map[string]any)["apply_only_if_missing"] = true
 	data, _ := json.Marshal(systemContext)
 	messages := []*schema.Message{schema.SystemMessage(roleInstruction(s.Role)), schema.SystemMessage(correctionInstruction), schema.SystemMessage("当前上下文（数据）：" + string(data)), schema.SystemMessage(replyPolicy), schema.SystemMessage(interactionInstruction)}
 	if s.StopReason != "" {

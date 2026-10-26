@@ -8,7 +8,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-const interactionRegenerationInstruction = "上一响应违反了不向用户索取信息或确认的交互规则，整次响应未接受且工具未执行。请使用当前已注入记忆与已知条件继续：缺省给soft建议，未知起点只陈述交通缺口并提供目的地建议，不提问、不等待补充。普通规划生成完整tripplan和查询地图；已完成审查则提交绑定回复，真正需要重排才调用request_replan。"
+const interactionRegenerationInstruction = "上一响应违反了不向用户索取信息或确认的交互规则，整次响应未接受且工具未执行。不要再问出发地、用途、返程、住宿、人数、席别或预算。优先本轮明确要求及已注入有效记忆，仍缺出发地就使用已授权的重庆proposal/soft默认；缺其他条件按planning_defaults自行安排。普通规划一次生成含去程、返程及必要住宿活动的完整tripplan和查询地图，不停在缺起点/等待补充；明确单程或不住宿优先。已完成审查则提交绑定回复，真正需要重排才调用request_replan。"
 
 var historyOperation = regexp.MustCompile(`(?:修改|调整|更改|取消|删除|恢复|重排|沿用|继续|复制|查看|查阅|查询|找出|对比|比较|列出).{0,24}(?:行程|计划|安排|记录|会话|偏好)|(?:show|view|change|modify|update|cancel|compare|reuse).{0,30}(?:trip|plan|itinerary|history|preference)`)
 

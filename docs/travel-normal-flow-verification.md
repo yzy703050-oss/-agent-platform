@@ -1,8 +1,10 @@
 # 差旅正常调用流程验收（2026-10-26）
 
+历史记录：本报告采用当时“缺起点保留未知”的旧验收规则。用户后续明确缺省重庆，该行为和最新测试结果以[缺条件直接安排验收](travel-planning-defaults-verification.md)为准；下方18样本及部署记录保留为历史证据。
+
 基线为用户合并后的 main `2a4b3c6`，工作分支 `codex/travel-normal-flow`。按用户选择由当前代理连续实施、整体自审，未派子代理。正式依据为 OpenSpec 变更 `prevent-travel-followup-questions` 与 [实施计划](superpowers/plans/2026-10-25-travel-normal-flow.md)。
 
-当前代码的完整真实模型＋PostgreSQL验收 **18/18 自动与手工核对通过**；全量 Go/PostgreSQL 测试、vet、build 通过。最终回复零追问，主动历史读取、重复选择、审计未解释额外调用均为零。模型仍会产生错误提议，拒绝与修复成本均计入总数。
+当时版本的完整真实模型＋PostgreSQL验收 **18/18 自动与手工核对通过**；全量 Go/PostgreSQL 测试、vet、build 通过。最终回复零追问，主动历史读取、重复选择、审计未解释额外调用均为零。模型仍会产生错误提议，拒绝与修复成本均计入总数。
 
 | 场景 | 各次实际模型调用 | 结果 |
 |---|---|---|
