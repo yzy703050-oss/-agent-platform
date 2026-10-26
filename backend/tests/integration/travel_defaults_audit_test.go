@@ -11,7 +11,7 @@ import (
 
 func defaultPlanningFailures(s perfSample, tomorrow string) []string {
 	failures := []string{}
-	if s.StageCalls["agent:trip_review"] == 0 {
+	if s.StageCalls["agent:trip_review"] == 0 && s.StageCalls["agent:trip_summary"] == 0 {
 		failures = append(failures, "default_plan_missing_verify")
 	}
 	if len(s.Plans) != 1 {

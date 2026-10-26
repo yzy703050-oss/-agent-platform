@@ -38,13 +38,18 @@ func (f *sourceFlow) contextTools(s FlowState) ([]*schema.ToolInfo, error) {
 	return f.registry.Profile(profileForState(s, role))
 }
 func profileForState(s FlowState, role string) traveltools.ProfileRequest {
+	if s.StopReason != "" {
+		return traveltools.ProfileRequest{Role: "summary"}
+	}
 	if role == "summary" && s.StopReason == "" {
 		role = "main"
 	}
 	replanRequired := role == "verifier" && slices.ContainsFunc(s.LastBatchResults, func(result pm.TravelToolResult) bool {
 		return result.Error != nil && result.Error.Code == "REPLAN_REQUIRED"
 	})
-	return traveltools.ProfileRequest{Role: role, NewPlanningRequest: role == "main" && freshPlanningRequest(s.OriginalQuery), PlanContextComplete: role == "main" && s.Planning && len(s.Plans) > 0, ReplanRequired: replanRequired, PolicyObserved: s.Policy != nil && slices.Contains([]string{"ok", "partial", "no_knowledge"}, s.Policy.Status), AllowedTripIDs: s.planIDs(), RetryQueries: s.RetryQueries}
+	planningRole := role == "main" || role == "planning_summary"
+	complete := len(s.Plans) > 0 && (role == "planning_summary" || role == "main" && s.Planning)
+	return traveltools.ProfileRequest{Role: role, NewPlanningRequest: planningRole && freshPlanningRequest(s.OriginalQuery), PlanContextComplete: complete, ReplanRequired: replanRequired, PolicyObserved: s.Policy != nil && slices.Contains([]string{"ok", "partial", "no_knowledge"}, s.Policy.Status), AllowedTripIDs: s.planIDs(), RetryQueries: s.RetryQueries}
 }
 
 func (f *sourceFlow) checkContextBudget(s FlowState, messages []*schema.Message) error {

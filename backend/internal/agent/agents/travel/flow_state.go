@@ -15,43 +15,45 @@ import (
 // FlowState belongs to this Travel execution, not to the platform Run or a
 // business TripPlan. Every field needed by the next decision is serializable.
 type FlowState struct {
-	HardStayNights       map[string]map[string]int `json:"hard_stay_nights,omitempty"`
-	LastBatchCalls       []traveltools.NativeCall  `json:"last_batch_calls,omitempty"`
-	LastBatchResults     []pm.TravelToolResult     `json:"last_batch_results,omitempty"`
-	FinalText            string                    `json:"final_text,omitempty"`
-	AuxiliaryErrors      []string                  `json:"auxiliary_errors,omitempty"`
-	RefreshedPlans       map[string]bool           `json:"refreshed_plans,omitempty"`
-	ExternalQueryKeys    []string                  `json:"external_query_keys,omitempty"`
-	PolicyUserContext    pm.TripConditions         `json:"policy_user_context,omitempty"`
-	HistoryInitialized   bool                      `json:"history_initialized"`
-	PreferenceMaintained bool                      `json:"preference_maintained"`
-	HistorySummary       string                    `json:"history_summary,omitempty"`
-	SummarySourceRuns    []string                  `json:"summary_source_runs,omitempty"`
-	SummaryVersion       int64                     `json:"summary_version,omitempty"`
-	PreparedModelKey     int                       `json:"prepared_model_key"`
-	PreparedMessages     []*schema.Message         `json:"prepared_messages,omitempty"`
-	PlanningIntent       bool                      `json:"planning_intent"`
-	Version              int                       `json:"version"`
-	Phase                string                    `json:"phase"`
-	Role                 string                    `json:"role"`
-	OriginalQuery        string                    `json:"original_query"`
-	Planning             bool                      `json:"planning_started"`
-	PlanningRounds       int                       `json:"planning_rounds_used"`
-	ActiveNanos          int64                     `json:"active_nanos"`
-	StopReason           string                    `json:"stop_reason,omitempty"`
-	ReviewFingerprint    string                    `json:"review_fingerprint,omitempty"`
-	UnchangedReviews     int                       `json:"unchanged_reviews"`
-	Plans                map[string]pm.TripResult  `json:"plans"`
-	Jobs                 []traveltools.QueryJob    `json:"query_jobs"`
-	Results              []pm.TravelToolResult     `json:"results"`
-	RawResults           []json.RawMessage         `json:"raw_results"`
-	PreviousRoundSummary string                    `json:"previous_round_summary"`
-	AdjustmentHistory    []json.RawMessage         `json:"adjustment_history"`
-	Policy               *pm.SourcePolicyContext   `json:"policy_context,omitempty"`
-	Preferences          map[string]string         `json:"preferences"`
-	RetryQueries         []pm.TravelQuery          `json:"retry_queries"`
-	BlockedEvidence      []pm.TravelCandidateRef   `json:"blocked_evidence"`
-	GenerationFailures   int                       `json:"generation_failures"`
+	MainUsed               bool                      `json:"main_used"`
+	PolicyContinuationUsed bool                      `json:"policy_continuation_used"`
+	HardStayNights         map[string]map[string]int `json:"hard_stay_nights,omitempty"`
+	LastBatchCalls         []traveltools.NativeCall  `json:"last_batch_calls,omitempty"`
+	LastBatchResults       []pm.TravelToolResult     `json:"last_batch_results,omitempty"`
+	FinalText              string                    `json:"final_text,omitempty"`
+	AuxiliaryErrors        []string                  `json:"auxiliary_errors,omitempty"`
+	RefreshedPlans         map[string]bool           `json:"refreshed_plans,omitempty"`
+	ExternalQueryKeys      []string                  `json:"external_query_keys,omitempty"`
+	PolicyUserContext      pm.TripConditions         `json:"policy_user_context,omitempty"`
+	HistoryInitialized     bool                      `json:"history_initialized"`
+	PreferenceMaintained   bool                      `json:"preference_maintained"`
+	HistorySummary         string                    `json:"history_summary,omitempty"`
+	SummarySourceRuns      []string                  `json:"summary_source_runs,omitempty"`
+	SummaryVersion         int64                     `json:"summary_version,omitempty"`
+	PreparedModelKey       int                       `json:"prepared_model_key"`
+	PreparedMessages       []*schema.Message         `json:"prepared_messages,omitempty"`
+	PlanningIntent         bool                      `json:"planning_intent"`
+	Version                int                       `json:"version"`
+	Phase                  string                    `json:"phase"`
+	Role                   string                    `json:"role"`
+	OriginalQuery          string                    `json:"original_query"`
+	Planning               bool                      `json:"planning_started"`
+	PlanningRounds         int                       `json:"planning_rounds_used"`
+	ActiveNanos            int64                     `json:"active_nanos"`
+	StopReason             string                    `json:"stop_reason,omitempty"`
+	ReviewFingerprint      string                    `json:"review_fingerprint,omitempty"`
+	UnchangedReviews       int                       `json:"unchanged_reviews"`
+	Plans                  map[string]pm.TripResult  `json:"plans"`
+	Jobs                   []traveltools.QueryJob    `json:"query_jobs"`
+	Results                []pm.TravelToolResult     `json:"results"`
+	RawResults             []json.RawMessage         `json:"raw_results"`
+	PreviousRoundSummary   string                    `json:"previous_round_summary"`
+	AdjustmentHistory      []json.RawMessage         `json:"adjustment_history"`
+	Policy                 *pm.SourcePolicyContext   `json:"policy_context,omitempty"`
+	Preferences            map[string]string         `json:"preferences"`
+	RetryQueries           []pm.TravelQuery          `json:"retry_queries"`
+	BlockedEvidence        []pm.TravelCandidateRef   `json:"blocked_evidence"`
+	GenerationFailures     int                       `json:"generation_failures"`
 }
 
 // Snapshot structured user hard nights once per plan in this request. A
@@ -81,23 +83,20 @@ func (s *FlowState) observeHardStay(p pm.TripPlan) {
 }
 
 func (s FlowState) DecideRole() string {
+	if len(s.Results) == 0 && !s.MainUsed {
+		return "main"
+	}
 	if len(s.Plans) > 0 {
-		role := "verifier"
-		for _, result := range s.Results {
-			if result.Name == "request_replan" && result.Status == "ok" {
-				role = "main"
-			}
-			if result.Name == "write_trip" && (result.Status == "completed" || result.Status == "partial") && result.TripPlanID != "" {
-				role = "verifier"
-			}
-		}
-		if len(s.Results) == 0 {
+		return "planning_summary"
+	}
+	if len(s.Results) > 0 && !s.PolicyContinuationUsed && s.Policy != nil && slices.Contains([]string{"ok", "partial", "no_knowledge"}, s.Policy.Status) && (s.Planning || s.PlanningIntent) {
+		last := s.Results[len(s.Results)-1]
+		if last.Name == "query_policy" && slices.Contains([]string{"ok", "partial"}, last.Status) {
 			return "main"
 		}
-		return role
 	}
 	if len(s.Results) == 0 || s.Planning || s.PlanningIntent {
-		return "main"
+		return "planning_summary"
 	}
 	return "summary"
 }

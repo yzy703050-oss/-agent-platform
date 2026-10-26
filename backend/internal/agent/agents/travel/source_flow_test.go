@@ -33,18 +33,20 @@ func TestTravelSourceFlow(t *testing.T) {
 			t.Fatal("lookup must hand to Summary")
 		}
 		s.Planning = true
+		s.MainUsed = true
+		s.Policy = &pm.SourcePolicyContext{Status: "ok"}
 		s.Results = append(s.Results, pm.TravelToolResult{Name: "query_policy", Status: "partial"})
 		if s.DecideRole() != "main" {
 			t.Fatal("policy observation must continue Main planning")
 		}
 		s.Plans = map[string]pm.TripResult{"p": {Plan: pm.TripPlan{ID: "p"}}}
 		s.Results = append(s.Results, pm.TravelToolResult{Name: "write_trip", Status: "partial", TripPlanID: "p"})
-		if s.DecideRole() != "verifier" {
-			t.Fatal("saved plan must hand to Verifier")
+		if s.DecideRole() != "planning_summary" {
+			t.Fatal("saved plan must hand to planning Summary")
 		}
 		s.Results = append(s.Results, pm.TravelToolResult{Name: "request_replan", Status: "ok", TripPlanIDs: []string{"p"}, Reason: "遗漏返程"})
-		if s.DecideRole() != "main" {
-			t.Fatal("global repair must return to Main")
+		if s.DecideRole() != "planning_summary" {
+			t.Fatal("global repair must stay with planning Summary")
 		}
 	})
 	t.Run("no_progress_ignores_receipts_and_prose_but_resets_on_real_change", func(t *testing.T) {

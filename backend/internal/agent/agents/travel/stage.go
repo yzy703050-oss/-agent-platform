@@ -16,6 +16,9 @@ func modelStage(ctx context.Context) string {
 	if stage, ok := ctx.Value(modelStageKey{}).(string); ok {
 		return stage
 	}
+	return flowModelStage(ctx)
+}
+func flowModelStage(ctx context.Context) string {
 	if raw, ok := adk.GetSessionValue(ctx, flowKey); ok {
 		if text, ok := raw.(string); ok {
 			var s struct {
@@ -27,6 +30,8 @@ func modelStage(ctx context.Context) string {
 					return "agent:trip_review"
 				case "summary":
 					return "agent:summary"
+				case "planning_summary":
+					return "agent:trip_summary"
 				}
 			}
 		}

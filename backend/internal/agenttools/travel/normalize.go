@@ -30,7 +30,7 @@ func NormalizeNativeArguments(name string, data json.RawMessage, timezone, role 
 		if plan, ok := root["tripplan"].(map[string]any); ok {
 			if _, exists := plan["operation"]; !exists {
 				op := "propose"
-				if role == "verifier" {
+				if role == "verifier" || role == "planning_summary" {
 					op = "select"
 				}
 				plan["operation"] = op

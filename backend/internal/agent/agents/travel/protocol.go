@@ -62,7 +62,19 @@ func withRecoveryInstruction(messages []*schema.Message, instruction string) []*
 }
 func generateSourceTurn(ctx context.Context, inner em.BaseChatModel, input []*schema.Message, flow *sourceFlow, opts ...em.Option) (*schema.Message, []*schema.Message, error) {
 	for {
-		response, err := inner.Generate(ctx, input, opts...)
+		generationOpts := opts
+		generationCtx := ctx
+		if flow != nil {
+			var tools []*schema.ToolInfo
+			var err error
+			input, tools, err = flow.prepareGeneration(ctx, input)
+			if err != nil {
+				return nil, input, err
+			}
+			generationOpts = append(append([]em.Option(nil), opts...), em.WithTools(tools))
+			generationCtx = withModelStage(ctx, flowModelStage(ctx))
+		}
+		response, err := inner.Generate(generationCtx, input, generationOpts...)
 		if err != nil {
 			return response, input, err
 		}
@@ -81,7 +93,7 @@ func generateSourceTurn(ctx context.Context, inner em.BaseChatModel, input []*sc
 			}
 		}
 		s.GenerationFailures++
-		if len(s.Plans) > 0 && s.Role == "verifier" {
+		if len(s.Plans) > 0 && (s.Role == "verifier" || s.Role == "planning_summary") {
 			s.ObserveReview()
 		}
 		if s.GenerationFailures > 2 {
@@ -131,4 +143,40 @@ func generateSourceTurn(ctx context.Context, inner em.BaseChatModel, input []*sc
 			return nil, input, ErrSourceModelProtocol
 		}
 	}
+}
+
+func (f *sourceFlow) prepareGeneration(ctx context.Context, input []*schema.Message) ([]*schema.Message, []*schema.ToolInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s, err := f.load(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if s.Role == "main" {
+		if s.MainUsed {
+			if s.DecideRole() == "main" && !s.PolicyContinuationUsed {
+				s.PolicyContinuationUsed = true
+			} else {
+				s.Role = "planning_summary"
+				input = append([]*schema.Message(nil), input...)
+				if len(input) > 0 {
+					input[0] = schema.SystemMessage(reviewInstruction)
+				}
+				at := 0
+				for at < len(input) && input[at].Role == schema.System {
+					at++
+				}
+				out := append([]*schema.Message(nil), input[:at]...)
+				out = append(out, schema.SystemMessage(planningSummaryInstruction))
+				input = append(out, input[at:]...)
+				s.PreparedMessages = input
+			}
+		}
+		s.MainUsed = true
+	}
+	if err = f.save(ctx, s); err != nil {
+		return nil, nil, err
+	}
+	tools, err := f.registry.Profile(profileForState(s, s.Role))
+	return input, tools, err
 }

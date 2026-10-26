@@ -35,10 +35,10 @@ func reviewRepairError(role string, cmd model.TripCommand, err error) error {
 	}
 	baseMessage := strings.SplitN(rule.Message, ":", 2)[0]
 	hardCondition := rule.Code == "INVALID_ARGUMENTS" && slices.Contains([]string{"cannot soften hard task condition", "cannot soften hard global condition", "cannot soften inherited hard condition"}, baseMessage)
-	if role == "main" && hardCondition {
+	if (role == "main" || role == "planning_summary") && hardCondition {
 		return ruleError(rule.Code, rule.Message+"；保留已有硬条件强度，删去未授权的hard→soft标注；不为重排复制并重标整套元数据，只改实际受影响且已获准调整的字段。", rule.Details)
 	}
-	if role == "main" && cmd.RouteTasks != nil && rule.Code == "INVALID_ARGUMENTS" {
+	if (role == "main" || role == "planning_summary") && cmd.RouteTasks != nil && rule.Code == "INVALID_ARGUMENTS" {
 		hint := ""
 		switch rule.Message {
 		case "route task identity unknown or repeated":

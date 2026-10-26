@@ -68,11 +68,8 @@ func (m *sourceScenarioModel) Generate(ctx context.Context, messages []*schema.M
 		return scenarioCall(fmt.Sprintf("unchanged-%d", m.calls), "write_trip", map[string]any{"request_kind": "planning", "tripplan": map[string]any{"operation": "amend", "trip_plan_id": review.Tripplan["trip_plan_id"], "expected_revision": review.Tripplan["revision"]}}), nil
 	}
 	if m.mode == "replan" && m.calls == 2 {
-		return scenarioCall("replan", "request_replan", map[string]any{"request_kind": "planning", "trip_plan_ids": []any{review.Tripplan["trip_plan_id"]}, "reason": "缺少目的地活动，需主规划补全。"}), nil
-	}
-	if m.mode == "replan" && m.calls == 3 {
-		if messages[0].Content != instruction || len(review.Replan) == 0 {
-			return nil, fmt.Errorf("replan did not hand Main original context")
+		if messages[0].Content != reviewInstruction {
+			return nil, fmt.Errorf("repair did not hand planning Summary original context")
 		}
 		task := review.Tripplan["tasks"].([]any)[0].(map[string]any)
 		return scenarioCall("add-content", "write_trip", map[string]any{"request_kind": "planning", "tripplan": map[string]any{"operation": "amend", "trip_plan_id": review.Tripplan["trip_plan_id"], "expected_revision": review.Tripplan["revision"], "tasks": []any{map[string]any{"task_id": task["id"], "components": []string{"content"}, "content": []any{map[string]any{"purpose": "会议", "description": "抵达后参加会议", "date": "2026-10-26", "time": "16:00", "source": "proposal", "strength": "soft"}}}}}}), nil
@@ -114,7 +111,7 @@ func TestTravelSourceFlowScenarios(t *testing.T) {
 	for _, tc := range []struct {
 		mode                    string
 		models, writes, queries int
-	}{{"lookup", 2, 0, 1}, {"lookup_followup", 3, 0, 2}, {"policy", 3, 2, 1}, {"replan", 4, 3, 1}, {"multiple", 2, 4, 2}, {"no_progress", 3, 3, 1}, {"expiry", 3, 2, 2}, {"expiry_again", 3, 1, 2}, {"expiry_before_review", 2, 2, 2}, {"protocol_no_progress", 3, 1, 1}} {
+	}{{"lookup", 2, 0, 1}, {"lookup_followup", 3, 0, 2}, {"policy", 3, 2, 1}, {"replan", 3, 3, 1}, {"multiple", 2, 4, 2}, {"no_progress", 3, 3, 1}, {"expiry", 3, 2, 2}, {"expiry_again", 3, 1, 2}, {"expiry_before_review", 2, 2, 2}, {"protocol_no_progress", 3, 1, 1}} {
 		t.Run(tc.mode, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()

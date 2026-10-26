@@ -19,6 +19,9 @@ var TripArgumentHelp string
 // another execution's schemas. Snapshots are exported from the frozen source
 // ToolDefinition.schema, including its original descriptions.
 func SourceProfile(profile string) ([]*schema.ToolInfo, error) {
+	if profile == "planning_summary" || profile == "planning_recovery" {
+		return planningSummaryProfile(profile == "planning_recovery")
+	}
 	var profiles map[string][]struct {
 		Function struct {
 			Name        string             `json:"name"`

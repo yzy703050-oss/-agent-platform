@@ -115,7 +115,7 @@ func TestTravelInteractionModel(t *testing.T) {
 		{name: "multicity", prompt: fmt.Sprintf("安排三段旅游：%s上海到杭州，%s杭州到南京，%s南京返回上海。杭州%s入住%s退房，南京%s入住%s退房，各一晚。首日14:00西湖游览，次日14:00南京博物院游览，优先高铁二等座，选择三段车次及两处酒店并保存完整计划。", d[0], d[1], d[2], d[0], d[1], d[1], d[2]), tasks: 3, hotels: 2, repeats: repeats},
 		{name: "query", prompt: fmt.Sprintf("只查询%s上海到杭州的高铁及杭州当天天气，不创建行程。", d[0]), lookup: true, repeats: repeats},
 		{name: "policy", prompt: fmt.Sprintf("安排%s上海到杭州单程出差，不返程不住宿，不安排活动，优先高铁二等座，每段硬预算500元。查询适用企业差旅政策，选择车次并保存。", d[0]), tasks: 1, repeats: 1},
-		{name: "replan", prompt: fmt.Sprintf("安排%s上海去杭州旅游，%s返回上海，杭州住一晚。优先直达，如果直达没有候选则改为经南京中转去杭州，保留返程和杭州游玩，出发日期可以调整。选择车次及酒店并保存完整可行安排。", d[0], d[2]), tasks: 3, hotels: 1, replan: true, repeats: 1},
+		{name: "replan", prompt: fmt.Sprintf("安排%s上海去杭州旅游，%s返回上海，杭州住一晚。优先直达，如果直达没有候选则改为经南京中转去杭州，保留返程和杭州游玩，出发日期可以调整。选择车次及酒店并保存完整可行安排。", d[0], d[2]), tasks: 3, hotels: 1, replan: true, repeats: repeats},
 		{name: "hotel_gap", prompt: fmt.Sprintf("安排%s上海到杭州旅游，%s返回上海，在杭州住一晚，酒店每晚硬预算400元，不安排固定活动，选择高铁和酒店并保存可用安排。", d[0], d[1]), tasks: 2, hotels: 1, hotelGap: true, repeats: 1},
 	}
 	report := interactionReport{GeneratedAt: time.Now().UTC(), Source: "real model + real PostgreSQL, fixed supplier/policy fixtures (not disclosed to model)", Limitations: []string{"Does not prove live supplier availability or RAG online quality.", "Small repeated sample; reports observed two-call proportion, not a strict universal bound.", "Policy, maintenance, compaction and retries remain in total actual calls; policy is separate from normal planning target.", "Hotel fixture provides fixed city stay quote; negative case intentionally omits quote and inventory."}, Samples: []interactionSample{}}
@@ -280,6 +280,9 @@ func runInteractionModelCase(t *testing.T, c interactionCase, repeat int) intera
 	if s.Audit.UnexplainedExtraCalls > 0 {
 		fail("unexplained_model_calls")
 	}
+	if s.Audit.MainReentries > 0 {
+		fail("main_reentered_without_policy")
+	}
 	if s.ModelCalls != len(s.ModelInputs) {
 		fail("actual_model_call_input_count_mismatch")
 	}
@@ -400,10 +403,20 @@ func runInteractionModelCase(t *testing.T, c interactionCase, repeat int) intera
 	if c.replan && s.Audit.ExtraReasons["replan"] == 0 {
 		fail("global_replan_not_observed")
 	}
+	if c.replan && !validReplanCallShape(s) {
+		fail("replan_not_main_once_summary_twice")
+	}
 	s.SemanticSuccess = len(s.FailureReasons) == 0
-	s.EfficiencySuccess = s.Audit.HistoryReads == 0 && s.Audit.DuplicateSelections == 0 && s.Audit.UnexplainedExtraCalls == 0
+	s.EfficiencySuccess = s.Audit.HistoryReads == 0 && s.Audit.DuplicateSelections == 0 && s.Audit.UnexplainedExtraCalls == 0 && s.Audit.MainReentries == 0
 	s.Success = s.SemanticSuccess && s.EfficiencySuccess
 	return s
+}
+
+func validReplanCallShape(s interactionSample) bool {
+	// The normal route needs repair + selection. A rejected model proposal
+	// consumes a real additional summary recovery, never another Main.
+	maxSummary := 2 + s.RootRejections + s.Audit.ExtraReasons["interaction_regeneration"]
+	return s.Audit.MainCalls == 1 && s.Audit.SummaryCalls >= 2 && s.Audit.SummaryCalls <= maxSummary && s.ModelCalls == 1+s.Audit.SummaryCalls
 }
 
 func hasItineraryActivity(p pm.TripPlan, city, keyword, date, clock string) bool {

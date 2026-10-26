@@ -80,7 +80,7 @@ func NewRegistry(cfg NativeConfig) (*Registry, error) {
 		cfg.Now = time.Now
 	}
 	r := &Registry{cfg: cfg, validators: map[string]map[string]*js.Resolved{}, tripValidators: map[string]map[string]*js.Resolved{}}
-	for _, profile := range []string{"main", "pre_policy", "review", "review_retry", "summary"} {
+	for _, profile := range []string{"main", "pre_policy", "review", "review_retry", "summary", "planning_summary", "planning_recovery"} {
 		infos, err := SourceProfile(profile)
 		if err != nil {
 			return nil, err
@@ -154,6 +154,11 @@ func sourceProfileName(request ProfileRequest) (string, error) {
 		return "review", nil
 	case "summary":
 		return "summary", nil
+	case "planning_summary":
+		if len(request.AllowedTripIDs) == 0 {
+			return "planning_recovery", nil
+		}
+		return "planning_summary", nil
 	default:
 		return "", fmt.Errorf("unknown source role: %s", request.Role)
 	}
@@ -164,6 +169,11 @@ func (r *Registry) Profile(request ProfileRequest) ([]*schema.ToolInfo, error) {
 		return nil, err
 	}
 	tools, err := SourceProfile(name)
+	if err == nil && request.Role == "planning_summary" {
+		tools = slices.DeleteFunc(tools, func(info *schema.ToolInfo) bool {
+			return info.Name == "query" && len(request.RetryQueries) == 0 || info.Name == "query_policy" && request.PolicyObserved || info.Name == "read" && (request.PlanContextComplete || request.NewPlanningRequest)
+		})
+	}
 	if err == nil && request.Role == "verifier" && request.ReplanRequired {
 		tools = slices.DeleteFunc(tools, func(info *schema.ToolInfo) bool { return info.Name != "request_replan" })
 	}
@@ -191,10 +201,13 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 			return batch, ruleError("DUPLICATE_CALL_ID", "duplicate_call_id", nil)
 		}
 		ids[call.ID] = true
-		if request.Role == "main" && request.NewPlanningRequest && call.Name == "read" {
-			return batch, ruleError("HISTORY_NOT_REQUESTED", "新规划的长期记忆已直接注入，不读取历史补条件；使用已知条件和soft默认生成tripplan及查询地图，未知起点只陈述交通缺口并继续目的地建议。", nil)
+		if request.Role == "planning_summary" && call.Name == "query_policy" && request.PolicyObserved {
+			return batch, ruleError("CONTEXT_ALREADY_PROVIDED", "适用政策已注入，不重复检索。", nil)
 		}
-		if request.Role == "main" && request.PlanContextComplete && call.Name == "read" {
+		if (request.Role == "main" || request.Role == "planning_summary") && request.NewPlanningRequest && call.Name == "read" {
+			return batch, ruleError("HISTORY_NOT_REQUESTED", "新规划的长期记忆已直接注入，不读取历史补条件；优先使用已知起点，仍缺起点则按授权默认重庆，以proposal/soft生成完整tripplan及查询地图，不追问。", nil)
+		}
+		if (request.Role == "main" || request.Role == "planning_summary") && request.PlanContextComplete && call.Name == "read" {
 			return batch, ruleError("CONTEXT_ALREADY_PROVIDED", "当前完整计划、候选和修订已注入tripplan上下文，直接修改，不重复读取历史或当前计划。", nil)
 		}
 		if request.Role == "verifier" && request.ReplanRequired && call.Name != "request_replan" {
@@ -262,6 +275,14 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 			if err != nil {
 				return batch, err
 			}
+			if request.Role == "planning_summary" {
+				if cmd.Operation == "propose" && hasWrite {
+					return batch, ruleError("DUPLICATE_TRIP_WRITE", "首次恢复每批仅提交一个当前请求的propose。", nil)
+				}
+				if len(request.AllowedTripIDs) == 0 && cmd.Operation != "propose" || len(request.AllowedTripIDs) > 0 && (cmd.Operation == "propose" || !slices.Contains(request.AllowedTripIDs, cmd.PlanID)) {
+					return batch, ruleError("REVIEW_TRIP_MISMATCH", "规划总结只修复当前允许的行程；尚无行程时仅恢复本请求propose，不另建替代行程。", nil)
+				}
+			}
 			if request.Role == "verifier" && !slices.Contains(request.AllowedTripIDs, cmd.PlanID) {
 				return batch, ruleError("REVIEW_TRIP_MISMATCH", "review_trip_mismatch", nil)
 			}
@@ -324,7 +345,7 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 				if err != nil {
 					return batch, err
 				}
-				if request.Role == "verifier" && !slices.ContainsFunc(request.RetryQueries, func(original model.TravelQuery) bool { return equalRetryQuery(q, original) }) {
+				if (request.Role == "verifier" || request.Role == "planning_summary") && !slices.ContainsFunc(request.RetryQueries, func(original model.TravelQuery) bool { return equalRetryQuery(q, original) }) {
 					return batch, ruleError("REVIEW_QUERY_SCOPE", "review_query_scope", nil)
 				}
 				prepared.Queries = append(prepared.Queries, q)

@@ -1,0 +1,3268 @@
+{
+  "generated_at": "2026-10-26T16:08:52.5474511+08:00",
+  "provider_source": "real model + real PostgreSQL, fixed supplier/policy fixtures (not disclosed to model)",
+  "limitations": [
+    "Does not prove live supplier availability or RAG online quality.",
+    "Small repeated sample; reports observed two-call proportion, not a strict universal bound.",
+    "Policy, maintenance, compaction and retries remain in total actual calls; policy is separate from normal planning target.",
+    "Hotel fixture provides fixed city stay quote; negative case intentionally omits quote and inventory."
+  ],
+  "fingerprint": "804bc6ea36301f8f6386175e4d889a3f82b709515445d49ffaf8a9924474880f",
+  "batches": [
+    {
+      "name": "run1",
+      "raw": "G:\\简历项目\\小豆包\\.cache\\reports\\travel-summary-2026-10-26-run1.json",
+      "samples": 21,
+      "original_passed": 19,
+      "failures": [
+        {
+          "case": "replan",
+          "repeat": 1,
+          "calls": 4,
+          "stages": {
+            "agent:main": 1,
+            "agent:trip_summary": 3
+          },
+          "reasons": [
+            "replan_not_main_once_summary_twice"
+          ],
+          "error": null
+        },
+        {
+          "case": "replan",
+          "repeat": 3,
+          "calls": 4,
+          "stages": {
+            "agent:main": 1,
+            "agent:trip_summary": 3
+          },
+          "reasons": [
+            "execution_failed",
+            "no_final_reply",
+            "train_not_selected",
+            "train_not_selected",
+            "train_not_selected",
+            "hotel_selection_incomplete",
+            "plan_not_complete",
+            "replan_not_main_once_summary_twice"
+          ],
+          "error": "[NodeRunError] 本次旅程内容超过上下文预算，已停止本轮处理。请将旅程分段规划，例如先安排第一段，再处理后续路段。\n------------------------\nnode path: [node_1, ChatModel]"
+        }
+      ]
+    },
+    {
+      "name": "replan2",
+      "raw": "G:\\简历项目\\小豆包\\.cache\\reports\\travel-summary-2026-10-26-replan2.json",
+      "samples": 3,
+      "original_passed": 3,
+      "failures": []
+    },
+    {
+      "name": "final",
+      "raw": "G:\\简历项目\\小豆包\\.cache\\reports\\travel-summary-2026-10-26-final.json",
+      "samples": 21,
+      "original_passed": 20,
+      "failures": [
+        {
+          "case": "replan",
+          "repeat": 1,
+          "calls": 4,
+          "stages": {
+            "agent:main": 1,
+            "agent:trip_summary": 3
+          },
+          "reasons": [
+            "replan_not_main_once_summary_twice"
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "name": "final2",
+      "raw": "G:\\简历项目\\小豆包\\.cache\\reports\\travel-summary-2026-10-26-final2.json",
+      "samples": 21,
+      "original_passed": 20,
+      "failures": [
+        {
+          "case": "replan",
+          "repeat": 2,
+          "calls": 3,
+          "stages": {
+            "agent:main": 1,
+            "agent:trip_summary": 2
+          },
+          "reasons": [
+            "route_incomplete",
+            "train_not_selected",
+            "train_not_selected",
+            "uncovered_stay_night",
+            "hotel_selection_incomplete",
+            "plan_not_complete",
+            "requested_route_changed",
+            "requested_route_changed"
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "name": "replan3",
+      "raw": "G:\\简历项目\\小豆包\\.cache\\reports\\travel-summary-2026-10-26-replan3.json",
+      "samples": 3,
+      "original_passed": 3,
+      "failures": []
+    },
+    {
+      "name": "release",
+      "raw": "G:\\简历项目\\小豆包\\.cache\\reports\\travel-summary-2026-10-26-release.json",
+      "samples": 21,
+      "original_passed": 21,
+      "failures": []
+    }
+  ],
+  "samples": [
+    {
+      "case": "sparse",
+      "repeat": 1,
+      "prompt": "帮我规划明天去上海的旅途",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 10424.927,
+      "model_ms": 9269.982,
+      "input_tokens": 20062,
+      "output_tokens": 1724,
+      "total_tokens": 21786,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "end_date": "2026-10-29",
+            "passengers": 1,
+            "start_date": "2026-10-27"
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "重庆",
+              "destination": "上海",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-29",
+              "nights": 2,
+              "nights_strength": "soft",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "cf47fee3-e77b-4798-81f1-9ca624f6faa4",
+                  "result_revision": 1,
+                  "candidate_id": "rail_aed526a6f1ce_0"
+                },
+                "candidate": {
+                  "id": "rail_aed526a6f1ce_0",
+                  "name": "G1001",
+                  "origin": "重庆",
+                  "destination": "上海",
+                  "departure_at": "2026-10-27T08:00:00+08:00",
+                  "arrival_at": "2026-10-27T18:00:00+08:00",
+                  "price_fen": 80000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "dc1c552a-5f80-4241-9759-cba7f14ad3d6",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_4906a49adc5c"
+                },
+                "candidate": {
+                  "id": "hotel_4906a49adc5c",
+                  "name": "上海商务酒店",
+                  "price_fen": 60000,
+                  "city": "上海",
+                  "address": "上海商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_4dccc99eba714f1eabc24ad7f876b808",
+                  "purpose": "上海城市观光",
+                  "description": "抵达上海后傍晚在外滩、南京路一带散步看夜景，适应行程节奏",
+                  "date": "2026-10-27",
+                  "time": "晚上",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_ca46888039fa45dfa44d50966563819e",
+                  "purpose": "上海经典景点游览",
+                  "description": "全天游览豫园、城隍庙、人民广场等市区经典景点",
+                  "date": "2026-10-28",
+                  "time": "上午",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_bec81f72c8234e7ab946d47ec8cc983f",
+                  "purpose": "上海滨江与博物馆游览",
+                  "description": "下午参观上海博物馆或沿徐汇滨江、武康路一带漫步",
+                  "date": "2026-10-28",
+                  "time": "下午",
+                  "source": "proposal",
+                  "strength": "soft"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "上海",
+              "destination": "重庆",
+              "purpose": "return",
+              "departure_date": "2026-10-29",
+              "departure_strength": "soft",
+              "departure_source": "proposal",
+              "requires_hotel": false,
+              "check_in": "2026-10-29",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "cce252e5-6fa5-4a12-b1ff-144d921ce2e8",
+                  "result_revision": 1,
+                  "candidate_id": "rail_552c34e52ad4_0"
+                },
+                "candidate": {
+                  "id": "rail_552c34e52ad4_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "重庆",
+                  "departure_at": "2026-10-29T08:00:00+08:00",
+                  "arrival_at": "2026-10-29T18:00:00+08:00",
+                  "price_fen": 80000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n重庆→上海：\nG1001，2026-10-27 08:00出发，2026-10-27 18:00抵达，二等座，800元。\n住宿：上海商务酒店，2026-10-27入住、2026-10-29退房；住宿报价600元。\n活动：2026-10-27 晚上 上海城市观光；抵达上海后傍晚在外滩、南京路一带散步看夜景，适应行程节奏。\n活动：2026-10-28 上午 上海经典景点游览；全天游览豫园、城隍庙、人民广场等市区经典景点。\n活动：2026-10-28 下午 上海滨江与博物馆游览；下午参观上海博物馆或沿徐汇滨江、武康路一带漫步。\n\n上海→重庆：\nG1001，2026-10-29 08:00出发，2026-10-29 18:00抵达，二等座，800元。\n\n交通小计：1600元（不含住宿）。\n\n按明天出发、约三天往返安排：去程重庆到上海高铁二等座，傍晚抵达后夜游外滩；上海住两晚，次日全天市区经典景点；返程日上午从上海回重庆。酒店为商务区报价，未实际预订出票。"
+    },
+    {
+      "case": "sparse",
+      "repeat": 2,
+      "prompt": "帮我规划明天去上海的旅途",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 8068.246,
+      "model_ms": 7462.231,
+      "input_tokens": 20036,
+      "output_tokens": 1615,
+      "total_tokens": 21651,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "end_date": "2026-10-29",
+            "guests": 1,
+            "passengers": 1,
+            "start_date": "2026-10-27"
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "重庆",
+              "destination": "上海",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-29",
+              "nights": 2,
+              "nights_strength": "soft",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "3552d7d8-5a74-448d-8628-af998b20bbec",
+                  "result_revision": 1,
+                  "candidate_id": "rail_aed526a6f1ce_0"
+                },
+                "candidate": {
+                  "id": "rail_aed526a6f1ce_0",
+                  "name": "G1001",
+                  "origin": "重庆",
+                  "destination": "上海",
+                  "departure_at": "2026-10-27T08:00:00+08:00",
+                  "arrival_at": "2026-10-27T18:00:00+08:00",
+                  "price_fen": 80000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "874f9401-18e5-4f2e-bf2e-fb3c4f58ab44",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_4906a49adc5c"
+                },
+                "candidate": {
+                  "id": "hotel_4906a49adc5c",
+                  "name": "上海商务酒店",
+                  "price_fen": 60000,
+                  "city": "上海",
+                  "address": "上海商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_7749d669d3004984aa4a94cea2d6f105",
+                  "purpose": "外滩与南京路步行街夜游",
+                  "description": "抵达上海后傍晚前往外滩、南京路一带散步观景，感受城市夜景",
+                  "date": "2026-10-27",
+                  "time": "晚上",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_12f2ab8839414acf91370f326b70c0eb",
+                  "purpose": "上海城市经典景点游览",
+                  "description": "全天游览豫园、城隍庙、人民广场等市区经典景点，晚间可安排黄浦江畔休闲",
+                  "date": "2026-10-28",
+                  "time": "上午",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_d07d79758fdc45eb9cbdc692c6e05af2",
+                  "purpose": "市区景点续游",
+                  "description": "继续游览武康路、衡山路等街区或博物馆，午后返回酒店取行李前往车站",
+                  "date": "2026-10-28",
+                  "time": "下午",
+                  "source": "proposal",
+                  "strength": "soft"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "上海",
+              "destination": "重庆",
+              "purpose": "return",
+              "departure_date": "2026-10-29",
+              "departure_strength": "soft",
+              "departure_source": "proposal",
+              "requires_hotel": false,
+              "check_in": "2026-10-29",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "cb233829-38bb-4a98-8f49-042a4a5aa89e",
+                  "result_revision": 1,
+                  "candidate_id": "rail_552c34e52ad4_0"
+                },
+                "candidate": {
+                  "id": "rail_552c34e52ad4_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "重庆",
+                  "departure_at": "2026-10-29T08:00:00+08:00",
+                  "arrival_at": "2026-10-29T18:00:00+08:00",
+                  "price_fen": 80000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n重庆→上海：\nG1001，2026-10-27 08:00出发，2026-10-27 18:00抵达，二等座，800元。\n住宿：上海商务酒店，2026-10-27入住、2026-10-29退房；住宿报价600元。\n活动：2026-10-27 晚上 外滩与南京路步行街夜游；抵达上海后傍晚前往外滩、南京路一带散步观景，感受城市夜景。\n活动：2026-10-28 上午 上海城市经典景点游览；全天游览豫园、城隍庙、人民广场等市区经典景点，晚间可安排黄浦江畔休闲。\n活动：2026-10-28 下午 市区景点续游；继续游览武康路、衡山路等街区或博物馆，午后返回酒店取行李前往车站。\n\n上海→重庆：\nG1001，2026-10-29 08:00出发，2026-10-29 18:00抵达，二等座，800元。\n\n交通小计：1600元（不含住宿）。"
+    },
+    {
+      "case": "sparse",
+      "repeat": 3,
+      "prompt": "帮我规划明天去上海的旅途",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 8570.67,
+      "model_ms": 8097.259,
+      "input_tokens": 20071,
+      "output_tokens": 1676,
+      "total_tokens": 21747,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "guests": 1,
+            "passengers": 1
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "重庆",
+              "destination": "上海",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-29",
+              "nights": 2,
+              "nights_strength": "soft",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "5af5b110-bca1-4c9e-bbea-d8888bc5a621",
+                  "result_revision": 1,
+                  "candidate_id": "rail_aed526a6f1ce_0"
+                },
+                "candidate": {
+                  "id": "rail_aed526a6f1ce_0",
+                  "name": "G1001",
+                  "origin": "重庆",
+                  "destination": "上海",
+                  "departure_at": "2026-10-27T08:00:00+08:00",
+                  "arrival_at": "2026-10-27T18:00:00+08:00",
+                  "price_fen": 80000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "16f10f2d-14eb-47cf-a776-c7ba39dbc6bb",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_4906a49adc5c"
+                },
+                "candidate": {
+                  "id": "hotel_4906a49adc5c",
+                  "name": "上海商务酒店",
+                  "price_fen": 60000,
+                  "city": "上海",
+                  "address": "上海商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_33bb2272861f4c19afe5e57b53fd5ba5",
+                  "purpose": "抵达上海后晚间休闲游览",
+                  "description": "抵达上海后视实际到达时间，在外滩一带散步看夜景，不安排需预约的固定项目",
+                  "date": "2026-10-27",
+                  "time": "晚上",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_83a761ef056841409d8cf19693f5bf12",
+                  "purpose": "上海市区游览",
+                  "description": "白天游览人民广场—南京路步行街—豫园一带，感受老城与商业街区",
+                  "date": "2026-10-28",
+                  "time": "上午",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_f73c9a2250274729ae77c5f1e17a44a3",
+                  "purpose": "上海滨江与博物馆类游览",
+                  "description": "下午可前往陆家嘴滨江或上海博物馆等室内场馆，按当日开放情况自行安排",
+                  "date": "2026-10-28",
+                  "time": "下午",
+                  "source": "proposal",
+                  "strength": "soft"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "上海",
+              "destination": "重庆",
+              "purpose": "return",
+              "departure_date": "2026-10-29",
+              "departure_strength": "soft",
+              "departure_source": "proposal",
+              "requires_hotel": false,
+              "check_in": "2026-10-29",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "045e45a0-15ab-4388-b798-32f99dabab0b",
+                  "result_revision": 1,
+                  "candidate_id": "rail_552c34e52ad4_1"
+                },
+                "candidate": {
+                  "id": "rail_552c34e52ad4_1",
+                  "name": "G1002",
+                  "origin": "上海",
+                  "destination": "重庆",
+                  "departure_at": "2026-10-29T09:00:00+08:00",
+                  "arrival_at": "2026-10-29T19:00:00+08:00",
+                  "price_fen": 85000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n重庆→上海：\nG1001，2026-10-27 08:00出发，2026-10-27 18:00抵达，二等座，800元。\n住宿：上海商务酒店，2026-10-27入住、2026-10-29退房；住宿报价600元。\n活动：2026-10-27 晚上 抵达上海后晚间休闲游览；抵达上海后视实际到达时间，在外滩一带散步看夜景，不安排需预约的固定项目。\n活动：2026-10-28 上午 上海市区游览；白天游览人民广场—南京路步行街—豫园一带，感受老城与商业街区。\n活动：2026-10-28 下午 上海滨江与博物馆类游览；下午可前往陆家嘴滨江或上海博物馆等室内场馆，按当日开放情况自行安排。\n\n上海→重庆：\nG1002，2026-10-29 09:00出发，2026-10-29 19:00抵达，二等座，850元。\n\n交通小计：1650元（不含住宿）。"
+    },
+    {
+      "case": "explicit_defaults_override",
+      "repeat": 1,
+      "prompt": "安排2026-10-27上海到杭州单程旅游，2人，高铁一等座，不返程、不住宿，不安排活动。请选择车次并保存。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 5045.391,
+      "model_ms": 4633.173,
+      "input_tokens": 18619,
+      "output_tokens": 826,
+      "total_tokens": 19445,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "train": 1
+      },
+      "plans": [
+        {
+          "round_trip": false,
+          "status": "complete",
+          "conditions": {
+            "constraints": {
+              "seat_class": "一等座",
+              "train_kind": "high_speed"
+            },
+            "passengers": 2
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-27",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 2,
+              "train": {
+                "ref": {
+                  "query_id": "4878b583-73f4-4106-835c-2bd7a2f198b1",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "一等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，一等座，100元/人，2人。\n\n交通小计：200元（不含住宿）。\n\n已按单程、不住宿、不安排活动的要求保存上海到杭州的高铁一等座车次，两人合计票价以所选车次报价为准。"
+    },
+    {
+      "case": "memory_defaults",
+      "repeat": 1,
+      "prompt": "帮我规划明天去杭州的旅途，后天返回。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 8262.118,
+      "model_ms": 7755.879000000001,
+      "input_tokens": 20129,
+      "output_tokens": 1690,
+      "total_tokens": 21819,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "end_date": "2026-10-28",
+            "guests": 1,
+            "passengers": 1,
+            "start_date": "2026-10-27"
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "soft",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "c6db53e2-e290-44f6-977c-3ca3f1f9ba39",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "7393fa28-761b-4589-974e-7d5b34772750",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_24bcaa5afce44a4d89323c21d66d706a",
+                  "purpose": "西湖自然风光游览",
+                  "description": "抵达后下午游览西湖及周边湖滨景区，感受自然风景",
+                  "date": "2026-10-27",
+                  "time": "下午",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_f61f403c77c744f1bd81b408b7e2b2e1",
+                  "purpose": "西溪湿地游览",
+                  "description": "上午游览西溪湿地自然景观，午后返程",
+                  "date": "2026-10-28",
+                  "time": "上午",
+                  "source": "proposal",
+                  "strength": "soft"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "cdf40247-1793-415c-9274-3365fd3cb466",
+                  "result_revision": 1,
+                  "candidate_id": "rail_12d23dfb222a_1"
+                },
+                "candidate": {
+                  "id": "rail_12d23dfb222a_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；住宿报价300元。\n活动：2026-10-27 下午 西湖自然风光游览；抵达后下午游览西湖及周边湖滨景区，感受自然风景。\n活动：2026-10-28 上午 西溪湿地游览；上午游览西溪湿地自然景观，午后返程。\n\n杭州→上海：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n\n交通小计：250元（不含住宿）。\n\n已按明天出发、后天返回安排上海往返杭州：去程上午高铁抵达后下午游西湖，入住杭州商务酒店一晚，次日退房后上午游西溪湿地，午后高铁返沪。酒店仅提供地点与住宿总额，未核实具体房价、空房及入住规则，未实际预订或出票。"
+    },
+    {
+      "case": "memory_defaults",
+      "repeat": 2,
+      "prompt": "帮我规划明天去杭州的旅途，后天返回。",
+      "success": true,
+      "failures": null,
+      "calls": 3,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 2
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 2,
+        "main_reentries": 0,
+        "planning_model_calls": 3,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {
+          "amend": 1
+        }
+      },
+      "duration_ms": 10366.316,
+      "model_ms": 9898.082,
+      "input_tokens": 31243,
+      "output_tokens": 1967,
+      "total_tokens": 33210,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "end_date": "2026-10-28",
+            "guests": 1,
+            "passengers": 1,
+            "start_date": "2026-10-27"
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "soft",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "cc348571-4903-4be6-ae57-f0bda6c82ac1",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "91327390-7abd-4909-adb2-412413ca049a",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_b28ae97b1a274610aadb0a29237d56d6",
+                  "purpose": "西湖自然风景游览",
+                  "description": "抵达杭州后下午沿西湖湖滨、苏堤一带散步观景，感受湖光山色",
+                  "date": "2026-10-27",
+                  "time": "下午",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_20af36faf48d4fa793e9cc7ff7110072",
+                  "purpose": "西湖周边自然风光",
+                  "description": "上午继续在西湖西侧杨公堤、茅家埠一带游览自然景致",
+                  "date": "2026-10-28",
+                  "time": "上午",
+                  "source": "proposal",
+                  "strength": "soft"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "b613a2ed-958d-4f46-bda2-515cb6fa2d35",
+                  "result_revision": 1,
+                  "candidate_id": "rail_12d23dfb222a_1"
+                },
+                "candidate": {
+                  "id": "rail_12d23dfb222a_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；住宿报价300元。\n活动：2026-10-27 下午 西湖自然风景游览；抵达杭州后下午沿西湖湖滨、苏堤一带散步观景，感受湖光山色。\n活动：2026-10-28 上午 西湖周边自然风光；上午继续在西湖西侧杨公堤、茅家埠一带游览自然景致。\n\n杭州→上海：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n\n交通小计：250元（不含住宿）。"
+    },
+    {
+      "case": "memory_defaults",
+      "repeat": 3,
+      "prompt": "帮我规划明天去杭州的旅途，后天返回。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 7955.958,
+      "model_ms": 7564.365,
+      "input_tokens": 20061,
+      "output_tokens": 1577,
+      "total_tokens": 21638,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "guests": 1,
+            "passengers": 1
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "soft",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "d2df33c2-61e8-4bfb-a7dd-40e846d9ac5b",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "0da30a62-e3fe-4b47-94cd-a0dcbca3eeb2",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_bbce4fd45e5343fd8bae8f3b9f01f988",
+                  "purpose": "西湖及周边自然风景游览",
+                  "description": "抵达杭州后下午游览西湖景区，沿湖步行或骑行，看湖光山色",
+                  "date": "2026-10-27",
+                  "time": "下午",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_248065e45bba474c9514e9d31dc093c1",
+                  "purpose": "杭州自然风景游览",
+                  "description": "上午继续游览西湖周边或灵隐一带自然景观，午后返程",
+                  "date": "2026-10-28",
+                  "time": "上午",
+                  "source": "proposal",
+                  "strength": "soft"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "587aea01-55f9-4af8-937f-2200b053342e",
+                  "result_revision": 1,
+                  "candidate_id": "rail_12d23dfb222a_1"
+                },
+                "candidate": {
+                  "id": "rail_12d23dfb222a_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；住宿报价300元。\n活动：2026-10-27 下午 西湖及周边自然风景游览；抵达杭州后下午游览西湖景区，沿湖步行或骑行，看湖光山色。\n活动：2026-10-28 上午 杭州自然风景游览；上午继续游览西湖周边或灵隐一带自然景观，午后返程。\n\n杭州→上海：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n\n交通小计：250元（不含住宿）。\n\n按明天去、后天返安排：去程上午高铁抵杭，首日下午游西湖；杭州住一晚，次日上午继续游览，午后高铁返沪。酒店仅确认地点与房型报价，未实际预订。"
+    },
+    {
+      "case": "normal_roundtrip",
+      "repeat": 1,
+      "prompt": "请安排2026-10-27上海到杭州旅游，2026-10-28下午返回上海，住一晚。去程当天下午游览西湖，返程当天上午游览灵隐寺，优先高铁二等座。请选择车次和酒店并保存完整行程。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 6991.425,
+      "model_ms": 6487.617,
+      "input_tokens": 20395,
+      "output_tokens": 1595,
+      "total_tokens": 21990,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "end_date": "2026-10-28",
+            "guests": 1,
+            "passengers": 1,
+            "start_date": "2026-10-27"
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "d5e68d42-75d5-466c-bd3b-9615f1d2c731",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "5fafe7b9-9923-4fac-a31f-c14b60ed2e68",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_f299ad1edff143c7aef5d3917770edc4",
+                  "purpose": "游览西湖",
+                  "description": "抵达杭州后下午游览西湖，可沿湖步行或乘船，游览时长按实际到达时间灵活安排。",
+                  "date": "2026-10-27",
+                  "time": "下午",
+                  "source": "user",
+                  "strength": "hard"
+                },
+                {
+                  "id": "activity_5675a11a23e7446db11aa80dfc0a0330",
+                  "purpose": "游览灵隐寺",
+                  "description": "上午游览灵隐寺，游览结束后返回酒店取行李，午后乘高铁返回上海。",
+                  "date": "2026-10-28",
+                  "time": "上午",
+                  "source": "user",
+                  "strength": "hard"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "aeced3ea-8e99-4a12-ab98-f7e5c28fc09f",
+                  "result_revision": 1,
+                  "candidate_id": "rail_12d23dfb222a_1"
+                },
+                "candidate": {
+                  "id": "rail_12d23dfb222a_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；住宿报价300元。\n活动：2026-10-27 下午 游览西湖；抵达杭州后下午游览西湖，可沿湖步行或乘船，游览时长按实际到达时间灵活安排。。\n活动：2026-10-28 上午 游览灵隐寺；上午游览灵隐寺，游览结束后返回酒店取行李，午后乘高铁返回上海。。\n\n杭州→上海：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n\n交通小计：250元（不含住宿）。"
+    },
+    {
+      "case": "normal_roundtrip",
+      "repeat": 2,
+      "prompt": "请安排2026-10-27上海到杭州旅游，2026-10-28下午返回上海，住一晚。去程当天下午游览西湖，返程当天上午游览灵隐寺，优先高铁二等座。请选择车次和酒店并保存完整行程。",
+      "success": true,
+      "failures": null,
+      "calls": 3,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 2
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 2,
+        "main_reentries": 0,
+        "planning_model_calls": 3,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {
+          "tool_feedback": 1
+        }
+      },
+      "duration_ms": 11490.956,
+      "model_ms": 11060.829,
+      "input_tokens": 29241,
+      "output_tokens": 2620,
+      "total_tokens": 31861,
+      "usage_complete": true,
+      "rejected_batches": 1,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "end_date": "2026-10-28",
+            "guests": 1,
+            "passengers": 1,
+            "start_date": "2026-10-27"
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "00974e20-6bae-4200-aef6-b6125d6199ff",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "71295da2-b804-4fd5-885b-692e2bb72895",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_bbf3d4953d82415cac8dff3036c4c06a",
+                  "purpose": "游览西湖",
+                  "description": "抵达杭州后下午游览西湖，可沿湖步行或乘船游览周边景点。",
+                  "date": "2026-10-27",
+                  "time": "下午",
+                  "source": "user",
+                  "strength": "hard"
+                },
+                {
+                  "id": "activity_7c7180e9cc7b47a9a70e55f809fd35a3",
+                  "purpose": "游览灵隐寺",
+                  "description": "返程当天上午游览灵隐寺，之后返回上海。",
+                  "date": "2026-10-28",
+                  "time": "上午",
+                  "source": "user",
+                  "strength": "hard"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "eeb32252-dc5f-4ac1-a378-038b043444b1",
+                  "result_revision": 1,
+                  "candidate_id": "rail_12d23dfb222a_1"
+                },
+                "candidate": {
+                  "id": "rail_12d23dfb222a_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；住宿报价300元。\n活动：2026-10-27 下午 游览西湖；抵达杭州后下午游览西湖，可沿湖步行或乘船游览周边景点。。\n活动：2026-10-28 上午 游览灵隐寺；返程当天上午游览灵隐寺，之后返回上海。。\n\n杭州→上海：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n\n交通小计：250元（不含住宿）。\n\n已保存完整行程：去程上午高铁抵达杭州，下午游览西湖；入住杭州一晚，次日上午游览灵隐寺后乘下午高铁返回上海。酒店仅提供地点与住宿总价，未实际预订出票。"
+    },
+    {
+      "case": "normal_roundtrip",
+      "repeat": 3,
+      "prompt": "请安排2026-10-27上海到杭州旅游，2026-10-28下午返回上海，住一晚。去程当天下午游览西湖，返程当天上午游览灵隐寺，优先高铁二等座。请选择车次和酒店并保存完整行程。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 8828.517,
+      "model_ms": 8497.298,
+      "input_tokens": 20299,
+      "output_tokens": 1561,
+      "total_tokens": 21860,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "guests": 1,
+            "passengers": 1
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "75217e74-69c8-4f39-b8d4-8b9a055b96a3",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "2ca906a9-b35e-49f7-80ab-7c31e55b804b",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_2fc09648a15e4e60a7ea63128336de5e",
+                  "purpose": "游览西湖",
+                  "description": "抵达杭州后下午游览西湖，可沿湖步行或环湖游览。",
+                  "date": "2026-10-27",
+                  "time": "下午",
+                  "source": "user",
+                  "strength": "hard"
+                },
+                {
+                  "id": "activity_c86c11ca007c4951abe49afb51443a4e",
+                  "purpose": "游览灵隐寺",
+                  "description": "返程当天上午游览灵隐寺，之后返回上海。",
+                  "date": "2026-10-28",
+                  "time": "上午",
+                  "source": "user",
+                  "strength": "hard"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "0c14c5fc-1364-48f0-9e2a-96a008ef96cf",
+                  "result_revision": 1,
+                  "candidate_id": "rail_12d23dfb222a_1"
+                },
+                "candidate": {
+                  "id": "rail_12d23dfb222a_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；住宿报价300元。\n活动：2026-10-27 下午 游览西湖；抵达杭州后下午游览西湖，可沿湖步行或环湖游览。。\n活动：2026-10-28 上午 游览灵隐寺；返程当天上午游览灵隐寺，之后返回上海。。\n\n杭州→上海：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n\n交通小计：250元（不含住宿）。\n\n已保存完整行程：去程高铁二等座上午抵达杭州，下午游览西湖，入住杭州商务酒店一晚；次日返程当天上午游览灵隐寺，下午乘高铁二等座返回上海。酒店仅提供地点与住宿总额，未实际预订或出票。"
+    },
+    {
+      "case": "multicity",
+      "repeat": 1,
+      "prompt": "安排三段旅游：2026-10-27上海到杭州，2026-10-28杭州到南京，2026-10-29南京返回上海。杭州2026-10-27入住2026-10-28退房，南京2026-10-28入住2026-10-29退房，各一晚。首日14:00西湖游览，次日14:00南京博物院游览，优先高铁二等座，选择三段车次及两处酒店并保存完整计划。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 9594.315,
+      "model_ms": 9222.435000000001,
+      "input_tokens": 22080,
+      "output_tokens": 2259,
+      "total_tokens": 24339,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plans": [
+        {
+          "round_trip": false,
+          "status": "complete",
+          "conditions": {
+            "constraints": {
+              "seat_class": "二等座",
+              "train_kind": "high_speed"
+            },
+            "end_date": "2026-10-29",
+            "guests": 1,
+            "passengers": 1,
+            "start_date": "2026-10-27"
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "8f70220b-6b15-42fe-a7f9-c13006e5f680",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "527d0186-e856-4fe6-b2b0-978bf2249793",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_e24b38cdc9ae4e8eabf217b93a114c7c",
+                  "purpose": "西湖游览",
+                  "description": "下午14:00前往西湖游览，可沿湖漫步、观景。",
+                  "date": "2026-10-27",
+                  "time": "14:00",
+                  "source": "user",
+                  "strength": "hard"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "南京",
+              "purpose": "visit",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-28",
+              "check_out": "2026-10-29",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "ca3f1ad0-3f7e-4958-995c-bf96ce266540",
+                  "result_revision": 1,
+                  "candidate_id": "rail_37546dd6734a_0"
+                },
+                "candidate": {
+                  "id": "rail_37546dd6734a_0",
+                  "name": "G1001",
+                  "origin": "杭州",
+                  "destination": "南京",
+                  "departure_at": "2026-10-28T09:00:00+08:00",
+                  "arrival_at": "2026-10-28T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "81cef96f-c2c2-41c8-8955-24e8dc76124c",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_c690fe624041"
+                },
+                "candidate": {
+                  "id": "hotel_c690fe624041",
+                  "name": "南京商务酒店",
+                  "price_fen": 30000,
+                  "city": "南京",
+                  "address": "南京商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_3420bf43a5e842139733c470ed60ddc1",
+                  "purpose": "南京博物院游览",
+                  "description": "下午14:00前往南京博物院参观。",
+                  "date": "2026-10-28",
+                  "time": "14:00",
+                  "source": "user",
+                  "strength": "hard"
+                }
+              ]
+            },
+            {
+              "id": "t3",
+              "origin": "南京",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-29",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-29",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "fa618451-1d96-4523-a4c1-3cff737bdff4",
+                  "result_revision": 1,
+                  "candidate_id": "rail_f8e6fafad4ac_1"
+                },
+                "candidate": {
+                  "id": "rail_f8e6fafad4ac_1",
+                  "name": "G1002",
+                  "origin": "南京",
+                  "destination": "上海",
+                  "departure_at": "2026-10-29T14:00:00+08:00",
+                  "arrival_at": "2026-10-29T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；住宿报价300元。\n活动：2026-10-27 14:00 西湖游览；下午14:00前往西湖游览，可沿湖漫步、观景。。\n\n杭州→南京：\nG1001，2026-10-28 09:00出发，2026-10-28 11:00抵达，二等座，100元。\n住宿：南京商务酒店，2026-10-28入住、2026-10-29退房；住宿报价300元。\n活动：2026-10-28 14:00 南京博物院游览；下午14:00前往南京博物院参观。。\n\n南京→上海：\nG1002，2026-10-29 14:00出发，2026-10-29 16:00抵达，二等座，150元。\n\n交通小计：350元（不含住宿）。\n\n三段高铁二等座与两处酒店已选定保存。首日九点出发十一点抵杭，衔接下午西湖游览；次日九点出发十一点抵宁，衔接下午南京博物院；末日下午返沪。酒店均为商务区报价，未实际预订。"
+    },
+    {
+      "case": "multicity",
+      "repeat": 2,
+      "prompt": "安排三段旅游：2026-10-27上海到杭州，2026-10-28杭州到南京，2026-10-29南京返回上海。杭州2026-10-27入住2026-10-28退房，南京2026-10-28入住2026-10-29退房，各一晚。首日14:00西湖游览，次日14:00南京博物院游览，优先高铁二等座，选择三段车次及两处酒店并保存完整计划。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 8655.674,
+      "model_ms": 8271.774,
+      "input_tokens": 21959,
+      "output_tokens": 2131,
+      "total_tokens": 24090,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "end_date": "2026-10-29",
+            "guests": 1,
+            "passengers": 1,
+            "start_date": "2026-10-27"
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "31353df5-648e-4d32-99e5-7bdc0f1b6c98",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "09cec09d-8823-4a15-9564-2c8b4a7d6953",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_ada12971ff8c4df2ba1d02f4f009aa85",
+                  "purpose": "西湖游览",
+                  "description": "14:00游览西湖，抵达杭州后按车次实际时间衔接",
+                  "date": "2026-10-27",
+                  "time": "14:00",
+                  "source": "user",
+                  "strength": "hard"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "南京",
+              "purpose": "visit",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-28",
+              "check_out": "2026-10-29",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "3a308e75-7284-4e2f-bd6a-8240ae5cb92b",
+                  "result_revision": 1,
+                  "candidate_id": "rail_37546dd6734a_0"
+                },
+                "candidate": {
+                  "id": "rail_37546dd6734a_0",
+                  "name": "G1001",
+                  "origin": "杭州",
+                  "destination": "南京",
+                  "departure_at": "2026-10-28T09:00:00+08:00",
+                  "arrival_at": "2026-10-28T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "528a6bf4-b35e-45d0-97e1-7aa9eb5a7de4",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_c690fe624041"
+                },
+                "candidate": {
+                  "id": "hotel_c690fe624041",
+                  "name": "南京商务酒店",
+                  "price_fen": 30000,
+                  "city": "南京",
+                  "address": "南京商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_d236985c69a3412c9884274213b6b940",
+                  "purpose": "南京博物院游览",
+                  "description": "14:00游览南京博物院，抵达南京后按车次实际时间衔接",
+                  "date": "2026-10-28",
+                  "time": "14:00",
+                  "source": "user",
+                  "strength": "hard"
+                }
+              ]
+            },
+            {
+              "id": "t3",
+              "origin": "南京",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-29",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-29",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "7aa2a62d-edd8-4bb3-a6b0-382d1f49782a",
+                  "result_revision": 1,
+                  "candidate_id": "rail_f8e6fafad4ac_1"
+                },
+                "candidate": {
+                  "id": "rail_f8e6fafad4ac_1",
+                  "name": "G1002",
+                  "origin": "南京",
+                  "destination": "上海",
+                  "departure_at": "2026-10-29T14:00:00+08:00",
+                  "arrival_at": "2026-10-29T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；住宿报价300元。\n活动：2026-10-27 14:00 西湖游览；14:00游览西湖，抵达杭州后按车次实际时间衔接。\n\n杭州→南京：\nG1001，2026-10-28 09:00出发，2026-10-28 11:00抵达，二等座，100元。\n住宿：南京商务酒店，2026-10-28入住、2026-10-29退房；住宿报价300元。\n活动：2026-10-28 14:00 南京博物院游览；14:00游览南京博物院，抵达南京后按车次实际时间衔接。\n\n南京→上海：\nG1002，2026-10-29 14:00出发，2026-10-29 16:00抵达，二等座，150元。\n\n交通小计：350元（不含住宿）。"
+    },
+    {
+      "case": "multicity",
+      "repeat": 3,
+      "prompt": "安排三段旅游：2026-10-27上海到杭州，2026-10-28杭州到南京，2026-10-29南京返回上海。杭州2026-10-27入住2026-10-28退房，南京2026-10-28入住2026-10-29退房，各一晚。首日14:00西湖游览，次日14:00南京博物院游览，优先高铁二等座，选择三段车次及两处酒店并保存完整计划。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 10306.693,
+      "model_ms": 9901.189,
+      "input_tokens": 21914,
+      "output_tokens": 2121,
+      "total_tokens": 24035,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 2,
+        "train": 3
+      },
+      "plans": [
+        {
+          "round_trip": false,
+          "status": "complete",
+          "conditions": {
+            "guests": 1,
+            "passengers": 1
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "b86af33a-962f-4e61-9c56-bc5018b6d915",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "3360a8c6-0a1b-4060-b7ad-2b9551cec1b1",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_61447fa88c67459ea11eb7a98b586351",
+                  "purpose": "西湖游览",
+                  "description": "下午前往西湖游览，可沿湖漫步、看断桥与苏堤一带景色。",
+                  "date": "2026-10-27",
+                  "time": "14:00",
+                  "source": "user",
+                  "strength": "hard"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "南京",
+              "purpose": "visit",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-28",
+              "check_out": "2026-10-29",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "d2070deb-9367-4970-8e17-708d2a4d34b9",
+                  "result_revision": 1,
+                  "candidate_id": "rail_37546dd6734a_0"
+                },
+                "candidate": {
+                  "id": "rail_37546dd6734a_0",
+                  "name": "G1001",
+                  "origin": "杭州",
+                  "destination": "南京",
+                  "departure_at": "2026-10-28T09:00:00+08:00",
+                  "arrival_at": "2026-10-28T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "3d2fd433-6cac-45fa-a768-cbcfa3ee147b",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_c690fe624041"
+                },
+                "candidate": {
+                  "id": "hotel_c690fe624041",
+                  "name": "南京商务酒店",
+                  "price_fen": 30000,
+                  "city": "南京",
+                  "address": "南京商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_97b2809875f7426ca97a3052ae2c1d94",
+                  "purpose": "南京博物院游览",
+                  "description": "下午前往南京博物院参观，建议提前关注预约与开放信息。",
+                  "date": "2026-10-28",
+                  "time": "14:00",
+                  "source": "user",
+                  "strength": "hard"
+                }
+              ]
+            },
+            {
+              "id": "t3",
+              "origin": "南京",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-29",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-29",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "2a470235-5936-4ba4-9548-45f18846e091",
+                  "result_revision": 1,
+                  "candidate_id": "rail_f8e6fafad4ac_1"
+                },
+                "candidate": {
+                  "id": "rail_f8e6fafad4ac_1",
+                  "name": "G1002",
+                  "origin": "南京",
+                  "destination": "上海",
+                  "departure_at": "2026-10-29T14:00:00+08:00",
+                  "arrival_at": "2026-10-29T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；住宿报价300元。\n活动：2026-10-27 14:00 西湖游览；下午前往西湖游览，可沿湖漫步、看断桥与苏堤一带景色。。\n\n杭州→南京：\nG1001，2026-10-28 09:00出发，2026-10-28 11:00抵达，二等座，100元。\n住宿：南京商务酒店，2026-10-28入住、2026-10-29退房；住宿报价300元。\n活动：2026-10-28 14:00 南京博物院游览；下午前往南京博物院参观，建议提前关注预约与开放信息。。\n\n南京→上海：\nG1002，2026-10-29 14:00出发，2026-10-29 16:00抵达，二等座，150元。\n\n交通小计：350元（不含住宿）。\n\n三段高铁二等座与两处酒店已选定保存：首日上午到杭州，午后西湖游览；次日午前抵南京，午后南京博物院；末日下午返沪。酒店均为一晚，未实际预订出票。"
+    },
+    {
+      "case": "query",
+      "repeat": 1,
+      "prompt": "只查询2026-10-27上海到杭州的高铁及杭州当天天气，不创建行程。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 0,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 3025.932,
+      "model_ms": 2770.881,
+      "input_tokens": 18923,
+      "output_tokens": 290,
+      "total_tokens": 19213,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plans": [],
+      "final_text": "2026-10-27 上海→杭州高铁（二等座，1人）查询到2个车次：\n\n- G1001：09:00 上海发车，11:00 到杭州，二等座 100 元，有票\n- G1002：14:00 上海发车，16:00 到杭州，二等座 150 元，有票\n\n杭州当天天气：晴，气温约 22℃（该来源未提供当日最高/最低温）。\n\n按要求仅作查询，未创建或修改任何行程。"
+    },
+    {
+      "case": "query",
+      "repeat": 2,
+      "prompt": "只查询2026-10-27上海到杭州的高铁及杭州当天天气，不创建行程。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 0,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 3944.765,
+      "model_ms": 3577.585,
+      "input_tokens": 18915,
+      "output_tokens": 343,
+      "total_tokens": 19258,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plans": [],
+      "final_text": "查询结果如下（未创建行程）：\n\n**2026-10-27 上海→杭州 高铁（二等座，1人）**\n- G1001：09:00 上海发车，11:00 抵达杭州，二等座 100 元，有票\n- G1002：14:00 上海发车，16:00 抵达杭州，二等座 150 元，有票\n\n**2026-10-27 杭州天气**\n- 晴，气温约 22℃（最高/最低温数据未提供）\n\n说明：高铁仅返回上述 2 个车次，为供应商当前给出的结果，不代表全部班次；天气仅提供天气描述与气温，未给出最高、最低温。"
+    },
+    {
+      "case": "query",
+      "repeat": 3,
+      "prompt": "只查询2026-10-27上海到杭州的高铁及杭州当天天气，不创建行程。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 0,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 3366.875,
+      "model_ms": 3012.0469999999996,
+      "input_tokens": 18920,
+      "output_tokens": 260,
+      "total_tokens": 19180,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "train": 1,
+        "weather": 1
+      },
+      "plans": [],
+      "final_text": "2026-10-27 上海→杭州高铁（二等座，1人）查询到2个车次：\n\n- G1001：09:00 上海发车，11:00 到杭州，二等座 100 元，有票\n- G1002：14:00 上海发车，16:00 到杭州，二等座 150 元，有票\n\n杭州当天天气：晴，气温约 22℃（该来源未提供最高/最低气温）。\n\n以上仅为查询结果，未创建或保存任何行程。"
+    },
+    {
+      "case": "policy",
+      "repeat": 1,
+      "prompt": "安排2026-10-27上海到杭州单程出差，不返程不住宿，不安排活动，优先高铁二等座，每段硬预算500元。查询适用企业差旅政策，选择车次并保存。",
+      "success": true,
+      "failures": null,
+      "calls": 5,
+      "stage_calls": {
+        "agent:main": 2,
+        "agent:travel_policy": 1,
+        "agent:trip_summary": 2
+      },
+      "audit": {
+        "main_model_calls": 2,
+        "planning_summary_model_calls": 2,
+        "main_reentries": 0,
+        "planning_model_calls": 3,
+        "policy_model_calls": 2,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {
+          "tool_feedback": 1
+        }
+      },
+      "duration_ms": 11287.041,
+      "model_ms": 10922.163,
+      "input_tokens": 38095,
+      "output_tokens": 1945,
+      "total_tokens": 40040,
+      "usage_complete": true,
+      "rejected_batches": 1,
+      "provider_calls": {
+        "train": 1
+      },
+      "plans": [
+        {
+          "round_trip": false,
+          "status": "complete",
+          "conditions": {
+            "constraints": {
+              "seat_class": "二等座",
+              "train_kind": "high_speed",
+              "train_max_total_cny": 500
+            },
+            "passengers": 1
+          },
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "business",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-27",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "b75adab1-c87d-47df-bd9d-c103840b401f",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n\n交通小计：100元（不含住宿）。\n\n已按单程出差安排：上海至杭州高铁二等座，上午出发，票价在每段预算内，符合差旅政策；不住宿、不安排活动。未实际出票。"
+    },
+    {
+      "case": "replan",
+      "repeat": 1,
+      "prompt": "安排2026-10-27上海去杭州旅游，2026-10-29返回上海，杭州住一晚。优先直达，如果直达没有候选则改为经南京中转去杭州，保留返程和杭州游玩，出发日期可以调整。选择车次及酒店并保存完整可行安排。",
+      "success": true,
+      "failures": null,
+      "calls": 3,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 2
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 2,
+        "main_reentries": 0,
+        "planning_model_calls": 3,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {
+          "replan": 1
+        }
+      },
+      "duration_ms": 13260.462,
+      "model_ms": 12800.241,
+      "input_tokens": 33396,
+      "output_tokens": 3044,
+      "total_tokens": 36440,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 4
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "constraints": {
+              "seat_class": "二等座",
+              "train_kind": "high_speed"
+            },
+            "end_date": "2026-10-29",
+            "guests": 1,
+            "nights": 1,
+            "passengers": 1,
+            "start_date": "2026-10-28"
+          },
+          "tasks": [
+            {
+              "id": "task_47147f9ad58f4cbba38d8ecd9ffb852b",
+              "origin": "上海",
+              "destination": "南京",
+              "purpose": "transit",
+              "departure_date": "2026-10-28",
+              "departure_strength": "soft",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": "2026-10-29",
+              "nights": 1,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "6aa6c86b-7061-4661-a8e3-6ad24cfa36a9",
+                  "result_revision": 1,
+                  "candidate_id": "rail_a1df25b21ce5_0"
+                },
+                "candidate": {
+                  "id": "rail_a1df25b21ce5_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "南京",
+                  "departure_at": "2026-10-28T09:00:00+08:00",
+                  "arrival_at": "2026-10-28T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            },
+            {
+              "id": "t1",
+              "origin": "南京",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-28",
+              "departure_strength": "soft",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-28",
+              "check_out": "2026-10-29",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "0a3a2656-5daa-47c0-86f8-ece3658571b4",
+                  "result_revision": 1,
+                  "candidate_id": "rail_942f6f8e4331_1"
+                },
+                "candidate": {
+                  "id": "rail_942f6f8e4331_1",
+                  "name": "G1002",
+                  "origin": "南京",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "2236da5c-7c3f-4f91-8d3f-cc2d73c25ac3",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_3c1a81da929443729f1e882138717ad7",
+                  "purpose": "西湖及周边游览",
+                  "description": "抵达杭州后游览西湖景区及周边，晚间可逛湖滨步行街",
+                  "date": "2026-10-28",
+                  "time": "下午",
+                  "source": "proposal",
+                  "strength": "soft"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-29",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-29",
+              "check_out": "2026-10-30",
+              "nights": 1,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "4c83d0dd-a781-43b9-a710-ce2b7e472932",
+                  "result_revision": 1,
+                  "candidate_id": "rail_39a422b1cc77_1"
+                },
+                "candidate": {
+                  "id": "rail_39a422b1cc77_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-29T14:00:00+08:00",
+                  "arrival_at": "2026-10-29T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→南京：\nG1001，2026-10-28 09:00出发，2026-10-28 11:00抵达，二等座，100元。\n\n南京→杭州：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n住宿：杭州商务酒店，2026-10-28入住、2026-10-29退房；住宿报价300元。\n活动：2026-10-28 下午 西湖及周边游览；抵达杭州后游览西湖景区及周边，晚间可逛湖滨步行街。\n\n杭州→上海：\nG1002，2026-10-29 14:00出发，2026-10-29 16:00抵达，二等座，150元。\n\n交通小计：400元（不含住宿）。\n\n上海直达杭州当日无候选，按你的授权改为经南京中转，出发日调整为二十八日，二十九日返程与杭州一晚保持不变。二十八日上午上海到南京，下午南京到杭州，抵达后游览西湖及湖滨；当晚入住杭州商务酒店，二十九日退房后下午返回上海。车次与酒店已保存，未实际出票或预订。"
+    },
+    {
+      "case": "replan",
+      "repeat": 2,
+      "prompt": "安排2026-10-27上海去杭州旅游，2026-10-29返回上海，杭州住一晚。优先直达，如果直达没有候选则改为经南京中转去杭州，保留返程和杭州游玩，出发日期可以调整。选择车次及酒店并保存完整可行安排。",
+      "success": true,
+      "failures": null,
+      "calls": 3,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 2
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 2,
+        "main_reentries": 0,
+        "planning_model_calls": 3,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {
+          "replan": 1
+        }
+      },
+      "duration_ms": 13254.054,
+      "model_ms": 12764.679,
+      "input_tokens": 33581,
+      "output_tokens": 3072,
+      "total_tokens": 36653,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 4
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "end_date": "2026-10-29",
+            "guests": 1,
+            "passengers": 1,
+            "start_date": "2026-10-27"
+          },
+          "tasks": [
+            {
+              "id": "task_2f07ca1499544053a4fd56abe834bf15",
+              "origin": "上海",
+              "destination": "南京",
+              "purpose": "transit",
+              "departure_date": "2026-10-28",
+              "departure_strength": "soft",
+              "departure_source": "derived",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "afb111e8-ffb2-40c5-baad-66bc3b41d700",
+                  "result_revision": 1,
+                  "candidate_id": "rail_a1df25b21ce5_0"
+                },
+                "candidate": {
+                  "id": "rail_a1df25b21ce5_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "南京",
+                  "departure_at": "2026-10-28T09:00:00+08:00",
+                  "arrival_at": "2026-10-28T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            },
+            {
+              "id": "t1",
+              "origin": "南京",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-28",
+              "departure_strength": "soft",
+              "departure_source": "derived",
+              "requires_hotel": true,
+              "check_in": "2026-10-28",
+              "check_out": "2026-10-29",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "4e6377b6-8700-4be0-9e88-966161be20f7",
+                  "result_revision": 1,
+                  "candidate_id": "rail_942f6f8e4331_1"
+                },
+                "candidate": {
+                  "id": "rail_942f6f8e4331_1",
+                  "name": "G1002",
+                  "origin": "南京",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "4dd302e9-cec0-430e-b18b-37d54925ad1b",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_0ece5c738f5941c9ae69677cd972c110",
+                  "purpose": "杭州西湖及周边游览",
+                  "description": "抵达杭州后下午游览西湖湖滨、断桥一带，傍晚可逛河坊街",
+                  "date": "2026-10-28",
+                  "time": "下午",
+                  "source": "proposal",
+                  "strength": "soft"
+                },
+                {
+                  "id": "activity_c603566c513d42a6ad5e19df59b408bc",
+                  "purpose": "杭州深度游览",
+                  "description": "上午游灵隐寺或西溪湿地，之后前往车站返程",
+                  "date": "2026-10-29",
+                  "time": "上午",
+                  "source": "proposal",
+                  "strength": "soft"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-29",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-29",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "139f5d3b-073b-4289-893a-32f3ffe36cf6",
+                  "result_revision": 1,
+                  "candidate_id": "rail_39a422b1cc77_1"
+                },
+                "candidate": {
+                  "id": "rail_39a422b1cc77_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-29T14:00:00+08:00",
+                  "arrival_at": "2026-10-29T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→南京：\nG1001，2026-10-28 09:00出发，2026-10-28 11:00抵达，二等座，100元。\n\n南京→杭州：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n住宿：杭州商务酒店，2026-10-28入住、2026-10-29退房；住宿报价300元。\n活动：2026-10-28 下午 杭州西湖及周边游览；抵达杭州后下午游览西湖湖滨、断桥一带，傍晚可逛河坊街。\n活动：2026-10-29 上午 杭州深度游览；上午游灵隐寺或西溪湿地，之后前往车站返程。\n\n杭州→上海：\nG1002，2026-10-29 14:00出发，2026-10-29 16:00抵达，二等座，150元。\n\n交通小计：400元（不含住宿）。\n\n直达无候选，已按授权改为经南京中转，出发日调整为二十八日，杭州仍住一晚、二十九日返沪。去程上午上海至南京、下午南京至杭州，抵达后西湖湖滨游览；二十九日上午灵隐寺或西溪湿地，午后高铁返沪。酒店为杭州商务酒店一晚报价，未实际预订出票。"
+    },
+    {
+      "case": "replan",
+      "repeat": 3,
+      "prompt": "安排2026-10-27上海去杭州旅游，2026-10-29返回上海，杭州住一晚。优先直达，如果直达没有候选则改为经南京中转去杭州，保留返程和杭州游玩，出发日期可以调整。选择车次及酒店并保存完整可行安排。",
+      "success": true,
+      "failures": null,
+      "calls": 3,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 2
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 2,
+        "main_reentries": 0,
+        "planning_model_calls": 3,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {
+          "replan": 1
+        }
+      },
+      "duration_ms": 12181.295,
+      "model_ms": 11626.381000000001,
+      "input_tokens": 33184,
+      "output_tokens": 2768,
+      "total_tokens": 35952,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 4
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "complete",
+          "conditions": {
+            "guests": 1,
+            "passengers": 1
+          },
+          "tasks": [
+            {
+              "id": "task_9fa92350a0864290a9a4a4e014a2e0a7",
+              "origin": "上海",
+              "destination": "南京",
+              "purpose": "transit",
+              "departure_date": "2026-10-28",
+              "departure_strength": "soft",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "02cf691e-e5ef-44c6-bef3-9895226b6778",
+                  "result_revision": 1,
+                  "candidate_id": "rail_a1df25b21ce5_0"
+                },
+                "candidate": {
+                  "id": "rail_a1df25b21ce5_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "南京",
+                  "departure_at": "2026-10-28T09:00:00+08:00",
+                  "arrival_at": "2026-10-28T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            },
+            {
+              "id": "t1",
+              "origin": "南京",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-28",
+              "departure_strength": "soft",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-28",
+              "check_out": "2026-10-29",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "c7096419-4fcf-4df0-8e4e-bf8ae41ca544",
+                  "result_revision": 1,
+                  "candidate_id": "rail_942f6f8e4331_1"
+                },
+                "candidate": {
+                  "id": "rail_942f6f8e4331_1",
+                  "name": "G1002",
+                  "origin": "南京",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "efce4dcf-8712-4061-8fe9-daed9d828c10",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": 30000,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "available",
+                  "remaining": 6
+                }
+              },
+              "activities": [
+                {
+                  "id": "activity_b3fe6d096ebe466aa3b90a75fdd31380",
+                  "purpose": "杭州游玩",
+                  "description": "抵达杭州后游览西湖及周边，晚上可逛湖滨步行街",
+                  "date": "2026-10-28",
+                  "time": "下午",
+                  "source": "proposal",
+                  "strength": "soft"
+                }
+              ]
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-29",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-29",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "c433474f-5993-4a19-879b-23b2060cb763",
+                  "result_revision": 1,
+                  "candidate_id": "rail_39a422b1cc77_1"
+                },
+                "candidate": {
+                  "id": "rail_39a422b1cc77_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-29T14:00:00+08:00",
+                  "arrival_at": "2026-10-29T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保存以下安排：\n\n上海→南京：\nG1001，2026-10-28 09:00出发，2026-10-28 11:00抵达，二等座，100元。\n\n南京→杭州：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n住宿：杭州商务酒店，2026-10-28入住、2026-10-29退房；住宿报价300元。\n活动：2026-10-28 下午 杭州游玩；抵达杭州后游览西湖及周边，晚上可逛湖滨步行街。\n\n杭州→上海：\nG1002，2026-10-29 14:00出发，2026-10-29 16:00抵达，二等座，150元。\n\n交通小计：400元（不含住宿）。"
+    },
+    {
+      "case": "hotel_gap",
+      "repeat": 1,
+      "prompt": "安排2026-10-27上海到杭州旅游，2026-10-28返回上海，在杭州住一晚，酒店每晚硬预算400元，不安排固定活动，选择高铁和酒店并保存可用安排。",
+      "success": true,
+      "failures": null,
+      "calls": 2,
+      "stage_calls": {
+        "agent:main": 1,
+        "agent:trip_summary": 1
+      },
+      "audit": {
+        "main_model_calls": 1,
+        "planning_summary_model_calls": 1,
+        "main_reentries": 0,
+        "planning_model_calls": 2,
+        "policy_model_calls": 0,
+        "maintenance_model_calls": 0,
+        "compaction_model_calls": 0,
+        "active_history_reads": 0,
+        "current_plan_reads": 0,
+        "followup_or_confirmation": false,
+        "duplicate_selections": 0,
+        "unexplained_extra_calls": 0,
+        "extra_call_reasons": {}
+      },
+      "duration_ms": 7506.284,
+      "model_ms": 7132.993,
+      "input_tokens": 20002,
+      "output_tokens": 1400,
+      "total_tokens": 21402,
+      "usage_complete": true,
+      "rejected_batches": 0,
+      "provider_calls": {
+        "hotel": 1,
+        "train": 2
+      },
+      "plans": [
+        {
+          "round_trip": true,
+          "status": "partial",
+          "conditions": null,
+          "tasks": [
+            {
+              "id": "t1",
+              "origin": "上海",
+              "destination": "杭州",
+              "purpose": "visit",
+              "departure_date": "2026-10-27",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": true,
+              "check_in": "2026-10-27",
+              "check_out": "2026-10-28",
+              "nights": 1,
+              "nights_strength": "hard",
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "60167d8e-735a-46b1-bd39-02877645ff0f",
+                  "result_revision": 1,
+                  "candidate_id": "rail_46d0f5dcaf54_0"
+                },
+                "candidate": {
+                  "id": "rail_46d0f5dcaf54_0",
+                  "name": "G1001",
+                  "origin": "上海",
+                  "destination": "杭州",
+                  "departure_at": "2026-10-27T09:00:00+08:00",
+                  "arrival_at": "2026-10-27T11:00:00+08:00",
+                  "price_fen": 10000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": {
+                "ref": {
+                  "query_id": "3b625690-50ea-49b3-b3c7-6823f23e9f2d",
+                  "result_revision": 1,
+                  "candidate_id": "hotel_a8027f71a8e3"
+                },
+                "candidate": {
+                  "id": "hotel_a8027f71a8e3",
+                  "name": "杭州商务酒店",
+                  "price_fen": null,
+                  "city": "杭州",
+                  "address": "杭州商务区",
+                  "availability": "unknown"
+                }
+              },
+              "activities": null
+            },
+            {
+              "id": "t2",
+              "origin": "杭州",
+              "destination": "上海",
+              "purpose": "return",
+              "departure_date": "2026-10-28",
+              "departure_strength": "hard",
+              "departure_source": "user",
+              "requires_hotel": false,
+              "check_in": "2026-10-28",
+              "check_out": null,
+              "nights": null,
+              "nights_strength": null,
+              "passengers": 1,
+              "train": {
+                "ref": {
+                  "query_id": "1f3e6ac4-ab92-4728-992c-0df41316bc14",
+                  "result_revision": 1,
+                  "candidate_id": "rail_12d23dfb222a_1"
+                },
+                "candidate": {
+                  "id": "rail_12d23dfb222a_1",
+                  "name": "G1002",
+                  "origin": "杭州",
+                  "destination": "上海",
+                  "departure_at": "2026-10-28T14:00:00+08:00",
+                  "arrival_at": "2026-10-28T16:00:00+08:00",
+                  "price_fen": 15000,
+                  "train_kind": "G",
+                  "seat_class": "二等座",
+                  "availability": "available",
+                  "remaining": 12
+                }
+              },
+              "hotel": null,
+              "activities": null
+            }
+          ]
+        }
+      ],
+      "final_text": "已保留以下安排，仍有待处理问题：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；房价与房态未核实。\n\n杭州→上海：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n\n交通小计：250元（不含住宿）。\n\n待处理：酒店地点信息不包含房价和库存。"
+    }
+  ]
+}

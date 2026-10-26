@@ -80,6 +80,16 @@ func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, op
 		if batch.Final != "" {
 			return response, nil
 		}
+		if m.h.flow != nil {
+			request, profileErr := m.h.flow.profile(ctx)
+			if profileErr != nil {
+				return nil, profileErr
+			}
+			m.tools, err = m.h.flow.registry.Profile(request)
+			if err != nil {
+				return nil, err
+			}
+		}
 		hash, err = decisionRequestHash(input, m.tools)
 		if err != nil {
 			return nil, err
@@ -106,7 +116,7 @@ func (m *journalModel) Generate(ctx context.Context, input []*schema.Message, op
 	}
 	stage := string(s.Phase)
 	if m.h.native {
-		stage = modelStage(ctx)
+		stage = flowModelStage(ctx)
 	}
 	decision := pm.TravelDecision{RunID: m.h.ref.RunID, DecisionKey: key, Stage: stage, RequestHash: hash, Response: fromEino(response)}
 	if m.h.native {

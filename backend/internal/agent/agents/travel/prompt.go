@@ -20,11 +20,13 @@ var (
 	correctionInstruction string
 	//go:embed prompts/no_followup.txt
 	interactionInstruction string
+	//go:embed prompts/planning_summary.txt
+	planningSummaryInstruction string
 )
 
 func roleInstruction(role string) string {
 	switch role {
-	case "verifier":
+	case "verifier", "planning_summary":
 		return reviewInstruction
 	case "summary":
 		return summaryInstruction

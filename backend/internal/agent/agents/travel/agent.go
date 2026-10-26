@@ -74,7 +74,7 @@ func NewAgent(cfg Config) (*Agent, error) {
 		cfg.Memory, _ = cfg.Preferences.(traveltools.NativeMemory)
 	}
 	profiles := map[string]any{}
-	for _, name := range []string{"main", "pre_policy", "review", "review_retry", "summary"} {
+	for _, name := range []string{"main", "pre_policy", "review", "review_retry", "summary", "planning_summary", "planning_recovery"} {
 		profile, err := traveltools.SourceProfile(name)
 		if err != nil {
 			return nil, err
@@ -85,7 +85,7 @@ func NewAgent(cfg Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + correctionInstruction + interactionInstruction + interactionRegenerationInstruction + userInputRequest.String() + historyOperation.String() + string(contractsJSON) + "travel-source-flow-v6:batch-v5:correction-v1:interaction-v1:interaction-guard-v1:completed-stop-reply-v1:physical-query-v2:replan-feedback-v3:provided-plan-v1:timeline-stay-v1:inspect-scope-v1:condition-field-v1:new-planning-v1:hard-stay-v1:durable-query-v1:generation-temp0.3-max8192-deepseek-thinking-disabled:eino-v0.9.0-beta.1"))
+	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + planningSummaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + correctionInstruction + interactionInstruction + interactionRegenerationInstruction + userInputRequest.String() + historyOperation.String() + string(contractsJSON) + "travel-source-flow-v7:main-once-v1:planning-summary-v1:summary-hard-requirements-v1:batch-v5:correction-v1:interaction-v2:interaction-guard-v1:completed-stop-reply-v1:physical-query-v2:provided-plan-v1:timeline-stay-v1:inspect-scope-v1:condition-field-v1:new-planning-v1:hard-stay-v1:durable-query-v1:generation-temp0.3-max8192-deepseek-thinking-disabled:eino-v0.9.0-beta.1"))
 	return &Agent{cfg: cfg, preference: preference, fingerprint: hex.EncodeToString(sum[:])}, nil
 }
 func (a *Agent) Fingerprint() string { return a.fingerprint }

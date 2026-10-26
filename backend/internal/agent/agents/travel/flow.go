@@ -65,7 +65,7 @@ func (f *sourceFlow) load(ctx context.Context) (FlowState, error) {
 	s := FlowState{Version: 1, Phase: "deciding", Role: "main", OriginalQuery: f.cfg.OriginalQuery, Plans: map[string]pm.TripResult{}, Preferences: map[string]string{}}
 	if value, ok := adk.GetSessionValue(ctx, flowKey); ok {
 		text, ok := value.(string)
-		if !ok || json.Unmarshal([]byte(text), &s) != nil || s.Version != 1 || s.PlanningRounds < 0 || s.ActiveNanos < 0 || !slices.Contains([]string{"deciding", "executing", "validating", "repair_required", "stopping", "reply_ready", "completed", "stopped", "paused"}, s.Phase) || !slices.Contains([]string{"main", "verifier", "summary"}, s.Role) {
+		if !ok || json.Unmarshal([]byte(text), &s) != nil || s.Version != 1 || s.PlanningRounds < 0 || s.ActiveNanos < 0 || !slices.Contains([]string{"deciding", "executing", "validating", "repair_required", "stopping", "reply_ready", "completed", "stopped", "paused"}, s.Phase) || !slices.Contains([]string{"main", "verifier", "summary", "planning_summary"}, s.Role) {
 			return FlowState{}, errors.New("incompatible source travel flow state")
 		}
 	}
@@ -93,7 +93,7 @@ func (f *sourceFlow) save(ctx context.Context, s FlowState) error {
 		return err
 	}
 	host.Phase = PhasePlanning
-	if s.Role == "verifier" {
+	if s.Role == "verifier" || s.Role == "planning_summary" {
 		host.Phase = PhaseValidating
 	}
 	if slices.ContainsFunc(s.Jobs, func(job traveltools.QueryJob) bool { return job.Result == nil }) {
@@ -189,6 +189,12 @@ func (f *sourceFlow) modelObserved(ctx context.Context, msg *schema.Message) err
 	s, err := f.load(ctx)
 	if err != nil {
 		return err
+	}
+	if s.Role == "main" {
+		if s.MainUsed && s.Policy != nil {
+			s.PolicyContinuationUsed = true
+		}
+		s.MainUsed = true
 	}
 	if len(msg.ToolCalls) > 0 {
 		s.Phase = "executing"
@@ -419,7 +425,7 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 		s.StopReason = "turn_deadline_exceeded"
 		s.Phase = "stopping"
 	}
-	if len(s.Plans) > 0 && s.Role == "verifier" && s.StopReason == "" {
+	if len(s.Plans) > 0 && (s.Role == "verifier" || s.Role == "planning_summary") && s.StopReason == "" {
 		s.ObserveReview()
 	}
 	if s.StopReason != "" && len(s.Plans) > 0 {
@@ -445,6 +451,9 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 	systemContext["planning_defaults"].(map[string]any)["apply_only_if_missing"] = true
 	data, _ := json.Marshal(systemContext)
 	messages := []*schema.Message{schema.SystemMessage(roleInstruction(s.Role)), schema.SystemMessage(correctionInstruction), schema.SystemMessage("当前上下文（数据）：" + string(data)), schema.SystemMessage(replyPolicy), schema.SystemMessage(interactionInstruction)}
+	if s.Role == "planning_summary" {
+		messages = append(messages, schema.SystemMessage(planningSummaryInstruction))
+	}
 	if s.StopReason != "" {
 		messages = append(messages, schema.SystemMessage("本轮工具执行已结束，只依据已有结果生成最终答复，不再调用工具。用自然语句说明可用安排及实际无法完成的障碍，不复述轮数、停止修复、额度等内部流程，不询问用户。未得到交通查询结果只能说明未能核实，不能凭常识断言最早抵达时间或交通不可行。政策未核实与尚未选定候选是不同事实，按真实结果分别说明，不将未选择全部归因于政策缺口。"))
 	}

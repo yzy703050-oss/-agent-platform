@@ -96,7 +96,7 @@ func applySourceMetadata(p *model.TripPlan, previous *model.TripPlan, cmd model.
 		}
 		return nil
 	}
-	if !slices.Contains([]string{"main", "verifier"}, cmd.Context.Role) {
+	if !slices.Contains([]string{"main", "verifier", "planning_summary"}, cmd.Context.Role) {
 		return invalid("invalid trusted decision role")
 	}
 	if slices.Contains([]string{"pause", "cancel"}, cmd.Operation) && strings.TrimSpace(cmd.Reason) == "" {
@@ -347,6 +347,11 @@ func applySourceMetadata(p *model.TripPlan, previous *model.TripPlan, cmd model.
 		_ = json.Unmarshal(snapshot, &after)
 		if !semanticSourceEqual(before["global"], after["global"]) || !semanticSourceEqual(before["tasks"], after["tasks"]) {
 			return invalid("REPLAN_REQUIRED: local review cannot change hard requirements, activities or route")
+		}
+	}
+	if previous != nil && cmd.Context.Role == "planning_summary" {
+		if err := protectSummaryRequirements(*previous, *p); err != nil {
+			return err
 		}
 	}
 	revision := int64(1)

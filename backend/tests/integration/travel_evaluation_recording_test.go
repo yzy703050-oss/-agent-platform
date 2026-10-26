@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"testing"
 	"time"
 
 	em "github.com/cloudwego/eino/components/model"
@@ -36,9 +37,13 @@ func (m *perfRecordingModel) WithTools(tools []*schema.ToolInfo) (em.ToolCalling
 	return &perfRecordingModel{inner: inner, tools: tools, log: m.log}, nil
 }
 func (m *perfRecordingModel) Generate(ctx context.Context, in []*schema.Message, opts ...em.Option) (*schema.Message, error) {
+	tools := em.GetCommonOptions(&em.Options{}, opts...).Tools
+	if tools == nil {
+		tools = m.tools
+	}
 	m.log.mu.Lock()
 	index := len(m.log.rows)
-	m.log.rows = append(m.log.rows, perfModelInput{Sequence: index + 1, StartedAt: time.Now().UTC(), Messages: perfInputCopy(in), Tools: perfInputCopy(m.tools)})
+	m.log.rows = append(m.log.rows, perfModelInput{Sequence: index + 1, StartedAt: time.Now().UTC(), Messages: perfInputCopy(in), Tools: perfInputCopy(tools)})
 	m.log.mu.Unlock()
 	out, err := m.inner.Generate(ctx, in, opts...)
 	m.log.mu.Lock()
@@ -61,4 +66,13 @@ func perfInputCopy[T any](value T) T {
 	var out T
 	_ = json.Unmarshal([]byte(perfRedact(string(raw))), &out)
 	return out
+}
+
+func TestPerfRecordingUsesGenerationToolOverride(t *testing.T) {
+	log := &perfInputLog{}
+	m := &perfRecordingModel{inner: &perfEchoModel{}, log: log, tools: []*schema.ToolInfo{{Name: "main_only"}}}
+	_, err := m.Generate(context.Background(), []*schema.Message{schema.UserMessage("test")}, em.WithTools([]*schema.ToolInfo{{Name: "summary_only"}}))
+	if err != nil || len(log.rows) != 1 || len(log.rows[0].Tools) != 1 || log.rows[0].Tools[0].Name != "summary_only" {
+		t.Fatalf("recorded stale bound tools rather than actual generation override: %+v %v", log.rows, err)
+	}
 }

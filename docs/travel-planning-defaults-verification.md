@@ -4,6 +4,8 @@
 
 正式依据：OpenSpec `complete-travel-planning-defaults`；[实施计划](superpowers/plans/2026-10-26-travel-planning-defaults.md)。沿用用户已选单代理和codex/travel-normal-flow，未派子代理。
 
+> 本文记录上一个默认条件版本。Main一次及总结直接重排的最新结果见[新验收报告](travel-summary-replanning-verification.md)，其中保留全部中间失败。
+
 ## 最终真实模型结果
 
 **19/19自动及手工核对通过。** 原句三次都实际经过Main→程序工具→Verify，分别2/2/2次调用，耗时7.29/7.57/7.49秒；零追问响应、零交互再生成、零参数拒绝、零主动历史读取、零重复选择。

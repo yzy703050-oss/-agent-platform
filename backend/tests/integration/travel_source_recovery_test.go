@@ -109,7 +109,11 @@ func TestTravelSourceRecoveryMemory(t *testing.T) {
 	}
 }
 
-type sourceBatchModel struct{ calls atomic.Int32 }
+type sourceBatchModel struct {
+	calls        atomic.Int32
+	mainCalls    atomic.Int32
+	summaryCalls atomic.Int32
+}
 
 type sourceCaptureModel struct{ input string }
 
@@ -134,6 +138,15 @@ func (m *sourceBatchModel) WithTools([]*schema.ToolInfo) (einomodel.ToolCallingC
 }
 func (m *sourceBatchModel) Generate(_ context.Context, input []*schema.Message, _ ...einomodel.Option) (*schema.Message, error) {
 	m.calls.Add(1)
+	if len(input) > 0 && strings.Contains(input[0].Content, "MainAgent") {
+		m.mainCalls.Add(1)
+	}
+	for _, msg := range input {
+		if msg.Role == schema.System && strings.Contains(msg.Content, "规划总结阶段（planning-summary-v1）") {
+			m.summaryCalls.Add(1)
+			break
+		}
+	}
 	for _, msg := range input {
 		if msg.Role == schema.User && strings.Contains(msg.Content, `"tripplans"`) {
 			return schema.AssistantMessage("已保留两个草稿，尚未选择交通。", nil), nil
@@ -215,6 +228,9 @@ func TestTravelSourceRecoveryBatch(t *testing.T) {
 	var receipts, jobs int
 	if err = f.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM travel_plans),(SELECT count(*) FROM travel_operation_receipts),(SELECT count(*) FROM travel_query_jobs WHERE status='succeeded')`).Scan(&plans, &receipts, &jobs); err != nil || plans != 2 || receipts != 2 || jobs != 2 || provider.calls.Load() != 2 || freshModel.calls.Load() != 1 {
 		t.Fatal("partial batch replay duplicated or lost effects", plans, receipts, jobs, provider.calls.Load(), freshModel.calls.Load(), err)
+	}
+	if m.mainCalls.Load() != 1 || freshModel.mainCalls.Load() != 0 || freshModel.summaryCalls.Load() != 1 {
+		t.Fatal("committed decision recovery reentered Main or lost summary handoff", m.mainCalls.Load(), freshModel.mainCalls.Load(), freshModel.summaryCalls.Load())
 	}
 }
 

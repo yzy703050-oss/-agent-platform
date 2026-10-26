@@ -12,6 +12,9 @@ import (
 )
 
 type interactionAudit struct {
+	MainCalls             int            `json:"main_model_calls"`
+	SummaryCalls          int            `json:"planning_summary_model_calls"`
+	MainReentries         int            `json:"main_reentries"`
 	PlanningCalls         int            `json:"planning_model_calls"`
 	PolicyCalls           int            `json:"policy_model_calls"`
 	MaintenanceCalls      int            `json:"maintenance_model_calls"`
@@ -31,6 +34,12 @@ var interactionFollowup = regexp.MustCompile(`[?？]|请.{0,8}(补充|确认|提
 func auditInteraction(s perfSample) interactionAudit {
 	a := interactionAudit{ExtraReasons: map[string]int{}, Followup: interactionFollowup.MatchString(s.FinalText)}
 	for _, call := range s.Calls {
+		if call.Stage == "agent:main" {
+			a.MainCalls++
+		}
+		if call.Stage == "agent:trip_summary" {
+			a.SummaryCalls++
+		}
 		switch {
 		case call.Stage == "agent:travel_policy" || call.Stage == "agent:policy" || len(call.RequestedTools) == 1 && call.RequestedTools[0] == "query_policy":
 			a.PolicyCalls++
@@ -68,8 +77,9 @@ func auditInteraction(s perfSample) interactionAudit {
 			var args struct {
 				Resource string `json:"resource"`
 				Tripplan struct {
-					Operation string                       `json:"operation"`
-					Tasks     []map[string]json.RawMessage `json:"tasks"`
+					Operation  string                       `json:"operation"`
+					Tasks      []map[string]json.RawMessage `json:"tasks"`
+					RouteTasks []json.RawMessage            `json:"route_tasks"`
 				} `json:"tripplan"`
 			}
 			if json.Unmarshal([]byte(call.Arguments), &args) != nil {
@@ -84,6 +94,9 @@ func auditInteraction(s perfSample) interactionAudit {
 				}
 			}
 			if call.Name == "write_trip" && args.Tripplan.Operation == "amend" {
+				if len(args.Tripplan.RouteTasks) > 0 {
+					a.ExtraReasons["replan"]++
+				}
 				for _, task := range args.Tripplan.Tasks {
 					if len(task["content"]) > 0 || len(task["conditions"]) > 0 || len(task["items"]) > 0 || len(task["origin"]) > 0 || len(task["destination"]) > 0 {
 						a.ExtraReasons["amend"]++
@@ -104,6 +117,11 @@ func auditInteraction(s perfSample) interactionAudit {
 	a.UnexplainedExtraCalls = max(0, a.PlanningCalls-2)
 	allowance := 2*a.ExtraReasons["replan"] + a.ExtraReasons["amend"] + a.ExtraReasons["tool_feedback"] + a.ExtraReasons["interaction_regeneration"] + a.ExtraReasons["provider_error"] + a.ExtraReasons["plan_refresh"]
 	a.UnexplainedExtraCalls = max(0, a.UnexplainedExtraCalls-allowance)
+	mainLimit := 1
+	if a.PolicyCalls > 0 {
+		mainLimit = 2
+	}
+	a.MainReentries = max(0, a.MainCalls-mainLimit)
 	return a
 }
 
