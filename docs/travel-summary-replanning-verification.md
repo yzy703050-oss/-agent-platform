@@ -71,6 +71,12 @@
 
 ## 本地部署与交付
 
-<!-- WEB_RESULTS -->
+干净代码提交 `5cd274be85414f75082160584b7d5dadd2436a47` 构建，Go元数据 `vcs.modified=false`。部署前确认活动Run=0并核对旧后端精确路径，仅替换本项目后端；新PID23528，`/health/ready` ready，网页HTTP200。其他项目的IPv6端口未动。
+
+测试地址：[小豆包](http://127.0.0.1:5173)。通过网页同源代理，使用独立测试账号、页面心跳、会话创建及完整执行接口输入“帮我规划明天去上海的旅途”。Run `a117a177-eb40-43e7-a84b-0c95ee493a36` succeeded，耗时8.08秒，重庆→上海→重庆、10-27至10-29住宿及活动完整保存；回复明确演示数据及酒店未核实房价/房态，没有追问。
+
+只读数据库核对实际调用：Main1＋planning_summary1，总2次；两个接受决策，0历史读取、0模型拒绝，结束后活动Run=0。两个调用usage共21845 token。网页原始证据：`.cache/reports/travel-summary-web-2026-10-26.json` 与 `travel-summary-web-audit-2026-10-26.json`，摘要也纳入脱敏JSON。
 
 沿用 `codex/travel-normal-flow`，基于main `2a4b3c6`。未合并main、未推送。原始失败和运行日志在忽略目录保留；正式验收文档与脱敏报告在Git内。
+
+归档：已执行OpenSpec archive，变更归档至 `openspec/changes/archive/2026-10-26-fuse-travel-summary-replanning/` 并同步两份主规格。归档后全局复核还发现“有限编排/有限校正”旧段落含回Main语义，已在本次归档delta与主规格同步协调为用户已授权的新流程，防止正式规格自相矛盾。严格全量12/12、归档任务检查7/7通过。实施计划及任务均完成。

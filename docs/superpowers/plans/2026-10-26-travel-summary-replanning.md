@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go、Eino、PostgreSQL。
 
-**Spec:** openspec/changes/fuse-travel-summary-replanning/specs/、design.md、tasks.md。产品要求只由这些文件定义。
+**Spec:** openspec/changes/archive/2026-10-26-fuse-travel-summary-replanning/specs/、design.md、tasks.md。产品要求只由这些文件定义。
 
 ## Global Constraints
 - Main首次一次，真实政策观察例外一次；不能用只改阶段日志伪装合并。
@@ -42,4 +42,4 @@ Files：travel_interaction_model_test.go、travel_interaction_audit_test.go、tr
 - [x] 审计先RED：正常Main不得再次调用，真实路由amend记有效重排，独立query/维护/政策仍计总数；重排用现有固定无直达工具，重复三次，判Main1/总结2且完整满足固定返程硬一晚。
 - [x] 真实模型完整重复：原句/记忆/硬活动/多城/查询每类三次，明确单程、政策、酒店缺报价对照；检查角色、无追问、去返程/活动/住宿及全部成本，所有失败保留。
 - [x] REQUIRE_DATABASE_TESTS=1 go test ./... -count=1 -timeout180s；go vet ./...；go build；整体自审与openspec validate fuse-travel-summary-replanning --strict，CLI无verify则人工规格矩阵核对。
-- [ ] 干净提交构建，无活动任务后替换本地服务；网页原句和实际调用核对；合格后archive同步规格，保留当前分支待用户选择整合，不自动合并或推送。
+- [x] 干净提交构建，无活动任务后替换本地服务；网页原句和实际调用核对；合格后archive同步规格，保留当前分支待用户选择整合，不自动合并或推送。

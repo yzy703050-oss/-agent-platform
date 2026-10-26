@@ -3264,5 +3264,69 @@
       ],
       "final_text": "已保留以下安排，仍有待处理问题：\n\n上海→杭州：\nG1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：杭州商务酒店，2026-10-27入住、2026-10-28退房；房价与房态未核实。\n\n杭州→上海：\nG1002，2026-10-28 14:00出发，2026-10-28 16:00抵达，二等座，150元。\n\n交通小计：250元（不含住宿）。\n\n待处理：酒店地点信息不包含房价和库存。"
     }
-  ]
+  ],
+  "web_acceptance": {
+    "result": {
+      "run_id": "a117a177-eb40-43e7-a84b-0c95ee493a36",
+      "status": "succeeded",
+      "error_code": "",
+      "elapsed_seconds": 8.08,
+      "answer": "演示数据，仅用于展示，不代表真实车次、报价或房态。\n\n已保存以下安排：\n\n重庆→上海：\n演示 G1001，2026-10-27 09:00出发，2026-10-27 11:00抵达，二等座，100元。\n住宿：上海演示酒店地点，2026-10-27入住、2026-10-29退房；房价与房态未核实。\n活动：2026-10-27 晚上 游览外滩与南京路；抵达上海后傍晚前往外滩、南京路一带散步观景，感受城市夜景。。\n活动：2026-10-28 上午 上海城市观光；全天游览上海：可安排豫园、城隍庙、人民广场及武康路等街区，按体力与天气灵活调整。。\n活动：2026-10-28 下午 上海城市观光；继续市区游览，可安排博物馆、滨江步道或购物休闲，为次日返程留出整理时间。。\n\n上海→重庆：\n演示 G1002，2026-10-29 14:00出发，2026-10-29 16:00抵达，二等座，150元。\n\n交通小计：250元（不含住宿）。",
+      "tool_results": 2
+    },
+    "audit": {
+      "run_id": "a117a177-eb40-43e7-a84b-0c95ee493a36",
+      "model_calls": [
+        {
+          "stage": "agent:main",
+          "usage": {
+            "total_tokens": 10493,
+            "prompt_tokens": 9238,
+            "completion_tokens": 1255,
+            "prompt_token_details": {
+              "cached_tokens": 6400
+            },
+            "completion_token_details": {}
+          },
+          "call_id": "ae4eb018-5ea4-443b-bc6b-3197a22d87be",
+          "started_at": "2026-10-26T11:13:46.2651168Z",
+          "duration_ms": 5217.875,
+          "finished_at": "2026-10-26T11:13:51.4829922Z",
+          "requested_tools": [
+            "write_trip"
+          ]
+        },
+        {
+          "stage": "agent:trip_summary",
+          "usage": {
+            "total_tokens": 11352,
+            "prompt_tokens": 10918,
+            "completion_tokens": 434,
+            "prompt_token_details": {
+              "cached_tokens": 4352
+            },
+            "completion_token_details": {}
+          },
+          "call_id": "4c3e9f42-28a3-4e84-ad39-13e719a0d6b4",
+          "started_at": "2026-10-26T11:13:51.8322575Z",
+          "duration_ms": 2276.464,
+          "finished_at": "2026-10-26T11:13:54.1087223Z",
+          "requested_tools": [
+            "write_trip"
+          ]
+        }
+      ],
+      "active_after": 0,
+      "history_reads": 0,
+      "model_rejections": 0,
+      "accepted_decisions": 2
+    },
+    "deployment": {
+      "active_before": 0,
+      "started_at": "2026-10-26T19:13:30.5772174+08:00",
+      "commit": "5cd274be85414f75082160584b7d5dadd2436a47",
+      "path": "G:/简历项目/小豆包/.cache/bin/server-travel-summary.exe",
+      "pid": 23528
+    }
+  }
 }
