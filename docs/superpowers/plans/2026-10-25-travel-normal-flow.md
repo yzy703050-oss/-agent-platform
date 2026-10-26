@@ -59,7 +59,7 @@
 
 对应 OpenSpec tasks 2.4、3.1、3.2；覆盖全部规格场景。
 
-**Files:** 创建 `backend/tests/integration/travel_interaction_model_test.go`、`travel_interaction_audit_test.go`；复用既有 perfSample/输入记录，不改变旧基准的成功定义；扩展生成协议的有界交互校验与工具重排反馈、相应测试及程序缺口陈述；补充 `source_validation.go`/`stay_coverage_test.go` 和 `inspect.go`/`inspect_scope_test.go` 的退房至下一程漏夜回归，保持既有完整需求；创建 `docs/travel-normal-flow-verification.md` 和脱敏测量 JSON。
+**Files:** 创建 `backend/tests/integration/travel_interaction_model_test.go`、`travel_interaction_audit_test.go`；复用既有 perfSample/输入记录，不改变旧基准的成功定义；扩展生成协议的有界交互校验与工具重排反馈、相应测试及程序缺口陈述；补充 `source_validation.go`/`stay_coverage_test.go` 和 `inspect.go`/`inspect_scope_test.go` 的退房至下一程漏夜回归，保持既有完整需求；补齐 `backend/internal/agent/manager/manager.go`、`backend/internal/repository/postgres/event.go` 与 `events_test.go` 的实际审计事件持久化；创建 `docs/travel-normal-flow-verification.md` 和脱敏测量 JSON。
 
 **Interfaces:** 沿用 `perfSample`、`perfInputLog`、ModelCallMeasurement 和现有固定供应方；为本场景增加主规划次数、政策前置次数、维护次数、未解释额外调用、主动历史读取和无进展重复计数。所有实际模型调用总数仍可与原记录逐次对账，不丢旧报告字段。
 

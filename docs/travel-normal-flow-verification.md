@@ -30,6 +30,8 @@
 - 明确索取用户信息时整次响应拒绝，工具不执行；沿用两次额外再生成预算，不删改句子掩盖。拒绝全文和原因保存在travel.model_rejected。泛化缺口提示改陈述；硬活动/整体路线错误提供Main交接，待交接阶段只接受request_replan。
 - 手工核对曾发现自动断言漏查住宿缺夜，补齐planned/actual退房至下一程的阻断检查；旧酒店查询与退房条件不再让已取消住宿的中转任务失败。硬晚数首次结构化保存后在本请求内保留，Main也不能把硬一晚改成硬两晚。具体字段错误不再只报泛化信息。
 
+生产记录链路另经真正Manager→PostgreSQL验证：原先白名单丢弃模型测量/拒绝事件，首次网页测试只留下两条已接受决策，实际调用总数不可从缺失事件推为零。现补齐两类事件，当前尝试和旅行类型限制保持，拒绝全文最大256KB；不会作为普通聊天输出显示。此后仅改审计持久化，未改18样本的决策代码。
+
 ## 覆盖矩阵与实际验证
 
 | 需求/任务 | 证据 |
@@ -39,6 +41,7 @@
 | 正常两次、缺reply明确结束、重复物理查询、恢复重放 | TestTravelNormalPlanningTwoCalls六变体、TestCompletedExplicitStopReply、TestTravelEquivalentPhysicalQueriesIgnoreOtherDomainParty及原有恢复回归 |
 | 不接受问卷、预算有界、明确历史操作保留 | TestTravelQuestioningResponseIsNotAccepted、TestTravelInteractionRequestBoundaries、TestTravelFreshPlanningCannotReadHistory、工具profile/preflight回归 |
 | replan权限、字段反馈、过夜、已取消酒店、新请求硬晚数 | replan_feedback_test.go、condition_feedback_test.go、stay_coverage_test.go、inspect_scope_test.go、hard_stay_test.go |
+| 真实Manager审计事件不丢失及旅行/attempt/大小边界 | TestTravelModelAuditEventsPersistThroughManager、TestTravelModelAuditEventGuards |
 | 真实18样本的语义、数量、成本、全部额外调用 | TestTravelInteractionModel，原始输入/响应/事件/候选/测量保存在完整本地JSON |
 
 ```text
@@ -49,7 +52,7 @@ REQUIRE_TRAVEL_INTERACTION_MODEL_TEST=1 TRAVEL_INTERACTION_REPEATS=3 go test ./t
 openspec validate prevent-travel-followup-questions --strict
 ```
 
-全量日志：`.cache/execution/travel-normal-flow/backend-tests-1026-verified.log`、`vet-1026-verified.log`；实际模型日志：`task3-real-final2-1026.log`。脚本模型测试原先硬编码2026年10月25日，跨日后已过期；仅将相关脚本夹具改为2099年未来日期，真实模型场景继续用当前上海时区相对日期。未改生产时钟或放宽过去日期校验。
+全量日志：`.cache/execution/travel-normal-flow/backend-tests-audited.log`、`vet-audited.log`；实际模型日志：`task3-real-final2-1026.log`。脚本模型测试原先硬编码2026年10月25日，跨日后已过期；仅将相关脚本夹具改为2099年未来日期，真实模型场景继续用当前上海时区相对日期。未改生产时钟或放宽过去日期校验。
 
 本机 CLI 没有 OpenSpec verify 命令。执行的是 strict validate，另人工逐项核对 specs/design/tasks/代码/测试与上表；没有声称运行 CLI verify。
 

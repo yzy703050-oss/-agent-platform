@@ -28,10 +28,15 @@ func (r *Repository) ListRunEvents(ctx context.Context, s model.Scope, id string
 	return out, rows.Err()
 }
 func (r *Repository) AppendRunEvent(ctx context.Context, s model.Scope, event contracts.Event) error {
-	if event.Type != "tool.started" && event.Type != "tool.completed" && event.Type != "tool.failed" && event.Type != "travel.phase" {
+	audit := event.Type == "travel.model_call" || event.Type == "travel.model_rejected"
+	if event.Type != "tool.started" && event.Type != "tool.completed" && event.Type != "tool.failed" && event.Type != "travel.phase" && !audit {
 		return model.ErrInvalidInput
 	}
-	if len(event.Payload) > 16000 || !json.Valid(event.Payload) {
+	payloadLimit := 16000
+	if event.Type == "travel.model_rejected" {
+		payloadLimit = 256000
+	}
+	if len(event.Payload) > payloadLimit || !json.Valid(event.Payload) {
 		return model.ErrInvalidInput
 	}
 	if event.Type == "travel.phase" {
@@ -51,7 +56,7 @@ func (r *Repository) AppendRunEvent(ctx context.Context, s model.Scope, event co
 	if run.Attempt != event.Attempt || (run.Status != "running" && run.Status != "pausing") {
 		return model.ErrConflict
 	}
-	if event.Type == "travel.phase" {
+	if event.Type == "travel.phase" || audit {
 		var kind string
 		if e = tx.QueryRow(ctx, "SELECT agent_type FROM conversations WHERE id=$1", run.ConversationID).Scan(&kind); e != nil {
 			return e

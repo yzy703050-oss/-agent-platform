@@ -209,7 +209,7 @@ func (m *Manager) launch(run model.Run, s model.Scope, exec contracts.Execution)
 					return err
 				}
 			}
-			if e.Type == "tool.started" || e.Type == "tool.completed" || e.Type == "tool.failed" || e.Type == "travel.phase" {
+			if e.Type == "tool.started" || e.Type == "tool.completed" || e.Type == "tool.failed" || e.Type == "travel.phase" || e.Type == "travel.model_call" || e.Type == "travel.model_rejected" {
 				if err := m.store.AppendRunEvent(ctx, s, e); err != nil {
 					return err
 				}

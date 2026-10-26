@@ -63,6 +63,10 @@ Verifier 第二轮同时审查、选候选、提交 `reply`。`ReadyReply` 已�
 
 首次成功变更中已结构化为user/context且非soft的住宿晚数，按计划和目的地累计保存到FlowState.HardStayNights。后续Main/Verifier的可信TripDecisionContext携带该快照，不能通过改task_id或把一晚改标为硬两晚来放宽同请求的要求；Preview在提交前返回HARD_STAY_REQUIREMENT，Verifier须交回Main。软建议不锁定；新用户请求有独立FlowState，允许其明确修改旧行程。它不从自然语言推断新条件，也不声称全面验证任意用户原文。
 
+### 生产事件记录链路
+
+实际网页验收发现Manager及PostgreSQL AppendRunEvent只允许工具/phase事件，丢弃了travel.model_call和travel.model_rejected；因此不能把数据库无测量行误报为零模型调用。补齐这两种旅行事件的转发和持久化，保留run所有者、attempt及运行状态检查，并仅允许travel会话写入。model_call沿用16KB上限，完整拒绝响应使用与决策同量级的256KB上限；前端现有事件处理忽略这两类审计事件，不把拒绝问句当聊天内容显示。新PG测试经真正Manager→Repository验证记录不丢失，并覆盖格式、大小、尝试和General隔离。
+
 ### 运行产物核对
 
 记录监听 PID、可执行文件、编译提交、源码脏状态和实际模型输入。先核对无活动任务，再替换本地后端；健康检查同时经过 8080 后端及 5173 网页代理。现有旧产物保留以便回退；本次已经完成的重启是诊断操作，不勾选后续修复任务。

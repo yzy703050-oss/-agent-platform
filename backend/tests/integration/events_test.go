@@ -68,6 +68,93 @@ func TestTravelPhaseEvents(t *testing.T) {
 		t.Fatalf("unexpected phase event count %d", count)
 	}
 }
+
+type travelAuditAgent struct{}
+type travelAuditExecution struct{}
+
+func (travelAuditAgent) NewExecution(context.Context, contracts.RunInput) (contracts.Execution, error) {
+	return travelAuditExecution{}, nil
+}
+func (travelAuditExecution) Start(ctx context.Context, emit func(contracts.Event) error) (contracts.ExecutionResult, error) {
+	for _, e := range []contracts.Event{
+		{Type: "travel.model_call", Payload: []byte(`{"call_id":"actual-call","stage":"agent:main","duration_ms":1,"requested_tools":[]}`)},
+		{Type: "travel.model_rejected", Payload: []byte(`{"reason":"user_input_requested","response":{"content":"` + strings.Repeat("x", 18000) + `"}}`)},
+	} {
+		if err := emit(e); err != nil {
+			return contracts.ExecutionResult{}, err
+		}
+	}
+	return contracts.ExecutionResult{FinalText: "completed"}, nil
+}
+func (travelAuditExecution) Pause(context.Context) (contracts.PauseResult, error) {
+	return contracts.PauseResult{}, nil
+}
+func (travelAuditExecution) Cancel(context.Context) error { return nil }
+
+func TestTravelModelAuditEventsPersistThroughManager(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	if _, err := f.pool.Exec(ctx, "UPDATE conversations SET agent_type='travel' WHERE id=$1", f.conversation); err != nil {
+		t.Fatal(err)
+	}
+	reg := manager.NewRegistry()
+	reg.Register("travel", travelAuditAgent{})
+	m := manager.New(f.repo, memory.New(f.repo, 32000), reg, contracts.Limits{ExecutionTimeout: time.Second * 5})
+	defer m.Close()
+	r, err := m.Submit(ctx, f.input("audit-events", "规划行程"), "travel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Wait()
+	got, err := f.repo.GetRun(ctx, f.scope, r.ID)
+	if err != nil || got.Status != "succeeded" {
+		t.Fatalf("audit event broke execution: %+v %v", got, err)
+	}
+	rows, err := m.Events(ctx, f.scope, r.ID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := map[string]int{}
+	for _, row := range rows {
+		counts[row.Type]++
+		if row.Type == "travel.model_rejected" && len(row.Payload) < 18000 {
+			t.Fatal("rejected response was truncated")
+		}
+	}
+	if counts["travel.model_call"] != 1 || counts["travel.model_rejected"] != 1 {
+		t.Fatalf("actual calls/rejections disappeared: %v", counts)
+	}
+}
+
+func TestTravelModelAuditEventGuards(t *testing.T) {
+	f, ref, _ := travelFixture(t)
+	ctx := context.Background()
+	for _, kind := range []string{"travel.model_call", "travel.model_rejected"} {
+		e := contracts.Event{RunID: ref.RunID, Attempt: ref.Attempt, Type: kind, Payload: []byte(`{"reason":"test"}`)}
+		if err := f.repo.AppendRunEvent(ctx, f.scope, e); err != nil {
+			t.Fatal(err)
+		}
+		e.Attempt++
+		if err := f.repo.AppendRunEvent(ctx, f.scope, e); !errors.Is(err, model.ErrConflict) {
+			t.Fatalf("stale audit event accepted: %v", err)
+		}
+		e.Attempt = ref.Attempt
+		e.Payload = []byte(`{`)
+		if err := f.repo.AppendRunEvent(ctx, f.scope, e); !errors.Is(err, model.ErrInvalidInput) {
+			t.Fatalf("invalid audit JSON accepted: %v", err)
+		}
+		e.Payload = []byte(`{"response":"` + strings.Repeat("x", 256001) + `"}`)
+		if err := f.repo.AppendRunEvent(ctx, f.scope, e); !errors.Is(err, model.ErrInvalidInput) {
+			t.Fatalf("oversized audit accepted: %v", err)
+		}
+	}
+	if _, err := f.pool.Exec(ctx, "UPDATE conversations SET agent_type='general' WHERE id=$1", f.conversation); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.AppendRunEvent(ctx, f.scope, contracts.Event{RunID: ref.RunID, Attempt: ref.Attempt, Type: "travel.model_call", Payload: []byte(`{}`)}); !errors.Is(err, model.ErrInvalidInput) {
+		t.Fatalf("travel audit entered General: %v", err)
+	}
+}
 func TestCompletedAnswerAdvancesPartialHistoryCursor(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
