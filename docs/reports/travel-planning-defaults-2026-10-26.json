@@ -3126,5 +3126,27 @@
         }
       ]
     }
-  ]
+  ],
+  "local_deployment_smoke": {
+    "revision": "add69048713c32d0ca6776b1b167f4eb2b9b2582",
+    "vcs_modified": false,
+    "pid": 36356,
+    "url": "http://127.0.0.1:5173",
+    "mode": "demo supplier data visibly disclosed in reply",
+    "run_id": "79370487-21a6-49c9-b711-e7730cbfd0ee",
+    "status": "succeeded",
+    "elapsed_seconds": 10.64,
+    "actual_model_calls": 3,
+    "main_calls": 1,
+    "verify_calls": 2,
+    "interaction_rejections": 0,
+    "active_reads": 0,
+    "accepted_decisions": 3,
+    "input_tokens": 29552,
+    "output_tokens": 2107,
+    "total_tokens": 31659,
+    "extra_call_reason": "Verify actually amended away a superfluous soft return-day activity, then selected saved candidates and bound full reply.",
+    "manual_review": "PASS; Chongqing round trip and two hotel nights plus activities displayed, no questioning; demo data not live inventory.",
+    "raw_report": ".cache/reports/travel-defaults-web-2026-10-26.json"
+  }
 }

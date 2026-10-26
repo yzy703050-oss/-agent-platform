@@ -54,4 +54,10 @@ CLI没有OpenSpec verify，执行strict validate并人工对照specs/design/task
 
 ## 本地交付
 
-最终全量检查、干净提交构建、本地服务替换、网页原句验收及OpenSpec归档结果将在实际完成后补记。
+最终代码提交 `add69048713c32d0ca6776b1b167f4eb2b9b2582`，干净构建vcs.modified=false。确认无活动任务后替换本地后端，PID36356，产物 `.cache/bin/server-travel-defaults.exe`；8080 ready，前端 `http://127.0.0.1:5173` HTTP200。IPv6 localhost:5173为其他应用，未停止或修改。后续归档提交只改文档/规格。
+
+经过真实网页代理、浏览器Origin和独立测试账户运行原句，run `79370487-21a6-49c9-b711-e7730cbfd0ee` succeeded，10.64秒。按重庆起点保存27日去上海、29日返重庆、上海27日至29日两晚酒店和27日晚/28日游览；最终无问卷或索取确认。数据库实际 **3次调用：Main1＋Verify2；零交互拒绝、零read、3条接受决策**。第一次Verify实际amend删除一个多余软活动，第二次选择去返程/酒店并绑定完整回复，三次均有真实业务进展，不是重复选择或追问再生成。输入29,552、输出2,107，合计31,659 tokens；不把本例误报为两次。
+
+本地服务当前为演示供应方模式，最终回复明确“演示数据，仅用于展示，不代表真实车次、报价或房态”，酒店价格与房态未核实。本例验证真实网页代理链路和默认决策，不证明线上供应方真实性；没有冒充手动浏览器点击验收。
+
+本地证据：`.cache/reports/travel-defaults-deployment-2026-10-26.json`、`travel-defaults-web-2026-10-26.json`、`travel-defaults-web-audit-2026-10-26.json`、`travel-defaults-web-messages-2026-10-26.json`。OpenSpec已于2026-10-26归档至 `openspec/changes/archive/2026-10-26-complete-travel-planning-defaults` 并同步travel-planning主规格；归档前唯一未勾项为部署/归档自身，依据成功结果补记。分支仍未合并或推送，整合方式待用户选择。

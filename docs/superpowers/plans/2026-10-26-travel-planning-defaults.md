@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go、Eino、PostgreSQL。
 
-**Spec:** openspec/changes/complete-travel-planning-defaults/specs/travel-planning/spec.md、design.md、tasks.md；本计划只展开实施。
+**Spec:** openspec/changes/archive/2026-10-26-complete-travel-planning-defaults/specs/travel-planning/spec.md、design.md、tasks.md；本计划只展开实施。2026-10-26已同步主规格并归档。
 
 ## Global Constraints
 
@@ -46,5 +46,5 @@ Interfaces：保留interactionCase/interactionSample及报告字段；sparse沿�
 ## Task 3: 核验部署与归档（OpenSpec 2.3、3.1）
 
 - [x] REQUIRE_DATABASE_TESTS=1 go test ./... -count=1 -timeout180s；go vet ./...；go build；自审实际diff、测试及规格矩阵，openspec validate complete-travel-planning-defaults --strict。CLI无verify，人工核对并明确报告。最终PG47.252秒，全部命令退出0，无阻断发现。
-- [ ] 提交干净代码后构建，确认无活动任务、核对当前服务身份，再隐藏启动新版本并核对8080/正确IPv4前端代理5173。
-- [ ] 网页同句真实查询验收，记录已授权默认重庆、去返程/酒店、真实调用及报价/库存边界；成功后archive同步主规格，保留分支待用户选择整合。
+- [x] 提交干净代码add6904后构建vcs.modified=false，确认无活动任务、核对当前服务身份，再隐藏启动新版本PID36356；8080 ready、正确IPv4前端代理5173 HTTP200。
+- [x] 网页同句真实查询验收，记录已授权默认重庆、去返程/酒店、真实调用及报价/库存边界；成功后archive同步主规格，保留分支待用户选择整合。原句run79370487-21a6-49c9-b711-e7730cbfd0ee成功10.64秒，3次实际调用含真实活动修复，0追问/0read；完整方案显示，demo来源如实披露。2026-10-26 archive已完成，后续仅文档提交，不改部署代码。分支整合待用户选择。
