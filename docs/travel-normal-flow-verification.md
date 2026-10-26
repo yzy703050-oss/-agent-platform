@@ -68,4 +68,10 @@ openspec validate prevent-travel-followup-questions --strict
 
 ## 本地服务交付
 
-待完成：无活动任务核对、最终提交构建、8080及5173代理健康、经过网页代理的原句API验收、归档及分支整合选择。尚未声称已部署。
+2026-10-26 已在确认无活动任务后部署干净提交 `cfab19f5535579efc2d1a3056e4137fb0b7db1f8`，`go version -m` 显示 vcs.modified=false。后端 PID 28344，产物 `.cache/bin/server-travel-normal-flow-audited.exe`，8080 ready；前端 `http://127.0.0.1:5173` 返回200，标题为小豆包。此机器 IPv6 localhost:5173 属于其他应用，未停止该应用，访问须使用上述 IPv4 地址。后续归档提交仅包含文档与规格，不改变运行代码。
+
+经过5173代理、携带真实浏览器Origin、独立测试账户执行截图原句，run `715f9fc6-4aa6-462b-bafa-8507f2251d24` succeeded，13.17秒。最终回复给出上海目的地建议与陈述缺口，起点仍未知，无问卷、无索取确认、无虚构已核实交通/住宿。数据库保存 **3次实际模型调用、2次整响应拒绝、1条接受决策、0次read**；输入24,213、输出2,416，合计26,629 tokens。两次拒绝均含等待用户补充起点的表述，完整响应保留且未执行其中工具。该样本不是资料完整的两次路径，且没有可执行的跨城交通查询；不把三次Main生成误报为Main/Verify各一次。
+
+本地证据：`.cache/reports/travel-deployment-2026-10-26.json`、`travel-no-followup-2026-10-26-audited.json`、`travel-no-followup-2026-10-26-audit-events.json`。首次旧审计链网页样本仍保留为 `travel-no-followup-2026-10-26-final.json`，不能据其中缺失模型事件声称零次。首启曾因状态检查用PGOPTIONS只读选项被子进程继承而迁移失败；清除该检查选项后正常启动，未修改迁移逻辑。
+
+本次验证覆盖网页代理API路径，未冒充手动点击浏览器的UI验收。OpenSpec已于2026-10-26归档到 `openspec/changes/archive/2026-10-26-prevent-travel-followup-questions`，同步travel-execution、travel-memory、travel-planning、travel-source-fidelity四份主规格。归档前唯一未勾项为部署/归档本身，依据实际成功结果已补记；无未完成产品任务。分支整合由用户选择，当前未合并或推送。

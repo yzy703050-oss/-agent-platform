@@ -2720,5 +2720,25 @@
         }
       ]
     }
-  ]
+  ],
+  "local_deployment_smoke": {
+    "run_id": "715f9fc6-4aa6-462b-bafa-8507f2251d24",
+    "revision": "cfab19f5535579efc2d1a3056e4137fb0b7db1f8",
+    "vcs_modified": false,
+    "url": "http://127.0.0.1:5173",
+    "verification": "Real frontend proxy API with browser Origin; no manual UI click claim",
+    "status": "succeeded",
+    "elapsed_seconds": 13.17,
+    "actual_model_calls": 3,
+    "interaction_rejections": 2,
+    "accepted_decisions": 1,
+    "history_reads": 0,
+    "prompt_tokens": 24213,
+    "completion_tokens": 2416,
+    "total_tokens": 26629,
+    "manual_review": "PASS; final reply has no questions or requests for confirmation, origin stays unknown; destination suggestions and declarative gaps only",
+    "two_call_path": false,
+    "raw_report": ".cache/reports/travel-no-followup-2026-10-26-audited.json",
+    "raw_audit": ".cache/reports/travel-no-followup-2026-10-26-audit-events.json"
+  }
 }

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go、Eino v0.9.0-beta.1、PostgreSQL、PowerShell；不新增依赖。
 
-**Spec:** `openspec/changes/prevent-travel-followup-questions/specs/`、`design.md`、`tasks.md`；技术依据见同目录 `technical-review.md`。
+**Spec:** `openspec/changes/archive/2026-10-26-prevent-travel-followup-questions/specs/`、`design.md`、`tasks.md`；技术依据见同目录 `technical-review.md`。2026-10-26已同步主规格并归档。
 
 ## Global Constraints
 
@@ -67,7 +67,7 @@
 - [x] **Step 2: 真实验收。** 新测试仅在 `REQUIRE_TRAVEL_INTERACTION_MODEL_TEST=1` 时运行，输出路径由 `TRAVEL_INTERACTION_OUTPUT` 指定。截图原句、带长期记忆/缺省的正常往返、完整多城、普通独立查询每类三次；政策前置、需要真实重排和酒店无报价作为独立边界样本。使用真实模型及 PostgreSQL、固定且对模型无来源提示的供应方，不运行 Python 模型 A/B。
 - [x] **Step 3: 阅读实际结果。** 检查真实模型输入与回复：无问卷、无索取确认、无假起点或航班；完整路线/返程/必要住宿及选择真实保存，Main/Verify 两次路径比例和所有额外调用有证据。原句起点未知时以目的地建议与陈述缺口验收，不强造跨城行程。报告阶段耗时、全部 token、工具尝试、供应方调用和重复动作；保留失败。不能以某一次两次成功宣称普遍达标。
 - [x] **Step 4: 项目核验。** 从根目录加载 `scripts/load-env.ps1`；backend 内设置 `REQUIRE_DATABASE_TESTS=1` 后执行 `go test ./... -count=1 -timeout 180s`、`go vet ./...`、`go build -o ../.cache/bin/server-travel-normal-flow.exe ./cmd/server`。运行 `openspec validate prevent-travel-followup-questions --strict`，人工逐项核对 specs/design/tasks 与测试证据，明确 CLI 没有 verify，不声称运行过。
-- [ ] **Step 5: 实际服务与归档。** 无活动任务时才部署通过验收的产物；记录监听 PID、go version -m 的提交/脏状态、8080 与前端代理健康、网页同句验收。先 archive 同步主规格并纳入工作分支，再按 finishing-a-development-branch 展示合并、PR、保留分支选项并执行用户选择。未解决行为失败或重要偏差时不归档。
+- [x] **Step 5: 实际服务与归档。** 无活动任务核对后部署干净提交cfab19f、PID28344；8080 ready、IPv4前端代理200。原句API验收succeeded，3次实际模型调用含2次拒绝，0read；完整拒绝与计量均已入库，最终无问卷。2026-10-26已archive同步主规格，当前分支交付合并、PR、保留三个选项，用户选择前保留分支；未合并或推送。证据见验收报告。
 
 ## 计划审阅状态
 
@@ -75,4 +75,4 @@
 
 ## 实施与核验证据
 
-Task 1 已提交0f5c916；Task 2 已提交02b517c。Task 3 最终18/18真实模型自动及手工核对通过，全量Go/PostgreSQL、vet、build、strict validate通过；见 docs/travel-normal-flow-verification.md 与脱敏测量。历史失败和关键取舍均保留在本地ledger。服务替换、归档与分支收尾选择待交付步骤完成后更新。
+Task 1 已提交0f5c916；Task 2 已提交02b517c。Task 3 决策修复0038a6c、生产审计cfab19f；最终18/18真实模型自动及手工核对通过，全量Go/PostgreSQL、vet、build、strict validate通过；见 docs/travel-normal-flow-verification.md 与脱敏测量。历史失败和关键取舍均保留在本地ledger。服务已替换并完成代理原句验收，OpenSpec已归档同步主规格；分支整合等待用户选择，不将待选择误报为已合并。
