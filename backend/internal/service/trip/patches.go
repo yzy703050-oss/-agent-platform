@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -140,7 +141,7 @@ func applySourceMetadata(p *model.TripPlan, previous *model.TripPlan, cmd model.
 	}
 	for key, level := range cmd.ConditionStrengths {
 		if level == model.Soft && !missingValue(conditionLeaf(p.ConfirmedConditions, key)) && p.ConditionStrengths[key] != model.Soft {
-			return invalid("cannot soften hard global condition")
+			return invalid("cannot soften hard global condition: condition_strengths." + key)
 		}
 	}
 	p.ConfirmedConditions = mergeConditions(p.ConfirmedConditions, cmd.ConfirmedConditions)
@@ -246,7 +247,7 @@ func applySourceMetadata(p *model.TripPlan, previous *model.TripPlan, cmd model.
 			}
 			globalValue := conditionLeaf(p.ConfirmedConditions, key)
 			if level == model.Soft && (!missingValue(globalValue) && p.ConditionStrengths[key] != model.Soft || key == "departure_date" && i == 0 && !missingValue(p.ConfirmedConditions["start_date"]) && p.ConditionStrengths["start_date"] != model.Soft) {
-				return invalid("cannot soften inherited hard condition")
+				return invalid("cannot soften inherited hard condition: tasks." + t.ID + ".condition_strengths." + key)
 			}
 		}
 		globalLeaves := mergeConditions(p.ConfirmedConditions, filterValues(p.ConfirmedConditions))
@@ -295,7 +296,7 @@ func applySourceMetadata(p *model.TripPlan, previous *model.TripPlan, cmd model.
 					if change.TaskID == t.ID {
 						for key, level := range change.ConditionStrengths {
 							if level == model.Soft && sourceHard(*previous, old, key) {
-								return invalid("cannot soften hard task condition")
+								return invalid("cannot soften hard task condition: tasks." + t.ID + ".condition_strengths." + key)
 							}
 						}
 					}
@@ -320,6 +321,17 @@ func applySourceMetadata(p *model.TripPlan, previous *model.TripPlan, cmd model.
 			return err
 		}
 		p.PolicyContext = &resolved
+	}
+	for city, nights := range cmd.Context.HardStayNights[p.ID] {
+		actual := 0
+		for _, task := range p.Tasks {
+			if task.RequiresHotel && task.Destination == city {
+				actual += task.Nights
+			}
+		}
+		if actual != nights {
+			return &model.TravelRuleError{Code: "HARD_STAY_REQUIREMENT", Message: "当前请求的" + city + "硬住宿晚数为" + strconv.Itoa(nights) + "，不能改为" + strconv.Itoa(actual) + "；保留固定返程及硬晚数，调整已获准修改的软出发日期，并同步入住、退房及软活动。"}
+		}
 	}
 	snapshot, err := sourceConstraintSnapshot(*p)
 	if err != nil {

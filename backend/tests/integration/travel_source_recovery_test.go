@@ -139,8 +139,8 @@ func (m *sourceBatchModel) Generate(_ context.Context, input []*schema.Message, 
 			return schema.AssistantMessage("已保留两个草稿，尚未选择交通。", nil), nil
 		}
 	}
-	out := toolDecision("plan-a", "write_trip", `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"上海","destination":"杭州","conditions":{"departure_date":"2026-10-25"},"items":[{"domain":"train"}]}]}}`)
-	out.ToolCalls = append(out.ToolCalls, toolDecision("plan-b", "write_trip", `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"南京","destination":"苏州","conditions":{"departure_date":"2026-10-25"},"items":[{"domain":"train"}]}]}}`).ToolCalls...)
+	out := toolDecision("plan-a", "write_trip", `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"上海","destination":"杭州","conditions":{"departure_date":"2099-10-25"},"items":[{"domain":"train"}]}]}}`)
+	out.ToolCalls = append(out.ToolCalls, toolDecision("plan-b", "write_trip", `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"南京","destination":"苏州","conditions":{"departure_date":"2099-10-25"},"items":[{"domain":"train"}]}]}}`).ToolCalls...)
 	return out, nil
 }
 func (m *sourceBatchModel) Stream(ctx context.Context, in []*schema.Message, opts ...einomodel.Option) (*schema.StreamReader[*schema.Message], error) {
@@ -225,7 +225,7 @@ func TestTravelSourceRecoveryJobs(t *testing.T) {
 	svc := tripsvc.NewWithQueries(f.repo, provider, time.Now)
 	cmd := travelCommand()
 	cmd.Context = &model.TripDecisionContext{Role: "main", OriginalQuery: "单程差旅"}
-	cmd.Tasks[0].Conditions = model.TripConditions{"departure_date": json.RawMessage(`"2026-10-25"`)}
+	cmd.Tasks[0].Conditions = model.TripConditions{"departure_date": json.RawMessage(`"2099-10-25"`)}
 	cmd.Tasks[0].Items = []model.TripQueryItem{{Domain: "train"}}
 	p, err := svc.Apply(ctx, ref, "job-plan", cmd)
 	if err != nil || len(p.Queries) != 1 {

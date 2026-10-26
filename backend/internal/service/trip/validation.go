@@ -242,7 +242,7 @@ func applyChange(task *model.TripTask, c model.TripTaskChange, sourceRole ...str
 		}
 		for key, level := range c.ConditionStrengths {
 			if level == model.Soft && task.ConditionStrengths[key] == model.Hard {
-				return invalid("cannot soften hard task condition")
+				return invalid("cannot soften hard task condition: tasks." + task.ID + ".condition_strengths." + key)
 			}
 			task.ConditionStrengths[key] = level
 		}
@@ -281,14 +281,24 @@ func validatePlan(p model.TripPlan) (model.TripValidation, []model.TravelQuery, 
 		}
 	}
 	if len(p.Tasks) == 0 {
-		add("missing_tasks", "", "tasks", "请补充出行安排。", "needs_input")
+		add("missing_tasks", "", "tasks", "尚无可保存的出行分段。", "needs_input")
 	}
 	var priorDate time.Time
 	var total int64
 	unknownPrice := false
 	for i, t := range p.Tasks {
 		if strings.TrimSpace(t.Origin) == "" || strings.TrimSpace(t.Destination) == "" || t.DepartureDate == "" {
-			add("missing_conditions", t.ID, "route", "请补充出发地、目的地和日期。", "needs_input")
+			missing := []string{}
+			if strings.TrimSpace(t.Origin) == "" {
+				missing = append(missing, "出发地")
+			}
+			if strings.TrimSpace(t.Destination) == "" {
+				missing = append(missing, "目的地")
+			}
+			if t.DepartureDate == "" {
+				missing = append(missing, "出发日期")
+			}
+			add("missing_conditions", t.ID, "route", strings.Join(missing, "、")+"未明确，跨城交通尚未核实。", "needs_input")
 			continue
 		}
 		if t.Origin == t.Destination {
@@ -340,7 +350,7 @@ func validatePlan(p model.TripPlan) (model.TripValidation, []model.TravelQuery, 
 		}
 		if t.RequiresHotel {
 			if t.CheckIn == "" || t.CheckOut == "" {
-				add("missing_stay", t.ID, "check_in", "请补充入住和退房日期。", "needs_input")
+				add("missing_stay", t.ID, "check_in", "入住或退房日期未明确，住宿安排尚未核实。", "needs_input")
 			} else {
 				in, err := parseDate(t.CheckIn)
 				if err != nil {
@@ -424,7 +434,7 @@ func validatePlan(p model.TripPlan) (model.TripValidation, []model.TravelQuery, 
 		}
 	}
 	if p.RoundTrip && len(p.Tasks) > 0 && p.Tasks[len(p.Tasks)-1].Destination != p.Tasks[0].Origin {
-		add("return_missing", "", "round_trip", "往返行程需要明确返程段；单程请明确指定。", "needs_input")
+		add("return_missing", "", "round_trip", "往返行程的返程段尚未完整安排。", "needs_input")
 	}
 	if p.Constraints.MaxBudgetFen != nil && !(p.SourceVersion > 0 && p.Constraints.BudgetStrength == model.Soft) {
 		exceededCode, unknownCode := "budget_exceeded", "budget_unknown"

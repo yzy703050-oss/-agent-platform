@@ -36,13 +36,23 @@ func validateSourceTimeline(p model.TripPlan, v *model.TripValidation) error {
 		if index+1 < len(p.Tasks) && p.Tasks[index+1].Train != nil {
 			next = p.Tasks[index+1].Train.Candidate.DepartureAt
 		}
+		if index > 0 {
+			previous := p.Tasks[index-1]
+			departureDay := t.DepartureDate
+			if t.Train != nil && t.Train.Candidate.DepartureAt != nil {
+				departureDay = t.Train.Candidate.DepartureAt.In(beijing).Format("2006-01-02")
+			}
+			if previous.RequiresHotel && previous.Destination == t.Origin && previous.CheckOut != "" && departureDay > previous.CheckOut {
+				add("hotel_stay_gap", []string{previous.ID, t.ID}, "住宿退房后至下一段出发之间仍有未覆盖的过夜；保留用户硬晚数与活动，调整允许的软交通日期或实际住宿安排。", true, nil)
+			}
+		}
 		if index > 0 && t.Train != nil && t.Train.Candidate.DepartureAt != nil {
 			previous := p.Tasks[index-1]
 			dep := t.Train.Candidate.DepartureAt
 			if previous.Train != nil && previous.Train.Candidate.ArrivalAt != nil && dep.Before(*previous.Train.Candidate.ArrivalAt) {
 				add("departure_before_previous_arrival", []string{previous.ID, t.ID}, "下一段在前段抵达之前出发。", true, nil)
 			}
-			if previous.CheckOut != "" && dep.In(beijing).Format("2006-01-02") < previous.CheckOut {
+			if previous.RequiresHotel && previous.CheckOut != "" && dep.In(beijing).Format("2006-01-02") < previous.CheckOut {
 				add("departure_before_previous_checkout", []string{previous.ID, t.ID}, "下一段在前段离店日期之前出发。", true, nil)
 			}
 		}

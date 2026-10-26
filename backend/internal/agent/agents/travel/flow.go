@@ -158,7 +158,7 @@ func (f *sourceFlow) decision(ctx context.Context) pm.TripDecisionContext {
 	if role == "summary" {
 		role = "main"
 	}
-	return pm.TripDecisionContext{Role: role, OriginalQuery: s.OriginalQuery, Policy: s.Policy, PolicyScope: s.PolicyUserContext, EvidenceRefs: refs, Preferences: s.Preferences}
+	return pm.TripDecisionContext{Role: role, OriginalQuery: s.OriginalQuery, Policy: s.Policy, PolicyScope: s.PolicyUserContext, EvidenceRefs: refs, Preferences: s.Preferences, HardStayNights: s.HardStayNights}
 }
 func (f *sourceFlow) reserve(ctx context.Context, calls []traveltools.NativeCall) error {
 	f.mu.Lock()
@@ -214,6 +214,7 @@ func (f *sourceFlow) recordTrip(ctx context.Context, callID string, result pm.Tr
 		return err
 	}
 	s.Plans[result.Plan.ID] = result
+	s.observeHardStay(result.Plan)
 	for _, job := range jobs {
 		if !slices.ContainsFunc(s.Jobs, func(old traveltools.QueryJob) bool { return old.ID == job.ID }) {
 			s.Jobs = append(s.Jobs, job)

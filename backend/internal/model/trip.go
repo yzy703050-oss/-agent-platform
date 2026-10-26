@@ -26,12 +26,13 @@ type TripQueryItem struct {
 
 // Supplied by the authorized runtime, never by tool JSON.
 type TripDecisionContext struct {
-	PolicyScope   TripConditions
-	EvidenceRefs  []TravelCandidateRef
-	Role          string
-	OriginalQuery string
-	Policy        *SourcePolicyContext
-	Preferences   map[string]string
+	HardStayNights map[string]map[string]int `json:"hard_stay_nights,omitempty"`
+	PolicyScope    TripConditions
+	EvidenceRefs   []TravelCandidateRef
+	Role           string
+	OriginalQuery  string
+	Policy         *SourcePolicyContext
+	Preferences    map[string]string
 }
 
 type ConstraintStrength string

@@ -43,7 +43,20 @@ func (s *Service) Inspect(ctx context.Context, ref model.TravelExecution, id str
 		return model.TripResult{}, err
 	}
 	if p.SourceVersion > 0 {
-		queries, err = sourceQueryRequests(p, model.TripCommand{Operation: "propose"})
+		// Saved maps retain old domains across a route change. Inspection only
+		// expands queries still in the current task scope; it must not reject a
+		// valid transit task because its prior destination needed a hotel.
+		command := model.TripCommand{Operation: "amend"}
+		for _, task := range p.Tasks {
+			items := []model.TripQueryItem{}
+			for _, item := range task.Items {
+				if item.Domain != "hotel" || task.RequiresHotel {
+					items = append(items, item)
+				}
+			}
+			command.Changes = append(command.Changes, model.TripTaskChange{TaskID: task.ID, Items: &items})
+		}
+		queries, err = sourceQueryRequests(p, command)
 		if err != nil {
 			return model.TripResult{}, err
 		}

@@ -41,7 +41,10 @@ func profileForState(s FlowState, role string) traveltools.ProfileRequest {
 	if role == "summary" && s.StopReason == "" {
 		role = "main"
 	}
-	return traveltools.ProfileRequest{Role: role, PolicyObserved: s.Policy != nil && slices.Contains([]string{"ok", "partial", "no_knowledge"}, s.Policy.Status), AllowedTripIDs: s.planIDs(), RetryQueries: s.RetryQueries}
+	replanRequired := role == "verifier" && slices.ContainsFunc(s.LastBatchResults, func(result pm.TravelToolResult) bool {
+		return result.Error != nil && result.Error.Code == "REPLAN_REQUIRED"
+	})
+	return traveltools.ProfileRequest{Role: role, NewPlanningRequest: role == "main" && freshPlanningRequest(s.OriginalQuery), PlanContextComplete: role == "main" && s.Planning && len(s.Plans) > 0, ReplanRequired: replanRequired, PolicyObserved: s.Policy != nil && slices.Contains([]string{"ok", "partial", "no_knowledge"}, s.Policy.Status), AllowedTripIDs: s.planIDs(), RetryQueries: s.RetryQueries}
 }
 
 func (f *sourceFlow) checkContextBudget(s FlowState, messages []*schema.Message) error {

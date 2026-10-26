@@ -81,7 +81,7 @@ func TestTravelCorrectionReachesNextModel(t *testing.T) {
 			trips := &sourceGateTrips{}
 			ref := pm.TravelExecution{Scope: pm.Scope{UserID: "u", SessionID: "s"}, ConversationID: "conv", RunID: "run", Attempt: 1}
 			store := &sourceJournalStore{decisions: map[string]pm.TravelDecision{}, results: map[string]string{}}
-			flow := newSourceFlow(flowConfig{Trips: trips, Execution: ref, OriginalQuery: "安排上海到杭州出差", Decisions: store})
+			flow := newSourceFlow(flowConfig{Trips: trips, Execution: ref, OriginalQuery: "查看之前的行程，并安排上海到杭州出差", Decisions: store})
 			registry, err := traveltools.NewRegistry(traveltools.NativeConfig{Config: traveltools.Config{Trips: trips, Execution: ref}, Context: flow.decision})
 			if err != nil {
 				t.Fatal(err)

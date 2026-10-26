@@ -1,6 +1,8 @@
 package travel
 
 import (
+	"agent-platform/backend/internal/agent/contracts"
+	"agent-platform/backend/internal/agenttools"
 	"context"
 	"encoding/json"
 	"errors"
@@ -45,14 +47,17 @@ func sourceProtocolFailure(response *schema.Message) string {
 	return ""
 }
 func withRegenerationInstruction(messages []*schema.Message) []*schema.Message {
+	return withRecoveryInstruction(messages, regenerationInstruction)
+}
+func withRecoveryInstruction(messages []*schema.Message, instruction string) []*schema.Message {
 	for _, msg := range messages {
-		if msg.Role == schema.System && msg.Content == regenerationInstruction {
+		if msg.Role == schema.System && msg.Content == instruction {
 			return messages
 		}
 	}
 	at := min(1, len(messages))
 	out := append([]*schema.Message(nil), messages[:at]...)
-	out = append(out, schema.SystemMessage(regenerationInstruction))
+	out = append(out, schema.SystemMessage(instruction))
 	return append(out, messages[at:]...)
 }
 func generateSourceTurn(ctx context.Context, inner em.BaseChatModel, input []*schema.Message, flow *sourceFlow, opts ...em.Option) (*schema.Message, []*schema.Message, error) {
@@ -62,6 +67,9 @@ func generateSourceTurn(ctx context.Context, inner em.BaseChatModel, input []*sc
 			return response, input, err
 		}
 		failure := sourceProtocolFailure(response)
+		if failure == "" {
+			failure = sourceInteractionFailure(response)
+		}
 		if failure == "" {
 			return response, input, nil
 		}
@@ -80,7 +88,15 @@ func generateSourceTurn(ctx context.Context, inner em.BaseChatModel, input []*sc
 			s.StopReason = failure
 			s.Phase = "stopping"
 		}
-		input = withRegenerationInstruction(input)
+		if failure == "user_input_requested" {
+			payload, _ := json.Marshal(map[string]any{"reason": failure, "response": fromEino(response)})
+			if err = agenttools.Emit(ctx, contracts.Event{Type: "travel.model_rejected", Payload: payload}); err != nil {
+				return nil, input, err
+			}
+			input = withRecoveryInstruction(input, interactionRegenerationInstruction)
+		} else {
+			input = withRegenerationInstruction(input)
+		}
 		s.PreparedMessages = input
 		if flow != nil {
 			flow.mu.Lock()

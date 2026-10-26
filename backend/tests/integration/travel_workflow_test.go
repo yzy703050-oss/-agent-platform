@@ -23,6 +23,13 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+// Scripted workflow dates stay in the future; real-model acceptance uses relative dates.
+func workflowCommand() model.TripCommand {
+	command := travelCommand()
+	command.Tasks[0].DepartureDate = "2099-10-25"
+	return command
+}
+
 type workflowModel struct {
 	calls      atomic.Int32
 	boundary   chan struct{}
@@ -66,7 +73,7 @@ func (m *normalWorkflowModel) Generate(ctx context.Context, in []*schema.Message
 		}
 	}
 	if m.duplicateQuery && len(m.inputs) == 1 {
-		duplicate := toolDecision("redundant-query", "query", `{"request_kind":"planning","query_plan":[{"domain":"train","parameters":{"origin":"上海","destination":"杭州","departure_date":"2026-10-25","passengers":1}}]}`)
+		duplicate := toolDecision("redundant-query", "query", `{"request_kind":"planning","query_plan":[{"domain":"train","parameters":{"origin":"上海","destination":"杭州","departure_date":"2099-10-25","passengers":1}}]}`)
 		out.ToolCalls = append(out.ToolCalls, duplicate.ToolCalls...)
 	}
 	return out, nil
@@ -84,14 +91,14 @@ func TestTravelNormalPlanningTwoCalls(t *testing.T) {
 			provider := &travelQueryProbe{}
 			service := tripsvc.NewWithQueries(f.repo, provider, time.Now)
 			prefs := prefsvc.New(f.repo)
-			cmd := travelCommand()
+			cmd := workflowCommand()
 			if name == "roundtrip" || name == "multicity" {
 				round := true
 				cmd.RoundTrip = &round
 				if name == "roundtrip" {
-					cmd.Tasks = append(cmd.Tasks, model.TripTask{Origin: "杭州", Destination: "上海", DepartureDate: "2026-10-27"})
+					cmd.Tasks = append(cmd.Tasks, model.TripTask{Origin: "杭州", Destination: "上海", DepartureDate: "2099-10-27"})
 				} else {
-					cmd.Tasks = append(cmd.Tasks, model.TripTask{Origin: "杭州", Destination: "南京", DepartureDate: "2026-10-26"}, model.TripTask{Origin: "南京", Destination: "上海", DepartureDate: "2026-10-27"})
+					cmd.Tasks = append(cmd.Tasks, model.TripTask{Origin: "杭州", Destination: "南京", DepartureDate: "2099-10-26"}, model.TripTask{Origin: "南京", Destination: "上海", DepartureDate: "2099-10-27"})
 				}
 			}
 			if name == "with_memory" {
@@ -182,15 +189,15 @@ func (m *workflowModel) Generate(ctx context.Context, input []*schema.Message, _
 		if len(review.Queries) > 0 {
 			return schema.AssistantMessage("已经付款并预订成功，价格1元", nil), nil
 		}
-		items := []any{map[string]any{"domain": "train", "parameters": map[string]any{"origin": "上海", "destination": "杭州", "departure_date": "2026-10-25"}}}
+		items := []any{map[string]any{"domain": "train", "parameters": map[string]any{"origin": "上海", "destination": "杭州", "departure_date": "2099-10-25"}}}
 		if m.queryBatch {
-			items = append(items, map[string]any{"domain": "train", "parameters": map[string]any{"origin": "南京", "destination": "苏州", "departure_date": "2026-10-26"}}, map[string]any{"domain": "weather", "parameters": map[string]any{"city": "杭州", "date": "2026-10-25"}})
+			items = append(items, map[string]any{"domain": "train", "parameters": map[string]any{"origin": "南京", "destination": "苏州", "departure_date": "2099-10-26"}}, map[string]any{"domain": "weather", "parameters": map[string]any{"city": "杭州", "date": "2099-10-25"}})
 		}
 		args, _ := json.Marshal(map[string]any{"request_kind": "lookup", "query_plan": items})
 		return toolDecision("independent-query", "query", string(args)), nil
 	}
 	if review.Trip.ID == "" {
-		command := travelCommand()
+		command := workflowCommand()
 		if m.command != nil {
 			command = *m.command
 		}
@@ -227,7 +234,7 @@ func (m *workflowModel) Generate(ctx context.Context, input []*schema.Message, _
 		return toolDecision("select", "write_trip", string(args)), nil
 	}
 	if review.Trip.Revision == 3 && m.repair {
-		args, _ := json.Marshal(map[string]any{"request_kind": "planning", "tripplan": map[string]any{"operation": "amend", "trip_plan_id": review.Trip.ID, "expected_revision": review.Trip.Revision, "tasks": []any{map[string]any{"task_id": "t1", "content": []any{map[string]any{"purpose": "补充会议", "description": "补充会议安排", "date": "2026-10-25", "source": "proposal", "strength": "soft"}}}}}})
+		args, _ := json.Marshal(map[string]any{"request_kind": "planning", "tripplan": map[string]any{"operation": "amend", "trip_plan_id": review.Trip.ID, "expected_revision": review.Trip.Revision, "tasks": []any{map[string]any{"task_id": "t1", "content": []any{map[string]any{"purpose": "补充会议", "description": "补充会议安排", "date": "2099-10-25", "source": "proposal", "strength": "soft"}}}}}})
 		return toolDecision("repair", "write_trip", string(args)), nil
 	}
 	// The platform must render confirmed facts, not repeat this invented claim.
@@ -462,10 +469,10 @@ func TestTravelWorkflowVariants(t *testing.T) {
 		t.Run(fmt.Sprint("partial=", partial), func(t *testing.T) {
 			ctx := context.Background()
 			f, ref, _ := travelFixture(t)
-			cmd := travelCommand()
+			cmd := workflowCommand()
 			round := true
 			cmd.RoundTrip = &round
-			cmd.Tasks = append(cmd.Tasks, model.TripTask{Origin: "杭州", Destination: "上海", DepartureDate: "2026-10-27"})
+			cmd.Tasks = append(cmd.Tasks, model.TripTask{Origin: "杭州", Destination: "上海", DepartureDate: "2099-10-27"})
 			provider := &travelQueryProbe{}
 			client := travelQueryFunc(func(ctx context.Context, q model.TravelQuery) (model.TravelEvidence, error) {
 				if partial {

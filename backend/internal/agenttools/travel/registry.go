@@ -16,11 +16,14 @@ import (
 )
 
 type ProfileRequest struct {
-	RefreshedTripIDs []string            `json:"refreshed_trip_ids,omitempty"`
-	Role             string              `json:"role"`
-	PolicyObserved   bool                `json:"policy_observed"`
-	AllowedTripIDs   []string            `json:"allowed_trip_ids,omitempty"`
-	RetryQueries     []model.TravelQuery `json:"retry_queries,omitempty"`
+	NewPlanningRequest  bool                `json:"new_planning_request,omitempty"`
+	PlanContextComplete bool                `json:"plan_context_complete,omitempty"`
+	ReplanRequired      bool                `json:"replan_required,omitempty"`
+	RefreshedTripIDs    []string            `json:"refreshed_trip_ids,omitempty"`
+	Role                string              `json:"role"`
+	PolicyObserved      bool                `json:"policy_observed"`
+	AllowedTripIDs      []string            `json:"allowed_trip_ids,omitempty"`
+	RetryQueries        []model.TravelQuery `json:"retry_queries,omitempty"`
 }
 type NativeCall struct {
 	ID        string          `json:"id"`
@@ -160,7 +163,14 @@ func (r *Registry) Profile(request ProfileRequest) ([]*schema.ToolInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return SourceProfile(name)
+	tools, err := SourceProfile(name)
+	if err == nil && request.Role == "verifier" && request.ReplanRequired {
+		tools = slices.DeleteFunc(tools, func(info *schema.ToolInfo) bool { return info.Name != "request_replan" })
+	}
+	if err == nil && request.Role == "main" && (request.PlanContextComplete || request.NewPlanningRequest) {
+		tools = slices.DeleteFunc(tools, func(info *schema.ToolInfo) bool { return info.Name == "read" })
+	}
+	return tools, err
 }
 
 func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls []NativeCall) (PreparedBatch, error) {
@@ -181,12 +191,24 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 			return batch, ruleError("DUPLICATE_CALL_ID", "duplicate_call_id", nil)
 		}
 		ids[call.ID] = true
+		if request.Role == "main" && request.NewPlanningRequest && call.Name == "read" {
+			return batch, ruleError("HISTORY_NOT_REQUESTED", "新规划的长期记忆已直接注入，不读取历史补条件；使用已知条件和soft默认生成tripplan及查询地图，未知起点只陈述交通缺口并继续目的地建议。", nil)
+		}
+		if request.Role == "main" && request.PlanContextComplete && call.Name == "read" {
+			return batch, ruleError("CONTEXT_ALREADY_PROVIDED", "当前完整计划、候选和修订已注入tripplan上下文，直接修改，不重复读取历史或当前计划。", nil)
+		}
+		if request.Role == "verifier" && request.ReplanRequired && call.Name != "request_replan" {
+			return batch, reviewRepairError(request.Role, model.TripCommand{}, ruleError("REPLAN_REQUIRED", "review handoff pending", nil))
+		}
 		validator, ok := r.validators[profile][call.Name]
 		if !ok {
 			return batch, ruleError("UNKNOWN_TOOL", "unknown_tool:"+call.Name, nil)
 		}
 		if len(call.Arguments) > 64000 {
 			return batch, ruleError("INVALID_ARGUMENTS", "tool arguments exceed limit", nil)
+		}
+		if err := reviewRouteError(request, call); err != nil {
+			return batch, err
 		}
 		normalized, err := NormalizeNativeArguments(call.Name, call.Arguments, "Asia/Shanghai", request.Role)
 		if err != nil {
@@ -243,6 +265,9 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 			if request.Role == "verifier" && !slices.Contains(request.AllowedTripIDs, cmd.PlanID) {
 				return batch, ruleError("REVIEW_TRIP_MISMATCH", "review_trip_mismatch", nil)
 			}
+			if request.Role == "verifier" && cmd.RouteTasks != nil {
+				return batch, reviewRepairError(request.Role, cmd, ruleError("REPLAN_REQUIRED", "route replacement requires Main", nil))
+			}
 			if cmd.PlanID != "" {
 				if targets[cmd.PlanID] {
 					return batch, ruleError("DUPLICATE_TRIP_WRITE", "one TripPlan write per batch", nil)
@@ -271,7 +296,7 @@ func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls 
 					if errors.As(err, &rule) && rule.Code == "EVIDENCE_EXPIRED" && slices.Contains(request.RefreshedTripIDs, cmd.PlanID) {
 						return batch, &model.TravelRuleError{Code: "AUTOMATIC_REFRESH_LIMIT", Message: "本轮已更新过候选，未再次自动刷新。", Details: rule.Details}
 					}
-					return batch, err
+					return batch, reviewRepairError(request.Role, cmd, err)
 				}
 				for _, q := range preview.Queries {
 					batch.QueryKeys = append(batch.QueryKeys, tripsvc.ExternalQueryKeys(q)...)
