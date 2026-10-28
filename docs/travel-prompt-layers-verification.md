@@ -83,3 +83,5 @@ ID识别用于补齐数据，不是授权判据；其他表达沿用既有流程
 整体自审未遗留本次修改的重大规格/质量问题。重要技术调整D7/D8及工具单一维护文本已回写design和计划；没有派独立评审代理。
 
 OpenSpec CLI已安装spec-driven，命令列表无verify；没有声称运行OpenSpec verify。已人工对照本change及travel-planning/travel-execution逐项核对需求、场景、任务和上述测试证据，strict validate单列执行。归档证据在执行记录追加，归档前不勾选归档任务。
+
+归档已成功：`openspec/changes/archive/2026-10-28-refactor-travel-prompt-layers`。主规格同步新增2条、修改1条；`openspec validate --all --strict`实际12项通过、0失败。

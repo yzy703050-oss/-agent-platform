@@ -80,3 +80,5 @@ OpenSpec：`refactor-travel-prompt-layers`。Python原文和冻结工具契约�
 工具说明版本为`tool-instructions-v4`。字段/来源/身份语法由`runtime_write_trip_help.txt`统一维护；创建示例由`runtime_propose_help.txt`维护，选择/修改示例由`runtime_modify_help.txt`维护。新建Main及无计划恢复仅加载创建说明；已有计划修改Main、规划总结及原审查角色仅加载修改说明，实际工具schema与权限仍由原profile决定。
 
 本轮明确给出行程UUID并要求修改时，经原Inspect加载授权计划供首次Main编辑；不以解析结果代替权限校验。实现、全部历史失败与最终通过证据见[验收记录](travel-prompt-layers-verification.md)。
+
+本次OpenSpec已归档至`openspec/changes/archive/2026-10-28-refactor-travel-prompt-layers/`，主规格同步且全项目strict校验通过。

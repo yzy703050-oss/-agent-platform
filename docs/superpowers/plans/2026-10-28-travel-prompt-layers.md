@@ -85,7 +85,7 @@
 - [x] **Step 3: 真实模型局部修改。** 配置`REQUIRE_TRAVEL_SOURCE_MODEL_TEST=1`、`TRAVEL_SOURCE_REPEATS=1`、`TRAVEL_SOURCE_OUTPUT`为上述来源JSON绝对路径，运行`go test ./tests/integration -run '^TestTravelSourceModel$/^modify_activity$' -count=1 -timeout 180s`。实际14:00→16:00、新修订、原车次引用保留、零供应方重查均通过。恢复测试开关，报告固定工具夹具边界，不把结果称作在线供应方验收。
 - [x] **Step 4: 审查与任务审核。** 按用户选择单代理整体自审或多子代理任务评审及最终评审，逐项检查spec场景→代码→测试→证据；任务和计划勾选分别核对，重要问题先修复并复验。对照git diff确认Python、冻结schema/提示、权限/状态机和其他活动change没有被改写；证据不足保留未完成状态。
 - [x] **Step 5: OpenSpec核对。** `openspec validate refactor-travel-prompt-layers --strict`。CLI没有verify命令，记录人工逐项核对需求、场景、任务及测试证据，不声称运行verify。勾选3.1/3.2必须有实际通过记录。
-- [ ] **Step 6: 归档与分支收尾。** 前述通过后运行`openspec archive refactor-travel-prompt-layers --yes`，检查主规格仅同步本次delta并运行`openspec validate --all --strict`；补记3.3归档证据，确认归档包含于本次分支。使用finishing-a-development-branch流程呈现合并、PR或保留分支等选项，执行用户选择；不自动部署。
+- [x] **Step 6: 归档与分支收尾。** 前述通过后运行`openspec archive refactor-travel-prompt-layers --yes`，检查主规格仅同步本次delta并运行`openspec validate --all --strict`；补记3.3归档证据，确认归档包含于本次分支。使用finishing-a-development-branch流程呈现合并、PR或保留分支等选项，执行用户选择；不自动部署。
 
 ## Completion Conditions
 
@@ -94,3 +94,5 @@
 ## Execution Choice
 
 推荐单代理：两个实现任务共享资源、组装和指纹，连续实施上下文成本低，完成后整体自审。多子代理按任务交接最小上下文并安排独立规格/质量评审，评审更独立，但上下文与往返成本更高。由用户选择后启动apply；不默认派子代理。
+
+归档结果：2026-10-28-refactor-travel-prompt-layers；同步travel-source-fidelity主规格。实现、审查、测试与归档完成，当前分支已提交；合并/PR/保留由用户选择，未默认整合。

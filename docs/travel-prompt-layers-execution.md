@@ -79,3 +79,8 @@
 - 最终完整后端：436项PASS（含子测试）、0 FAIL、8 opt-in Skip；REQUIRE_DATABASE_TESTS=1，真实PostgreSQL执行。go vet与server构建exit 0；命令及本机完整输出见验收文档。普通suite跳过的交互/局部模型测试已另显式运行通过。
 - 整体作者自审复核D7当前输入边界、D8创建恢复隔离、v4工具描述按请求阶段提供、前缀替换、指纹与审计、原schema/权限/业务保护；未发现未解决重要问题。冻结原提示及schema无diff，其他活动change未修改。
 - 按全部需求及场景逐项人工规格核对，证据矩阵见docs/travel-prompt-layers-verification.md。当前CLI无verify命令，不声称执行OpenSpec verify；openspec validate refactor-travel-prompt-layers --strict实际通过。
+
+## 归档与分支收尾
+
+- openspec archive refactor-travel-prompt-layers --yes成功，同步travel-source-fidelity：新增2条、修改1条需求，归档至openspec/changes/archive/2026-10-28-refactor-travel-prompt-layers。CLI提示6/7是归档本身的3.3记账尚未勾选；产品实施、审查及验收任务均已完成，归档成功后补记3.3。
+- 当前分支codex/travel-normal-flow；基础分支feat/agent-platform-mvp。归档纳入本次分支提交，最终向用户提供本地合并、推送创建PR或保留分支的选择。当前未执行整合或部署。
