@@ -2,6 +2,7 @@ package travel
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	traveltools "agent-platform/backend/internal/agenttools/travel"
@@ -20,7 +21,7 @@ func (m *protocolModel) WithTools([]*schema.ToolInfo) (em.ToolCallingChatModel, 
 func (m *protocolModel) Generate(_ context.Context, messages []*schema.Message, _ ...em.Option) (*schema.Message, error) {
 	m.calls++
 	for _, msg := range messages {
-		if msg.Content == regenerationInstruction {
+		if strings.HasSuffix(msg.Content, "\n"+regenerationInstruction) {
 			m.regeneration = true
 		}
 	}
@@ -82,7 +83,7 @@ func TestTravelSourceContextResponseBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	input := []*schema.Message{schema.SystemMessage(instruction), schema.SystemMessage(replyPolicy), schema.UserMessage("请求")}
+	input := append(composePromptPrefix(promptState{Role: "main"}), schema.UserMessage("请求"))
 	store := &sourceJournalStore{decisions: map[string]pm.TravelDecision{}, results: map[string]string{}}
 	h := &journal{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}, store: store, native: true, contextTokens: sourceTokenEstimate(input, tools) + 5}
 	m := &sourceGateModel{}

@@ -193,7 +193,7 @@ func (m *sourceFlowModel) WithTools([]*schema.ToolInfo) (em.ToolCallingChatModel
 func (m *sourceFlowModel) Generate(_ context.Context, messages []*schema.Message, _ ...em.Option) (*schema.Message, error) {
 	m.calls++
 	if m.calls == 1 {
-		if messages[0].Content != instruction {
+		if messages[0].Content != roleInstruction("main") {
 			m.t.Fatal("Main prompt changed")
 		}
 		return &schema.Message{Role: schema.Assistant, ToolCalls: []schema.ToolCall{{ID: "create", Type: "function", Function: schema.FunctionCall{Name: "write_trip", Arguments: `{"request_kind":"planning","tripplan":{"operation":"propose","default_round_trip":false,"tasks":[{"origin":"上海","destination":"杭州","conditions":{"departure_date":"2026-10-26"},"items":[{"domain":"train"}]}]}}`}}}}, nil
@@ -201,7 +201,7 @@ func (m *sourceFlowModel) Generate(_ context.Context, messages []*schema.Message
 	if m.calls > 2 {
 		m.t.Fatal("bound reply consumed another model call")
 	}
-	if messages[0].Content != reviewInstruction {
+	if messages[0].Content != roleInstruction("planning_summary") {
 		m.t.Fatal("Verifier did not receive original review prompt")
 	}
 	var review struct {

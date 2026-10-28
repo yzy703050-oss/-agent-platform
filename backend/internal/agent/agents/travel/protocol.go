@@ -50,15 +50,13 @@ func withRegenerationInstruction(messages []*schema.Message) []*schema.Message {
 	return withRecoveryInstruction(messages, regenerationInstruction)
 }
 func withRecoveryInstruction(messages []*schema.Message, instruction string) []*schema.Message {
-	for _, msg := range messages {
-		if msg.Role == schema.System && msg.Content == instruction {
-			return messages
-		}
+	state := promptStateFromMessages(messages)
+	if instruction == interactionRegenerationInstruction {
+		state.InteractionRecovery = true
+	} else {
+		state.ProtocolRecovery = true
 	}
-	at := min(1, len(messages))
-	out := append([]*schema.Message(nil), messages[:at]...)
-	out = append(out, schema.SystemMessage(instruction))
-	return append(out, messages[at:]...)
+	return replacePromptPrefix(messages, state)
 }
 func generateSourceTurn(ctx context.Context, inner em.BaseChatModel, input []*schema.Message, flow *sourceFlow, opts ...em.Option) (*schema.Message, []*schema.Message, error) {
 	for {
@@ -158,22 +156,14 @@ func (f *sourceFlow) prepareGeneration(ctx context.Context, input []*schema.Mess
 				s.PolicyContinuationUsed = true
 			} else {
 				s.Role = "planning_summary"
-				input = append([]*schema.Message(nil), input...)
-				if len(input) > 0 {
-					input[0] = schema.SystemMessage(reviewInstruction)
-				}
-				at := 0
-				for at < len(input) && input[at].Role == schema.System {
-					at++
-				}
-				out := append([]*schema.Message(nil), input[:at]...)
-				out = append(out, schema.SystemMessage(planningSummaryInstruction))
-				input = append(out, input[at:]...)
-				s.PreparedMessages = input
 			}
 		}
 		s.MainUsed = true
 	}
+	prompt := promptStateFromMessages(input)
+	prompt.Role, prompt.Stopped = s.Role, s.StopReason != ""
+	input = replacePromptPrefix(input, prompt)
+	s.PreparedMessages = input
 	if err = f.save(ctx, s); err != nil {
 		return nil, nil, err
 	}

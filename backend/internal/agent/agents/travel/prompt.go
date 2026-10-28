@@ -97,12 +97,26 @@ func replacePromptPrefix(messages []*schema.Message, state promptState) []*schem
 }
 
 func roleInstruction(role string) string {
-	switch role {
-	case "verifier", "planning_summary":
-		return reviewInstruction
-	case "summary":
-		return summaryInstruction
-	default:
-		return instruction
+	return composePromptPrefix(promptState{Role: role})[0].Content
+}
+
+func promptStateFromMessages(messages []*schema.Message) promptState {
+	state := promptState{Role: "main"}
+	for _, msg := range messages {
+		if msg.Role != schema.System {
+			continue
+		}
+		if strings.HasPrefix(msg.Content, "[travel-prompt:role:") {
+			role, _, _ := strings.Cut(strings.TrimPrefix(msg.Content, "[travel-prompt:role:"), "]")
+			state.Role = role
+			state.Stopped = role == "stopped"
+		}
+		state.ProtocolRecovery = state.ProtocolRecovery || strings.HasPrefix(msg.Content, "[travel-prompt:recovery:protocol]")
+		state.InteractionRecovery = state.InteractionRecovery || strings.HasPrefix(msg.Content, "[travel-prompt:recovery:interaction]")
 	}
+	return state
+}
+
+func runtimePromptMaterial() string {
+	return strings.Join([]string{"prompt-layers-v1", runtimeMain, runtimePlanningSummary, runtimeVerifier, runtimePlanning, runtimeReview, runtimeStopped, summaryInstruction, replyPolicy, regenerationInstruction, interactionRegenerationInstruction}, "\x00")
 }

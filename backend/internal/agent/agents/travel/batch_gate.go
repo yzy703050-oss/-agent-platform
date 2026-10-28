@@ -47,11 +47,11 @@ func newNativeKernel(ctx context.Context, cfg KernelConfig) (adk.ResumableAgent,
 	}
 	h := &nativeBatchGate{BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{}, cfg: cfg}
 	kernel, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
-		Name: "travel", Description: "差旅行程规划", Model: cfg.Model, MaxIterations: cfg.MaxIterations + 1, Instruction: instruction,
+		Name: "travel", Description: "差旅行程规划", Model: cfg.Model, MaxIterations: cfg.MaxIterations + 1, Instruction: roleInstruction("main"),
 		ToolsConfig: adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{Tools: tools, UnknownToolsHandler: h.unknownTool}},
 		Handlers:    append([]adk.ChatModelAgentMiddleware{h}, cfg.Handlers...),
 		GenModelInput: func(_ context.Context, _ string, input *adk.AgentInput) ([]*schema.Message, error) {
-			return append([]*schema.Message{schema.SystemMessage(instruction), schema.SystemMessage(replyPolicy)}, input.Messages...), nil
+			return replacePromptPrefix(input.Messages, promptState{Role: "main"}), nil
 		},
 	})
 	if err != nil {

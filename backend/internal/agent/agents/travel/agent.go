@@ -85,8 +85,11 @@ func NewAgent(cfg Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256([]byte(cfg.Identity + instruction + reviewInstruction + summaryInstruction + planningSummaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + correctionInstruction + interactionInstruction + interactionRegenerationInstruction + userInputRequest.String() + historyOperation.String() + string(contractsJSON) + "travel-source-flow-v7:main-once-v1:planning-summary-v1:summary-hard-requirements-v1:batch-v5:correction-v1:interaction-v2:interaction-guard-v1:completed-stop-reply-v1:physical-query-v2:provided-plan-v1:timeline-stay-v1:inspect-scope-v1:condition-field-v1:new-planning-v1:hard-stay-v1:durable-query-v1:generation-temp0.3-max8192-deepseek-thinking-disabled:eino-v0.9.0-beta.1"))
-	return &Agent{cfg: cfg, preference: preference, fingerprint: hex.EncodeToString(sum[:])}, nil
+	return &Agent{cfg: cfg, preference: preference, fingerprint: travelFingerprint(cfg.Identity, string(contractsJSON), runtimePromptMaterial(), traveltools.RuntimeToolInstructionMaterial())}, nil
+}
+func travelFingerprint(identity, contractsJSON, promptMaterial, toolMaterial string) string {
+	sum := sha256.Sum256([]byte(identity + promptMaterial + toolMaterial + instruction + reviewInstruction + summaryInstruction + planningSummaryInstruction + replyPolicy + policyPrefix + preferencePrefix + compactionPrefix + correctionInstruction + interactionInstruction + interactionRegenerationInstruction + userInputRequest.String() + historyOperation.String() + contractsJSON + "travel-source-flow-v7:main-once-v1:planning-summary-v1:summary-hard-requirements-v1:batch-v5:correction-v1:interaction-v2:interaction-guard-v1:completed-stop-reply-v1:physical-query-v2:provided-plan-v1:timeline-stay-v1:inspect-scope-v1:condition-field-v1:new-planning-v1:hard-stay-v1:durable-query-v1:generation-temp0.3-max8192-deepseek-thinking-disabled:eino-v0.9.0-beta.1"))
+	return hex.EncodeToString(sum[:])
 }
 func (a *Agent) Fingerprint() string { return a.fingerprint }
 func (a *Agent) ContextPolicy() contracts.ContextPolicy {

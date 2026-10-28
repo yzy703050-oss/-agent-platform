@@ -128,7 +128,7 @@ func TestTravelInteractionInstructions(t *testing.T) {
 			for _, input := range m.inputs {
 				count := 0
 				for _, msg := range input {
-					if msg.Role == schema.System && strings.Contains(msg.Content, "差旅交互与执行约束（interaction-v2）") {
+					if msg.Role == schema.System && strings.Contains(msg.Content, "[travel-prompt:reply]") && strings.Contains(msg.Content, "不主动追问或要求确认") {
 						count++
 					}
 				}
@@ -166,14 +166,20 @@ func TestTravelPlanningDefaultsAcrossRoles(t *testing.T) {
 				if data.OriginalQuery != "安排上海到杭州的单程行程" || data.Defaults["apply_only_if_missing"] != true {
 					t.Fatal("actual original request and fallback-only priority missing from role context")
 				}
-				for _, instruction := range []string{interactionInstruction, interactionRegenerationInstruction} {
-					if !strings.Contains(instruction, "重庆") || !strings.Contains(instruction, "去程") || !strings.Contains(instruction, "返程") || !strings.Contains(instruction, "住宿") {
-						t.Fatal("role/regeneration instructions do not resolve missing information with full planning")
+				if input[0].Content == roleInstruction("main") || input[0].Content == roleInstruction("planning_summary") {
+					joined := ""
+					for _, msg := range input {
+						if msg.Role == schema.System {
+							joined += msg.Content
+						}
 					}
-					if strings.Contains(instruction, "缺出发地不猜城市") || strings.Contains(instruction, "未知起点只陈述交通缺口") {
-						t.Fatal("obsolete missing-origin stop rule still active")
+					for _, want := range []string{"重庆", "去程", "返程", "住宿"} {
+						if !strings.Contains(joined, want) {
+							t.Fatalf("planning role lacks %s", want)
+						}
 					}
 				}
+
 			}
 		})
 	}

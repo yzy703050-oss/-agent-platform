@@ -62,11 +62,11 @@
 - 使用任务1的`composePromptPrefix`/`replacePromptPrefix`，从FlowState现有字段推导promptState；不新增产品状态机。
 - `runtimePromptMaterial() string`及工具包`RuntimeToolInstructionMaterial() string`：按固定顺序返回有效文本和`prompt-layers-v1`版本，供现有Agent指纹使用；辅助提示及其他指纹因子保留。
 
-- [ ] **Step 1: 先写失败测试。** 用现有捕获真实Eino输入的模型扩展`TestMainRecoveryHandsToSummary`和`TestTravelInteractionInstructions`：普通首次、正常总结、参数拒绝、追问、无效协议、停止、无flow入口均只有适用层，实际工具与既有profile同名同参数，journal hash匹配真正请求。新建`TestTravelPromptFingerprint`验证全部运行资源/恢复文本和工具帮助均在材料中，版本或任一材料变化使兼容指纹变化。保留Main实际调用次数和summary范围断言。
-- [ ] **Step 2: 确认RED。** `go test ./internal/agent/agents/travel -run 'TestTravelPromptLayersIntegration|TestTravelPromptFingerprint|TestMainRecoveryHandsToSummary|TestTravelInteractionInstructions' -count=1`；预期flow仍使用旧补充、重试遗留Main层或无flow入口不一致，保存实际失败。
-- [ ] **Step 3: 最小接入。** flow构造规则前缀后照旧注入上下文与review；protocol及交互重新生成使用整体替换，保留未接受响应原因，停止不带动作层；batch_gate默认前缀同入口。指纹纳入运行层、工具说明和组装版本，旧冻结文本不再担当实际角色提示。只调整依赖旧提示身份的测试断言，冻结测试仍绑定原变量及SHA。
-- [ ] **Step 4: GREEN及回归。** 重跑RED；运行`go test ./internal/agent/agents/travel ./internal/agenttools/travel ./internal/service/trip -count=1 -timeout 180s`，正常两次、政策例外、恢复/重放、硬条件、候选引用、局部修改、缺口收尾保持。检查原始工具参数、profile过滤和预算代码没有随本次改动变化。
-- [ ] **Step 5: 记录交付。** 补充真实输入前缀、工具hash及指纹测试证据，勾选OpenSpec 2.1；按权限提交`refactor: unify travel prompt assembly and recovery`。
+- [x] **Step 1: 先写失败测试。** 用现有捕获真实Eino输入的模型扩展`TestMainRecoveryHandsToSummary`和`TestTravelInteractionInstructions`：普通首次、正常总结、参数拒绝、追问、无效协议、停止、无flow入口均只有适用层，实际工具与既有profile同名同参数，journal hash匹配真正请求。新建`TestTravelPromptFingerprint`验证全部运行资源/恢复文本和工具帮助均在材料中，版本或任一材料变化使兼容指纹变化。保留Main实际调用次数和summary范围断言。
+- [x] **Step 2: 确认RED。** `go test ./internal/agent/agents/travel -run 'TestTravelPromptLayersIntegration|TestTravelPromptFingerprint|TestMainRecoveryHandsToSummary|TestTravelInteractionInstructions' -count=1`；预期flow仍使用旧补充、重试遗留Main层或无flow入口不一致，保存实际失败。
+- [x] **Step 3: 最小接入。** flow构造规则前缀后照旧注入上下文与review；protocol及交互重新生成使用整体替换，保留未接受响应原因，停止不带动作层；batch_gate默认前缀同入口。指纹纳入运行层、工具说明和组装版本，旧冻结文本不再担当实际角色提示。只调整依赖旧提示身份的测试断言，冻结测试仍绑定原变量及SHA。
+- [x] **Step 4: GREEN及回归。** 重跑RED；运行`go test ./internal/agent/agents/travel ./internal/agenttools/travel ./internal/service/trip -count=1 -timeout 180s`，正常两次、政策例外、恢复/重放、硬条件、候选引用、局部修改、缺口收尾保持。检查原始工具参数、profile过滤和预算代码没有随本次改动变化。
+- [x] **Step 5: 记录交付。** 补充真实输入前缀、工具hash及指纹测试证据，勾选OpenSpec 2.1；按权限提交`refactor: unify travel prompt assembly and recovery`。
 
 ## Task 3: 完整验收、审查、规格核对与归档
 

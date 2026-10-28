@@ -35,7 +35,7 @@ func (m *sourceScenarioModel) Generate(ctx context.Context, messages []*schema.M
 		if m.calls == 1 {
 			return scenarioCall("lookup", "query", map[string]any{"request_kind": "lookup", "query_plan": []any{map[string]any{"domain": "train", "parameters": map[string]any{"origin": "上海", "destination": "杭州", "departure_date": "2026-10-26"}}}}), nil
 		}
-		if messages[0].Content != summaryInstruction {
+		if messages[0].Content != roleInstruction("summary") {
 			return nil, fmt.Errorf("lookup did not hand to source Summary")
 		}
 		if m.mode == "lookup_followup" && m.calls == 2 {
@@ -68,14 +68,14 @@ func (m *sourceScenarioModel) Generate(ctx context.Context, messages []*schema.M
 		return scenarioCall(fmt.Sprintf("unchanged-%d", m.calls), "write_trip", map[string]any{"request_kind": "planning", "tripplan": map[string]any{"operation": "amend", "trip_plan_id": review.Tripplan["trip_plan_id"], "expected_revision": review.Tripplan["revision"]}}), nil
 	}
 	if m.mode == "replan" && m.calls == 2 {
-		if messages[0].Content != reviewInstruction {
+		if messages[0].Content != roleInstruction("planning_summary") {
 			return nil, fmt.Errorf("repair did not hand planning Summary original context")
 		}
 		task := review.Tripplan["tasks"].([]any)[0].(map[string]any)
 		return scenarioCall("add-content", "write_trip", map[string]any{"request_kind": "planning", "tripplan": map[string]any{"operation": "amend", "trip_plan_id": review.Tripplan["trip_plan_id"], "expected_revision": review.Tripplan["revision"], "tasks": []any{map[string]any{"task_id": task["id"], "components": []string{"content"}, "content": []any{map[string]any{"purpose": "会议", "description": "抵达后参加会议", "date": "2026-10-26", "time": "16:00", "source": "proposal", "strength": "soft"}}}}}}), nil
 	}
 	if m.mode == "multiple" {
-		if messages[0].Content != reviewInstruction || len(review.Tripplans) != 2 {
+		if messages[0].Content != roleInstruction("planning_summary") || len(review.Tripplans) != 2 {
 			return nil, fmt.Errorf("Verifier did not receive both plans")
 		}
 		response := &schema.Message{Role: schema.Assistant}

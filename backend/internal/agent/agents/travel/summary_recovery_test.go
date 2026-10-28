@@ -2,6 +2,7 @@ package travel
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,12 +83,13 @@ func TestMainRecoveryHandsToSummary(t *testing.T) {
 			if len(m.stages) != 3 || m.stages[0] != "agent:main" || m.stages[1] != "agent:trip_summary" || m.stages[2] != "agent:trip_summary" {
 				t.Fatalf("Main reentered instead of summary recovery: %v", m.stages)
 			}
-			if m.inputs[1][0].Content != reviewInstruction {
+			if m.inputs[1][0].Content != roleInstruction("planning_summary") {
 				t.Fatal("recovery was only relabeled; still using Main prompt")
 			}
+			assertRuntimeLayers(t, m.inputs[1], "planning_summary")
 			found := false
 			for _, msg := range m.inputs[1] {
-				if msg.Content == planningSummaryInstruction {
+				if strings.Contains(msg.Content, runtimePlanningSummary) {
 					found = true
 				}
 			}
