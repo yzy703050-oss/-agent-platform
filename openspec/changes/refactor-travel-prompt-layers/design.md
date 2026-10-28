@@ -8,7 +8,7 @@
 
 **Goals:** 当前有效规则有明确维护位置；仅注入适用层；正常、恢复及重试的真实角色与提示一致；保留已确认业务行为和可核验证据。
 
-**Non-Goals:** 不改 Python、不删除冻结文本、不重写政策/偏好/压缩辅助模型，不改工具名、参数schema、profile筛选、校验器、事务、预算或执行状态机。不部署、重启或自动整合其他活动变更。
+**Non-Goals:** 不改 Python、不删除冻结文本、不重写政策/偏好/压缩辅助模型，不改工具名、参数schema、profile筛选、校验器、事务、预算，不新增执行状态机或放宽授权。不部署、重启或自动整合其他活动变更。
 
 ## Decisions
 
@@ -47,13 +47,17 @@
 
 保留 `SourceProfile` 及冻结schema输出不变。工具包新增 `runtime_instructions.go` 与 `schemas/runtime_write_trip_help.txt`、`schemas/runtime_query_policy_help.txt`；`Registry.Profile` 完成现有权限筛选后调用 `withRuntimeToolInstructions(profile string, tools []*schema.ToolInfo) []*schema.ToolInfo`，仅复制并整理可见工具的描述。
 
-write_trip运行描述复用一次原 `TripArgumentHelp`，合入从补充层移来的有效字段规则，按实际profile说明允许操作；规划总结描述不能漏掉参数帮助。query_policy描述提供政策前置，错误码解释放对应工具的帮助，字段级失败仍由原观察提供。不改工具名字、参数或校验，也不改变 `profileForState` 现有映射和权限。
+write_trip运行描述将原 `TripArgumentHelp` 与补充层有效字段规则完整合并为单一运行文本，按实际profile说明允许操作；原文继续冻结但不整段注入，规划总结描述不能漏掉参数帮助。真实模型暴露的混合amend组件语法归入同一工具说明；工具组装版本为tool-instructions-v4；共享字段、创建语法、修改语法分开维护，planning_recovery仅加载创建帮助，planning_summary/旧Verifier仅加载修改帮助，Main在已有NewPlanningRequest/PlanContextComplete状态下只注入新规划或明确修改所需说明，普通情况按原profile保留两类说明；仅描述分层，不改变工具名称/参数/过滤权限。query_policy描述提供政策前置，错误码解释放对应工具的帮助，字段级失败仍由原观察提供。不改工具名字、参数或校验，也不改变 `profileForState` 现有映射和权限。
 
 ### D5. 指纹覆盖有效资源与组装版本
 
 新增 `runtimePromptMaterial() string` 和工具包导出的 `RuntimeToolInstructionMaterial() string`，稳定顺序收集所有运行时文本、公共回复及恢复文本，含 `prompt-layers-v1` 组装版本。`agent.NewAgent` 在保留其他现有指纹因子的基础上纳入两者；审计继续hash真实messages及实际工具。辅助提示仍入指纹。测试覆盖任一资源或版本变化时材料及指纹改变。
 
 冻结证据哈希独立验证，不能用运行时新SHA替换迁移SHA。旧断点拒绝属于既有兼容规则，不伪称可沿用旧提示恢复。
+
+### D8. 创建恢复独立于已有计划审查
+
+真实模型发现，Main失败且无已保存计划时，沿用“审查后选择并绑定reply”的层会诱导propose附非法reply。新增runtime/planning_recovery.txt及promptState.PlanningRecovery，仍使用planning_summary可信角色和planning_recovery既有工具profile；只注入公共回复、规划规则和创建恢复职责，不加载已有计划review动作层。正常构造和重新生成均从当前Plans是否为空推导，不新增持久状态或权限。规则组装版本升级prompt-layers-v2，新增资源入指纹，真实恢复测试禁止无计划时加载review层。
 
 ### D6. 验证区分静态结构与真实模型行为
 
@@ -62,6 +66,8 @@ write_trip运行描述复用一次原 `TripArgumentHelp`，合入从补充层移
 提示改写不能仅凭脚本模型证明语义不变。实施后运行现有真实模型＋PostgreSQL交互验收的九类场景，每类一次，完整记录失败和实际调用；以及来源验收中的活动局部修改，检查候选保留。固定工具夹具不证明真实供应方在线能力。缺必要依赖时报告未验证并保留任务未完成，不当作通过。
 
 ## Risks / Trade-offs
+
+实施补充D7（真实验收发现）：明确ID的旧行程修改需要在Main首轮前加载受权快照。只读read后直接交总结会落入创建schema；即使事后收养计划，总结对旧硬活动的保护仍正确拒绝改时。因此采用最小输入补齐：sourceInput仅从当前请求的明确非否定/非假设修改语句提取“行程 UUID”，优先于隐式历史ID；Resume继续只用断点。沿用原beforeModel的Inspect核验用户、来源、attempt并加载快照，Main首轮依据本轮明确授权直接amend。lookup不自动加载，原请求以外和否定分句ID不纳入。仅本轮明确ID编辑或已进入规划时，已有完整快照才向既有profile过滤提供PlanContextComplete=true；普通历史查询保持原过滤行为，不等待首次写入才标完整，避免再次read；输入识别与版本进入指纹。不增加Main例外，不修改总结硬要求保护、DecideRole、Registry过滤规则或工具schema；无ID定位仍沿用现有流程。
 
 - 合并导致规则遗漏 → 原段落映射、业务场景回归与真实模型验收共同核对，不以字数减少替代正确性。
 - 源文身份测试与运行测试耦合 → 冻结原文测试不改SHA；仅迁移运行时身份断言，保留所有业务断言。

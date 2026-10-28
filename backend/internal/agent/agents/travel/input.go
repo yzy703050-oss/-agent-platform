@@ -2,6 +2,7 @@ package travel
 
 import (
 	"encoding/json"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -51,7 +52,44 @@ func sourceInput(in contracts.RunInput) (string, []string) {
 			ids = append(ids, id)
 		}
 	}
+	if !in.Resume {
+		if provided := explicitTripIDs(query); len(provided) > 0 {
+			return query, provided
+		}
+	}
 	return query, ids
+}
+
+var tripIDMention = regexp.MustCompile(`(?i)行程\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b`)
+var tripEditIntent = regexp.MustCompile(`修改|调整|更改|改为|改成|改到|取消|删除|重排|换成`)
+
+// An explicit current-request edit may identify its own trip. The execution
+// still uses Inspect to verify scope and provenance before the first model call;
+// this function performs no I/O and does not recover context from old user text.
+func explicitTripIDs(query string) []string {
+	edit := false
+	positive := []string{}
+	for _, clause := range strings.FieldsFunc(query, func(r rune) bool { return strings.ContainsRune("，。；,;\n", r) }) {
+		negated := false
+		for _, word := range []string{"不要", "不修改", "不调整", "无需", "不用", "不必", "假设", "假如", "例如", "示例"} {
+			negated = negated || strings.Contains(clause, word)
+		}
+		if !negated {
+			positive = append(positive, clause)
+			edit = edit || tripEditIntent.MatchString(clause)
+		}
+	}
+	if !edit {
+		return nil
+	}
+	ids := []string{}
+	for _, match := range tripIDMention.FindAllStringSubmatch(strings.Join(positive, "，"), -1) {
+		id := strings.ToLower(match[1])
+		if !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 func sourceAdjustmentHistory(messages []pm.Message, plans map[string]pm.TripResult) []json.RawMessage {

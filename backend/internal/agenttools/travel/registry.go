@@ -183,6 +183,13 @@ func (r *Registry) Profile(request ProfileRequest) ([]*schema.ToolInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	if request.Role == "main" {
+		if request.NewPlanningRequest {
+			name = "new_planning"
+		} else if request.PlanContextComplete {
+			name = "existing_edit"
+		}
+	}
 	return withRuntimeToolInstructions(name, tools), nil
 }
 

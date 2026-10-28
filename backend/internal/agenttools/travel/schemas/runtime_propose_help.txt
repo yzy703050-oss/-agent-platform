@@ -1,0 +1,3 @@
+propose：完整提交tripplan.tasks及各段items，不填ID、版本、selection_refs或reply；default_round_trip默认true，明确单程才false。confirmed_conditions只放人数/预算/最晚返回等全局条件，不放confirmed_conditions.start_date；日期放各task.conditions。
+创建时不附任何reply，包括reply={}；保存后观察真实查询结果才进入选择和绑定回复阶段。
+提交前按目的地分组content：A→B首日下午及次日上午在B活动后B→A时，第一个task.content必须同时有这两天的活动，第二个task.content=[]；不能按活动发生在返程当天就把它放进第二个task。

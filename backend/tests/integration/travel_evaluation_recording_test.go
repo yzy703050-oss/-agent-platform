@@ -17,6 +17,7 @@ type perfModelInput struct {
 	FinishedAt time.Time          `json:"finished_at"`
 	Messages   []*schema.Message  `json:"messages"`
 	Tools      []*schema.ToolInfo `json:"tools"`
+	Response   *schema.Message    `json:"response,omitempty"`
 	Error      string             `json:"error,omitempty"`
 }
 type perfInputLog struct {
@@ -48,6 +49,7 @@ func (m *perfRecordingModel) Generate(ctx context.Context, in []*schema.Message,
 	out, err := m.inner.Generate(ctx, in, opts...)
 	m.log.mu.Lock()
 	m.log.rows[index].FinishedAt = time.Now().UTC()
+	m.log.rows[index].Response = perfInputCopy(out)
 	if err != nil {
 		m.log.rows[index].Error = perfRedact(err.Error())
 	}
@@ -74,5 +76,8 @@ func TestPerfRecordingUsesGenerationToolOverride(t *testing.T) {
 	_, err := m.Generate(context.Background(), []*schema.Message{schema.UserMessage("test")}, em.WithTools([]*schema.ToolInfo{{Name: "summary_only"}}))
 	if err != nil || len(log.rows) != 1 || len(log.rows[0].Tools) != 1 || log.rows[0].Tools[0].Name != "summary_only" {
 		t.Fatalf("recorded stale bound tools rather than actual generation override: %+v %v", log.rows, err)
+	}
+	if log.rows[0].Response == nil || log.rows[0].Response.Content != "已保存" {
+		t.Fatal("model response missing: rejected tool arguments cannot be audited")
 	}
 }

@@ -37,12 +37,12 @@
 - 新建：`docs/travel-prompt-layers.md`，逐段记录旧规则→新维护层及保留/合并/迁移/已授权替代，不修改原始资源或schema。
 
 **Interfaces:**
-- `promptState{Role string; Stopped, ProtocolRecovery, InteractionRecovery bool}`。
+- `promptState{Role string; Stopped, ProtocolRecovery, InteractionRecovery, PlanningRecovery bool}`。
 - `composePromptPrefix(state promptState) []*schema.Message`：只返回按design D3固定顺序的受管规则消息。
 - `replacePromptPrefix(messages []*schema.Message, state promptState) []*schema.Message`：替换受管前缀，保留非受管消息顺序及内容；重复调用结果相同。
 - 工具包 `withRuntimeToolInstructions(profile string, tools []*schema.ToolInfo) []*schema.ToolInfo`：基于实际可见工具返回描述整理副本；名称、参数不变，不增减工具。
 
-- [x] **Step 1: 先写失败测试。** 新建`TestTravelPromptLayers`，表驱动覆盖main/planning_summary/verifier/summary/stopped：恰有一个角色、一次公共回复，summary与stopped无规划动作层；main/总结保留现有软默认，规划总结没有“请求Main重规划”等旧肯定指令。新建`TestTravelPromptReplacementPreservesData`，输入含上下文system、摘要system、用户、assistant tool_calls、tool结果，两次替换后均逐字保留，旧Main规则不残留。工具包新建`TestRuntimeToolInstructions`，覆盖main/pre_policy/review/review_retry/summary/planning_summary/planning_recovery，核对名称/参数相同、原参数帮助一次、指定字段规则仅在对应工具、调用后SourceProfile冻结输出不变。
+- [x] **Step 1: 先写失败测试。** 新建`TestTravelPromptLayers`，表驱动覆盖main/planning_summary/verifier/summary/stopped：恰有一个角色、一次公共回复，summary与stopped无规划动作层；main/总结保留现有软默认，规划总结没有“请求Main重规划”等旧肯定指令。新建`TestTravelPromptReplacementPreservesData`，输入含上下文system、摘要system、用户、assistant tool_calls、tool结果，两次替换后均逐字保留，旧Main规则不残留。工具包新建`TestRuntimeToolInstructions`，覆盖main/pre_policy/review/review_retry/summary/planning_summary/planning_recovery，核对名称/参数相同、原参数语义完整合并、无冻结帮助整段重复、指定字段规则仅在对应工具、调用后SourceProfile冻结输出不变。
 - [x] **Step 2: 确认RED。** 在`backend/`运行`go test ./internal/agent/agents/travel ./internal/agenttools/travel -run 'TestTravelPromptLayers|TestTravelPromptReplacementPreservesData|TestRuntimeToolInstructions' -count=1`；预期新接口尚不存在，或旧运行描述缺帮助而失败，保存实际原因。
 - [x] **Step 3: 最小实现。** 按design D2逐段分配当前有效规则，写清楚默认值来源和角色职责；复用原reply/summary，旧Verifier与规划总结分开；新增层标记及D3组装/替换。工具描述只在Registry.Profile已有筛选后整理。停止层仅用现有结果作答；恢复提示不得再复制规划规则。完成规则映射，核对所有旧补充段落有归属和现有授权来源。
 - [x] **Step 4: GREEN及保真。** 重跑RED命令，再运行`go test ./internal/agent/agents/travel ./internal/agenttools/travel -run 'TestTravelSourcePrompts|TestTravelSourceContracts|TestTravelPrompt|TestRuntimeTool' -count=1`；均PASS，原SHA不变。审查资源没有参数语法与业务规则大段重复，不按压缩字符数判完成。
@@ -52,6 +52,10 @@
 
 **Mapping:** OpenSpec 2.1；提示在重试与恢复中可核验全部场景；design D3、D5。
 
+实施补充映射：OpenSpec 2.2、design D7；`sourceInput`识别当前明确编辑请求提供的行程UUID，经原beforeModel的Inspect加载快照，供Main首轮直接amend，保留总结硬要求保护。新增`input_context_test.go`及`travel_read_handoff_test.go`，先RED（首轮缺快照），再GREEN验证一次模型调用保存明确改时、lookup两次且不改计划；否定/假设/旧Run/Resume及混合否定其他ID均不扩大范围。继续运行既有scope/排除来源及恢复测试；不改变DecideRole/profile算法或schema。
+
+实施补充映射：OpenSpec 2.3、design D8；新增planning_recovery运行层，PlanningRecovery按当前无计划状态推导，创建恢复不加载已有计划review；组装版本prompt-layers-v2。TestMainRecoveryHandsToSummary实际先RED（无计划仍含review），再验证question/parameter恢复的真实输入、工具和后续保存。新增资源入指纹；不改变业务角色和schema。
+
 **Files:**
 - 修改：`backend/internal/agent/agents/travel/{flow,protocol,interaction_protocol,batch_gate,agent,prompt}.go`。
 - 修改身份断言但保留业务断言：`source_flow_test.go`、`source_scenarios_test.go`、`interaction_test.go`、`summary_recovery_test.go`、`protocol_test.go`。
@@ -60,7 +64,7 @@
 
 **Interfaces:**
 - 使用任务1的`composePromptPrefix`/`replacePromptPrefix`，从FlowState现有字段推导promptState；不新增产品状态机。
-- `runtimePromptMaterial() string`及工具包`RuntimeToolInstructionMaterial() string`：按固定顺序返回有效文本和`prompt-layers-v1`版本，供现有Agent指纹使用；辅助提示及其他指纹因子保留。
+- `runtimePromptMaterial() string`及工具包`RuntimeToolInstructionMaterial() string`：按固定顺序返回有效文本和`prompt-layers-v2`版本，供现有Agent指纹使用；辅助提示及其他指纹因子保留。
 
 - [x] **Step 1: 先写失败测试。** 用现有捕获真实Eino输入的模型扩展`TestMainRecoveryHandsToSummary`和`TestTravelInteractionInstructions`：普通首次、正常总结、参数拒绝、追问、无效协议、停止、无flow入口均只有适用层，实际工具与既有profile同名同参数，journal hash匹配真正请求。新建`TestTravelPromptFingerprint`验证全部运行资源/恢复文本和工具帮助均在材料中，版本或任一材料变化使兼容指纹变化。保留Main实际调用次数和summary范围断言。
 - [x] **Step 2: 确认RED。** `go test ./internal/agent/agents/travel -run 'TestTravelPromptLayersIntegration|TestTravelPromptFingerprint|TestMainRecoveryHandsToSummary|TestTravelInteractionInstructions' -count=1`；预期flow仍使用旧补充、重试遗留Main层或无flow入口不一致，保存实际失败。
@@ -76,16 +80,16 @@
 
 **Interfaces:** 使用既有`TestTravelInteractionModel`和`TestTravelSourceModel/modify_activity`，沿用现有凭据加载方式；只报告配置是否存在，禁止输出密钥/连接串。
 
-- [ ] **Step 1: 整体静态及数据库验证。** 在backend运行`go test ./... -count=1 -timeout 180s`、`go vet ./...`、`go build -o ../.tmp/travel-prompt-layers-server.exe ./cmd/server`；启用既有`TEST_DATABASE_URL`和`REQUIRE_DATABASE_TESTS=1`后核对数据库项确已执行。若依赖缺失不可勾选通过；Windows race不支持时如实记录，适用Linux CI再验证，不能冒用旧CI成功。
-- [ ] **Step 2: 真实模型交互。** 配置`REQUIRE_TRAVEL_INTERACTION_MODEL_TEST=1`、`TRAVEL_INTERACTION_REPEATS=1`、`TRAVEL_INTERACTION_OUTPUT`为上述交互JSON绝对路径；`TRAVEL_INTERACTION_CASES`置空执行九类场景。运行`go test ./tests/integration -run '^TestTravelInteractionModel$' -count=1 -timeout 20m`。检查缺省、显式覆盖、记忆、正常往返、多城、独立查询、政策、中转、酒店缺价；保存每次输入、实际角色、工具、Usage、拒绝和重复，失败不删样本、不调预算掩盖。
-- [ ] **Step 3: 真实模型局部修改。** 配置`REQUIRE_TRAVEL_SOURCE_MODEL_TEST=1`、`TRAVEL_SOURCE_REPEATS=1`、`TRAVEL_SOURCE_OUTPUT`为上述来源JSON绝对路径，运行`go test ./tests/integration -run '^TestTravelSourceModel$/^modify_activity$' -count=1 -timeout 180s`。实际14:00→16:00、新修订、原车次引用保留、零供应方重查均通过。恢复测试开关，报告固定工具夹具边界，不把结果称作在线供应方验收。
-- [ ] **Step 4: 审查与任务审核。** 按用户选择单代理整体自审或多子代理任务评审及最终评审，逐项检查spec场景→代码→测试→证据；任务和计划勾选分别核对，重要问题先修复并复验。对照git diff确认Python、冻结schema/提示、权限/状态机和其他活动change没有被改写；证据不足保留未完成状态。
-- [ ] **Step 5: OpenSpec核对。** `openspec validate refactor-travel-prompt-layers --strict`。CLI没有verify命令，记录人工逐项核对需求、场景、任务及测试证据，不声称运行verify。勾选3.1/3.2必须有实际通过记录。
+- [x] **Step 1: 整体静态及数据库验证。** 在backend运行`go test ./... -count=1 -timeout 180s`、`go vet ./...`、`go build -o ../.cache/bin/travel-prompt-layers-server.exe ./cmd/server`；启用既有`TEST_DATABASE_URL`和`REQUIRE_DATABASE_TESTS=1`后核对数据库项确已执行。若依赖缺失不可勾选通过；Windows race不支持时如实记录，适用Linux CI再验证，不能冒用旧CI成功。
+- [x] **Step 2: 真实模型交互。** 配置`REQUIRE_TRAVEL_INTERACTION_MODEL_TEST=1`、`TRAVEL_INTERACTION_REPEATS=1`、`TRAVEL_INTERACTION_OUTPUT`为上述交互JSON绝对路径；`TRAVEL_INTERACTION_CASES`置空执行九类场景。运行`go test ./tests/integration -run '^TestTravelInteractionModel$' -count=1 -timeout 20m`。检查缺省、显式覆盖、记忆、正常往返、多城、独立查询、政策、中转、酒店缺价；保存每次输入、实际角色、工具、Usage、拒绝和重复，失败不删样本、不调预算掩盖。
+- [x] **Step 3: 真实模型局部修改。** 配置`REQUIRE_TRAVEL_SOURCE_MODEL_TEST=1`、`TRAVEL_SOURCE_REPEATS=1`、`TRAVEL_SOURCE_OUTPUT`为上述来源JSON绝对路径，运行`go test ./tests/integration -run '^TestTravelSourceModel$/^modify_activity$' -count=1 -timeout 180s`。实际14:00→16:00、新修订、原车次引用保留、零供应方重查均通过。恢复测试开关，报告固定工具夹具边界，不把结果称作在线供应方验收。
+- [x] **Step 4: 审查与任务审核。** 按用户选择单代理整体自审或多子代理任务评审及最终评审，逐项检查spec场景→代码→测试→证据；任务和计划勾选分别核对，重要问题先修复并复验。对照git diff确认Python、冻结schema/提示、权限/状态机和其他活动change没有被改写；证据不足保留未完成状态。
+- [x] **Step 5: OpenSpec核对。** `openspec validate refactor-travel-prompt-layers --strict`。CLI没有verify命令，记录人工逐项核对需求、场景、任务及测试证据，不声称运行verify。勾选3.1/3.2必须有实际通过记录。
 - [ ] **Step 6: 归档与分支收尾。** 前述通过后运行`openspec archive refactor-travel-prompt-layers --yes`，检查主规格仅同步本次delta并运行`openspec validate --all --strict`；补记3.3归档证据，确认归档包含于本次分支。使用finishing-a-development-branch流程呈现合并、PR或保留分支等选项，执行用户选择；不自动部署。
 
 ## Completion Conditions
 
-有效运行提示无已识别相反规则、角色隔离和全入口一致；冻结证据不变；全部指定测试及真实模型验收通过，审查及人工规格核对无未解决重要问题；任务有证据后再归档。当前文件仅为待审阅计划，不表示上述步骤已经执行。
+有效运行提示无已识别相反规则、角色隔离和全入口一致；冻结证据不变；全部指定测试及真实模型验收通过，审查及人工规格核对无未解决重要问题；任务有证据后再归档。本计划已由用户批准并按单代理执行；完成证据见实施与验收记录，归档后单独记录分支整合选择。
 
 ## Execution Choice
 

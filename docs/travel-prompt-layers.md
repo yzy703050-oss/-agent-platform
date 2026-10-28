@@ -1,13 +1,14 @@
 # 差旅运行时提示分层
 
-OpenSpec：`refactor-travel-prompt-layers`。Python原文和冻结工具契约均保留；运行时版本：`prompt-layers-v1`。
+OpenSpec：`refactor-travel-prompt-layers`。Python原文和冻结工具契约均保留；运行时版本：`prompt-layers-v2`。
 
 ## 运行输入
 
 `角色职责 → 公共回复 → 适用规划领域规则 → 适用审查规则 → 必要恢复提示`，之后保留原上下文数据与完整用户/工具消息。工具参数帮助通过实际tools描述传入，不在每个角色重复。
 
 - Main：首次全局规划与唯一政策续规划。
-- 规划总结：当前请求审查、修复、选择与绑定总结；无计划时仅恢复失败创建。
+- 规划总结：已有计划时审查、修复、选择与绑定总结。
+- 创建恢复：尚无计划时仅恢复propose，不加载已有计划审查，不附reply。
 - 旧Verifier：保留原局部权限及交Main边界，不混入规划总结。
 - 独立查询总结：只用原summary＋公共回复，不加载规划动作规则。
 - 已停止：停止专用答复＋公共回复，不重新规划。
@@ -64,8 +65,18 @@ OpenSpec：`refactor-travel-prompt-layers`。Python原文和冻结工具契约�
 | `planning_summary.txt:3` | route_tasks是当前trip_plan_id完整… | 保留映射/合并迁移：write_trip工具说明（路线/ID） |
 | `planning_summary.txt:4` | 例如直达无候选且允许经南京、返程29日硬定、杭州硬一晚、… | 保留映射/合并迁移：共享规划（固定返程硬一晚） |
 | `planning_summary.txt:5` | 插入中转的ID按目的地归属：原上海→杭州的task_id… | 保留映射/合并迁移：共享审查（联合选择）＋write_trip工具说明（中转ID） |
-| `planning_summary.txt:6` | Main首次工具提议被拒且尚无已保存计划时，由你依据or… | 保留映射/合并迁移：角色规划总结（失败创建/权限/政策） |
+| `planning_summary.txt:6` | Main首次工具提议被拒且尚无已保存计划时，由你依据or… | 保留映射/合并迁移：角色创建恢复（失败创建/权限/政策） |
 
 ## 冻结证据与运行证据
 
 `TestTravelSourcePrompts`和`TestTravelSourceContracts`继续逐字核对原Python文本/工具schema。运行时测试检查职责隔离、无旧规则覆盖、数据与工具配对保留、重试幂等、实际工具hash和新恢复指纹。真实模型与固定工具夹具的验收记录另存，不代表在线供应方能力。
+
+## 真实模型校正记录
+
+分层初版没有保留足够明确的固定返程/硬晚数、目的地活动归属和中转ID实例，真实模型验收据此暴露问题。对应例子分别归回规划领域、审查和工具说明；没有恢复跨角色通用补丁，也没有修改Python冻结原文。完整逐轮结果见验证记录。
+
+## 当前工具说明
+
+工具说明版本为`tool-instructions-v4`。字段/来源/身份语法由`runtime_write_trip_help.txt`统一维护；创建示例由`runtime_propose_help.txt`维护，选择/修改示例由`runtime_modify_help.txt`维护。新建Main及无计划恢复仅加载创建说明；已有计划修改Main、规划总结及原审查角色仅加载修改说明，实际工具schema与权限仍由原profile决定。
+
+本轮明确给出行程UUID并要求修改时，经原Inspect加载授权计划供首次Main编辑；不以解析结果代替权限校验。实现、全部历史失败与最终通过证据见[验收记录](travel-prompt-layers-verification.md)。

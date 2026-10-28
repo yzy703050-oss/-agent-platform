@@ -48,7 +48,8 @@ func profileForState(s FlowState, role string) traveltools.ProfileRequest {
 		return result.Error != nil && result.Error.Code == "REPLAN_REQUIRED"
 	})
 	planningRole := role == "main" || role == "planning_summary"
-	complete := len(s.Plans) > 0 && (role == "planning_summary" || role == "main" && s.Planning)
+	explicitEdit := len(explicitTripIDs(s.OriginalQuery)) > 0
+	complete := len(s.Plans) > 0 && (role == "planning_summary" || role == "main" && (s.Planning || explicitEdit))
 	return traveltools.ProfileRequest{Role: role, NewPlanningRequest: planningRole && freshPlanningRequest(s.OriginalQuery), PlanContextComplete: complete, ReplanRequired: replanRequired, PolicyObserved: s.Policy != nil && slices.Contains([]string{"ok", "partial", "no_knowledge"}, s.Policy.Status), AllowedTripIDs: s.planIDs(), RetryQueries: s.RetryQueries}
 }
 

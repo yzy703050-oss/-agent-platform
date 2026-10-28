@@ -138,11 +138,11 @@ func (m *sourceBatchModel) WithTools([]*schema.ToolInfo) (einomodel.ToolCallingC
 }
 func (m *sourceBatchModel) Generate(_ context.Context, input []*schema.Message, _ ...einomodel.Option) (*schema.Message, error) {
 	m.calls.Add(1)
-	if len(input) > 0 && strings.Contains(input[0].Content, "MainAgent") {
+	if len(input) > 0 && strings.HasPrefix(input[0].Content, "[travel-prompt:role:main]") {
 		m.mainCalls.Add(1)
 	}
 	for _, msg := range input {
-		if msg.Role == schema.System && strings.Contains(msg.Content, "规划总结阶段（planning-summary-v1）") {
+		if msg.Role == schema.System && strings.HasPrefix(msg.Content, "[travel-prompt:role:planning_summary]") {
 			m.summaryCalls.Add(1)
 			break
 		}

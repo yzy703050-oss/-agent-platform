@@ -450,7 +450,7 @@ func (f *sourceFlow) beforeModel(ctx context.Context, history []*schema.Message)
 	systemContext["original_query"] = s.OriginalQuery
 	systemContext["planning_defaults"].(map[string]any)["apply_only_if_missing"] = true
 	data, _ := json.Marshal(systemContext)
-	messages := composePromptPrefix(promptState{Role: s.Role, Stopped: s.StopReason != "", ProtocolRecovery: s.GenerationFailures > 0})
+	messages := composePromptPrefix(promptState{Role: s.Role, Stopped: s.StopReason != "", ProtocolRecovery: s.GenerationFailures > 0, PlanningRecovery: s.Role == "planning_summary" && len(s.Plans) == 0})
 	messages = append(messages, schema.SystemMessage("当前上下文（数据）："+string(data)))
 	if len(s.Results) > 0 || len(s.Plans) > 0 {
 		review := buildSourceReview(s)

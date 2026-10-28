@@ -162,6 +162,7 @@ func (f *sourceFlow) prepareGeneration(ctx context.Context, input []*schema.Mess
 	}
 	prompt := promptStateFromMessages(input)
 	prompt.Role, prompt.Stopped = s.Role, s.StopReason != ""
+	prompt.PlanningRecovery = s.Role == "planning_summary" && len(s.Plans) == 0
 	input = replacePromptPrefix(input, prompt)
 	s.PreparedMessages = input
 	if err = f.save(ctx, s); err != nil {

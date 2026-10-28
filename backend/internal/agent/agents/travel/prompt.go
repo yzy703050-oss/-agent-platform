@@ -34,6 +34,8 @@ var (
 	runtimeMain string
 	//go:embed prompts/runtime/planning_summary.txt
 	runtimePlanningSummary string
+	//go:embed prompts/runtime/planning_recovery.txt
+	runtimePlanningRecovery string
 	//go:embed prompts/runtime/verifier.txt
 	runtimeVerifier string
 	//go:embed prompts/runtime/planning.txt
@@ -47,6 +49,7 @@ var (
 type promptState struct {
 	Role                                           string
 	Stopped, ProtocolRecovery, InteractionRecovery bool
+	PlanningRecovery                               bool
 }
 
 func composePromptPrefix(state promptState) []*schema.Message {
@@ -63,6 +66,8 @@ func composePromptPrefix(state promptState) []*schema.Message {
 	}
 	if state.Stopped {
 		role, text = "stopped", runtimeStopped
+	} else if role == "planning_summary" && state.PlanningRecovery {
+		text = "[phase:planning_recovery]\n" + runtimePlanningRecovery
 	}
 	layer := func(name, content string) *schema.Message {
 		return schema.SystemMessage("[travel-prompt:" + name + "]\n" + content)
@@ -71,7 +76,7 @@ func composePromptPrefix(state promptState) []*schema.Message {
 	if role == "main" || role == "planning_summary" || role == "verifier" {
 		out = append(out, layer("planning", runtimePlanning))
 	}
-	if role == "planning_summary" || role == "verifier" {
+	if role == "planning_summary" && !state.PlanningRecovery || role == "verifier" {
 		out = append(out, layer("review", runtimeReview))
 	}
 	if state.ProtocolRecovery {
@@ -113,10 +118,11 @@ func promptStateFromMessages(messages []*schema.Message) promptState {
 		}
 		state.ProtocolRecovery = state.ProtocolRecovery || strings.HasPrefix(msg.Content, "[travel-prompt:recovery:protocol]")
 		state.InteractionRecovery = state.InteractionRecovery || strings.HasPrefix(msg.Content, "[travel-prompt:recovery:interaction]")
+		state.PlanningRecovery = state.PlanningRecovery || strings.HasPrefix(msg.Content, "[travel-prompt:role:planning_summary]\n[phase:planning_recovery]\n")
 	}
 	return state
 }
 
 func runtimePromptMaterial() string {
-	return strings.Join([]string{"prompt-layers-v1", runtimeMain, runtimePlanningSummary, runtimeVerifier, runtimePlanning, runtimeReview, runtimeStopped, summaryInstruction, replyPolicy, regenerationInstruction, interactionRegenerationInstruction}, "\x00")
+	return strings.Join([]string{"prompt-layers-v2", runtimeMain, runtimePlanningSummary, runtimePlanningRecovery, runtimeVerifier, runtimePlanning, runtimeReview, runtimeStopped, summaryInstruction, replyPolicy, regenerationInstruction, interactionRegenerationInstruction}, "\x00")
 }

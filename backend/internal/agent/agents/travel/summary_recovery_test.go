@@ -83,13 +83,16 @@ func TestMainRecoveryHandsToSummary(t *testing.T) {
 			if len(m.stages) != 3 || m.stages[0] != "agent:main" || m.stages[1] != "agent:trip_summary" || m.stages[2] != "agent:trip_summary" {
 				t.Fatalf("Main reentered instead of summary recovery: %v", m.stages)
 			}
-			if m.inputs[1][0].Content != roleInstruction("planning_summary") {
+			if m.inputs[1][0].Content != composePromptPrefix(promptState{Role: "planning_summary", PlanningRecovery: true})[0].Content {
 				t.Fatal("recovery was only relabeled; still using Main prompt")
 			}
 			assertRuntimeLayers(t, m.inputs[1], "planning_summary")
 			found := false
 			for _, msg := range m.inputs[1] {
-				if strings.Contains(msg.Content, runtimePlanningSummary) {
+				if strings.HasPrefix(msg.Content, "[travel-prompt:review]") {
+					t.Fatal("create-only recovery received final selection/reply review before any plan exists")
+				}
+				if strings.Contains(msg.Content, runtimePlanningRecovery) {
 					found = true
 				}
 			}

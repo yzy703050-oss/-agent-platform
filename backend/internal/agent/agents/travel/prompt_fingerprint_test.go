@@ -9,7 +9,7 @@ import (
 
 func TestTravelPromptFingerprint(t *testing.T) {
 	prompts, tools := runtimePromptMaterial(), traveltools.RuntimeToolInstructionMaterial()
-	for _, text := range []string{"prompt-layers-v1", runtimeMain, runtimePlanningSummary, runtimeVerifier, runtimePlanning, runtimeReview, runtimeStopped, summaryInstruction, replyPolicy, regenerationInstruction, interactionRegenerationInstruction} {
+	for _, text := range []string{"prompt-layers-v2", runtimeMain, runtimePlanningSummary, runtimePlanningRecovery, runtimeVerifier, runtimePlanning, runtimeReview, runtimeStopped, summaryInstruction, replyPolicy, regenerationInstruction, interactionRegenerationInstruction} {
 		if text == "" || !strings.Contains(prompts, text) {
 			t.Fatal("effective prompt/recovery resource missing from fingerprint material")
 		}
@@ -18,7 +18,7 @@ func TestTravelPromptFingerprint(t *testing.T) {
 		t.Fatal("runtime tool help not fingerprinted")
 	}
 	original := travelFingerprint("identity", "contracts", prompts, tools)
-	for _, text := range []string{"prompt-layers-v1", runtimeMain, runtimePlanningSummary, runtimeVerifier, runtimePlanning, runtimeReview, runtimeStopped, summaryInstruction, replyPolicy, regenerationInstruction, interactionRegenerationInstruction} {
+	for _, text := range []string{"prompt-layers-v2", runtimeMain, runtimePlanningSummary, runtimePlanningRecovery, runtimeVerifier, runtimePlanning, runtimeReview, runtimeStopped, summaryInstruction, replyPolicy, regenerationInstruction, interactionRegenerationInstruction} {
 		if travelFingerprint("identity", "contracts", strings.Replace(prompts, text, text+"changed", 1), tools) == original {
 			t.Fatal("prompt/resource version change kept old compatibility fingerprint")
 		}
