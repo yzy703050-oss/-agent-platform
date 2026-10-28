@@ -180,7 +180,10 @@ func (r *Registry) Profile(request ProfileRequest) ([]*schema.ToolInfo, error) {
 	if err == nil && request.Role == "main" && (request.PlanContextComplete || request.NewPlanningRequest) {
 		tools = slices.DeleteFunc(tools, func(info *schema.ToolInfo) bool { return info.Name == "read" })
 	}
-	return tools, err
+	if err != nil {
+		return nil, err
+	}
+	return withRuntimeToolInstructions(name, tools), nil
 }
 
 func (r *Registry) Preflight(ctx context.Context, request ProfileRequest, calls []NativeCall) (PreparedBatch, error) {
