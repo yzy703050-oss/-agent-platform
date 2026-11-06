@@ -10,7 +10,7 @@
 
 **Spec:** [原specs](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/)、[design](../../../openspec/changes/refactor-agent-kernel-plan-execute/design.md)、[tasks](../../../openspec/changes/refactor-agent-kernel-plan-execute/tasks.md)、[公共协议](../../../openspec/changes/refactor-agent-kernel-plan-execute/engineering-protocol.md)、[MQ/MCP协议](../../../openspec/changes/refactor-agent-kernel-plan-execute/mq-mcp-dispatch-protocol.md)、[数据库/迁移](../../../openspec/changes/refactor-agent-kernel-plan-execute/database/README.md)、[技术复核](../../../openspec/changes/refactor-agent-kernel-plan-execute/engineering-review.md)。本计划只展开执行，不另定义需求。
 
-日期：2026-11-06。状态：单代理实施中；A00已完成代码检查，真实环境2.6待就绪。代码工作目录为 `G:/简历项目/小豆包`，命令默认在其 `backend` 中运行；标为pwsh/仓库命令的步骤按所示路径运行。RAG实现根为 `G:/简历项目/MODULAR-RAG-MCP-SERVER`，其工作按[配套计划](2026-11-06-rag-mcp-retrieval-service.md)。
+日期：2026-11-06。状态：单代理实施中；A00已完成代码检查，真实环境2.6待就绪。原仓库为 `G:/简历项目/小豆包`，本次隔离实施目录为 `C:/Users/Administrator/.codex/worktrees/agent-runtime-travel/小豆包`，命令默认在其 `backend` 中运行；标为pwsh/仓库命令的步骤按所示路径运行。RAG实现根为 `G:/简历项目/MODULAR-RAG-MCP-SERVER`，其工作按[配套计划](2026-11-06-rag-mcp-retrieval-service.md)。
 
 ## Global Constraints
 
@@ -24,7 +24,7 @@
 - 计划首版完整创建、后续受控Patch；Task变化全Task Item重查、无关Task保留；selection不升查询版本，refresh增generation。
 - 20,000估算token/80%检查/单次最多3个旧完整轮次；每入口主Thread10轮成功有效对话检查长期记忆，reviewed/summarized分开、空更新允许。
 - RAG不是子Agent，不建RAG Job/Topic/Outbox；API Key不代替用户授权。未知报价为null，酒店地点不等于报价/库存/预订。
-- 保持001～005、用户原文/历史表和冻结报告；不清业务库、不覆盖.env、不安装系统服务或下载模型来伪造就绪。
+- 保持001～005、用户原文/历史表和冻结报告；不清业务库、不覆盖.env。用户已授权安装Docker所需后端，实际就绪仍须验证，模型缺失不得伪报。
 
 ## Review Focus
 
@@ -39,7 +39,7 @@
 - 顺序主线：A00→A01→A02→A03→A04；之后按每任务Depends推进。A05共享查询、A06计划、A07Task/MCP完成后，A08父挂起与A09分发闭环；A10专业执行、A11结果恢复、A12记忆、A13进程、A14前端、A15联合故障、A16交付。
 - A10消费自己定义的ContextReader端口，先用授权夹具验证，A12实现并在A13接线；这只是接口依赖，不能跳过真实上下文验收。
 - RAG R00～R07独立实现；A15消费R07已完成HTTP服务/真实检索。RAG R10消费A15一次联合报告；A16在R10后归档，避免环形依赖。
-- 当前环境缺Docker/Kafka/Redis/Milvus/reranker；A00预检是门槛，不自动补系统安装。真实服务可来自显式隔离远端配置。无服务的单元任务可开展；依赖真实服务的任务必须停在未完成，不能SKIP后打勾。
+- 用户已要求Docker部署并授权准备依赖；DockerDesktop已有，WSL安装完成但需重启，容器与模型尚未验收。A00预检仍是门槛。真实服务可来自显式隔离远端配置。无服务的单元任务可开展；依赖真实服务的任务必须停在未完成，不能SKIP后打勾。
 - 第一次执行先按using-git-worktrees检查native隔离/当前分支；两个仓库分别盘点已跟踪/未跟踪WIP，只迁入任务必需且有清单的基线，保留原工作区。若分支复现必须纳入既有改动，先展示具体清单再确认，不能把无关WIP提交成当前任务。
 - 新运行模型位于internal/model/runtimev1，协议严格解码在runtimeprotocol；platformpg/travelpg只持所属schema连接；control/permit只管授权/调用账/预准入；service/travelplan管正式业务；toolquery管无计划事实；旧service/trip和repository/postgres只用于受控legacy适配，不复制旧编排。
 - A02 fixture使用独立临时数据库＋真实登录角色，因为session_user不能用SET ROLE假造；REQUIRE_RUNTIME_TESTS=1时缺管理员/服务必须FAIL。清理只针对本次记录的xdb_v1_测试资源，不指向开发库。
@@ -549,6 +549,10 @@ go test ./tests/runtimeintegration -run 'Test(ContextBudget|TravelThreadIncremen
 **Depends:** A00～A12。
 
 **Files:**
+- Create: backend/Dockerfile
+- Create: frontend/Dockerfile
+- Create: .dockerignore
+- Create: deploy/local/compose.application.yaml
 - Create: backend/cmd/api/main.go
 - Create: backend/cmd/worker/main.go
 - Create: backend/cmd/travel/main.go
@@ -587,7 +591,7 @@ if ($LASTEXITCODE -ne 0) { throw '上一项验证失败' }
 go build ./cmd/...
 ```
 预期：FAIL，旧bootstrap同进程执行、独占锁/自动DDL、General不委派且RAG为stdio；只删锁会在DB权限/任务持久测试失败。
-- [ ] **Step 3 — 最小实现：** API仅HTTP鉴权/接纳/查询/SSE，平台Worker entry与Dispatch逻辑池各2槽独立限流，Travel每实例1槽，自主租约/恢复；Maintenance各循环独立，不被后台模型阻塞。每Go进程PG池≤4，连接按角色创建，禁止单凭据写两个业务schema。General/差旅entry共享查询/设置/记忆端口，规划走同桥，不额外General跳转；正式计划只读经MCP/受控投影，修改/选择必须专业提交。复用Cookie/PG Session/CSRF与同源校验，页面page_lease只接入。显式新二进制不执行DDL；旧cmd/server迁移为API兼容入口，旧执行器/恢复循环不能同时启动。启动脚本只用隔离profile、隐藏后台进程窗口、跟踪自身PID，不加载/覆盖.env或杀其他程序。 装配全部模型/辅助模型为A05 MeteredModel，QueryService/Model AttemptStore各用所属schema连接；平台Conversation删除/清除必须与context_guard同事务。 配置每个Role仅加载所需连接，禁止为使用control而给Travel运行角色platform业务DML。
+- [ ] **Step 3 — 最小实现：** 按用户Docker选择制作应用镜像与Compose，API/entry与Dispatch Worker/Travel/Maintenance分别装配，应用使用容器内服务地址，迁移仍为独立一次性入口；API仅HTTP鉴权/接纳/查询/SSE，平台Worker entry与Dispatch逻辑池各2槽独立限流，Travel每实例1槽，自主租约/恢复；Maintenance各循环独立，不被后台模型阻塞。每Go进程PG池≤4，连接按角色创建，禁止单凭据写两个业务schema。General/差旅entry共享查询/设置/记忆端口，规划走同桥，不额外General跳转；正式计划只读经MCP/受控投影，修改/选择必须专业提交。复用Cookie/PG Session/CSRF与同源校验，页面page_lease只接入。显式新二进制不执行DDL；旧cmd/server迁移为API兼容入口，旧执行器/恢复循环不能同时启动。启动脚本只用隔离profile、隐藏后台进程窗口、跟踪自身PID，不加载/覆盖.env或杀其他程序。 装配全部模型/辅助模型为A05 MeteredModel，QueryService/Model AttemptStore各用所属schema连接；平台Conversation删除/清除必须与context_guard同事务。 配置每个Role仅加载所需连接，禁止为使用control而给Travel运行角色platform业务DML。
 - [ ] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
 完成条件：2 API/2 Worker/2 Travel/1 Maintenance实进程可分摊，跨API登录/撤销与两入口流程通过；缺Travel/RAG时明确不可用，其他能力仍可用。
 - [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A13 独立进程装配与双入口真实委派`）。
@@ -782,10 +786,10 @@ npm --prefix ../frontend run build
 
 自审结果：63项有效Requirement均有映射；25项REMOVED要求不重新实施，其历史数据/回归保护由A02/A16负责。
 
-- 已核对所有任务都有文件、消费/产出接口、命名测试及关键断言、正确红灯原因、最小实现、验证命令和交付门槛；实施checkbox保持未开始。
+- 已核对所有任务都有文件、消费/产出接口、命名测试及关键断言、正确红灯原因、最小实现、验证命令和交付门槛；计划初次交付时实施checkbox均未开始；当前状态见各步骤及OpenSpec tasks。
 - 已核对跨任务类型归属与方法名；A10先定义ContextReader、A12实现，A05统一模型/工具调用计量及证据导入，避免向后依赖造成接口空洞。
 - 依赖图无环：R07→A15→R10→A16；每个Review Focus都落到对应任务测试，服务缺失与SKIP不能算完成。
-- 本轮只交付计划并协调原技术设计；没有运行产品迁移、修改产品代码或宣称新链路测试通过。用户审阅与执行方式选择仍待完成。
+- 本节为实施前的计划自审记录；用户已选择单代理。当前代码/测试/环境进度以OpenSpec tasks和docs/reports/runtime-v1为准，不能将计划材料验证当成新链路验收。
 
 计划材料验证（2026-11-06）：两change的`openspec validate --strict --no-interactive`均通过；原契约校验43份正例/47项反例通过；28个任务共140个未开始步骤、84项Requirement映射、链接/文件归属/先创建后修改及Markdown结构检查通过。这些结果不代表产品实现、数据库迁移或真实服务验收通过。
 

@@ -19,7 +19,10 @@ services:
   redis:
     image: redis:8.10.3@sha256:e2728231060693472a8efb488dd139a8142a01bd0612ae70429bf5b5be924be1
     platform: linux/amd64
-    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--min-replicas-to-write", "0"]
+    environment:
+      REDIS_PASSWORD: ${XDB_FIXTURE_REDIS_PASSWORD:?set disposable fixture password}
+      REDISCLI_AUTH: ${XDB_FIXTURE_REDIS_PASSWORD:?set disposable fixture password}
+    command: ["/bin/sh", "-c", "exec redis-server --appendonly yes --appendfsync everysec --maxmemory 128mb --maxmemory-policy noeviction --min-replicas-to-write 0 --requirepass \"$$REDIS_PASSWORD\""]
     ports: ["127.0.0.1:16379:6379"]
     volumes: ["redis-data:/data"]
     healthcheck:
@@ -32,6 +35,7 @@ services:
     platform: linux/amd64
     environment:
       KAFKA_NODE_ID: "1"
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:19092,CONTROLLER://:9093
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://127.0.0.1:19092

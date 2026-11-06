@@ -71,6 +71,23 @@ class RuntimeToolsTest(unittest.TestCase):
         self.assertGreaterEqual(result["passedTests"], 43)
         self.assertFalse(result["servicesValidated"])
 
+    def test_docker_prepare_is_idempotent_and_keeps_credentials_private(self):
+        with tempfile.TemporaryDirectory(prefix="xdb-docker-config-") as directory:
+            command = [PWSH, "-NoProfile", "-File", str(ROOT / "scripts/runtime-docker.ps1"), "-Action", "Prepare", "-StateDirectory", directory]
+            first = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            report = json.loads(first.stdout)
+            self.assertTrue(report["ok"])
+            self.assertFalse(report["servicesValidated"])
+            secrets_path = Path(directory) / "docker-secrets.json"
+            credentials = json.loads(secrets_path.read_text(encoding="utf-8-sig"))
+            for name in ("postgres_password", "redis_password", "minio_password"):
+                self.assertGreaterEqual(len(credentials[name]), 32)
+                self.assertNotIn(credentials[name], first.stdout + first.stderr)
+            second = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+            self.assertEqual(json.loads(secrets_path.read_text(encoding="utf-8-sig")), credentials)
+
 
 if __name__ == "__main__":
     unittest.main()

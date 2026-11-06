@@ -127,3 +127,7 @@ Run正式事件在PG按seq持久化，与状态/结果同事务。Redis只提示
 ## Migration Plan
 
 技术复核 → writing-plans及执行方式选择 → 单次apply/TDD → 任务证据/真实测试/代码审查/规格核对 → archive及分支收尾。当前CLI无独立verify工作流时明确报告并人工核对，strict validate仅检查材料，不能替代产品验收。活跃add-general-web-search的未完成事项仍保留，不因本次整理覆盖。
+
+### Docker部署实施决定
+
+用户于2026-11-06要求代理准备数据库/Redis等依赖，并明确使用Docker部署。原先不自动安装服务的边界已由这次明确授权覆盖；仍保护现有业务库和原配置。依赖使用隔离Compose，PG/Redis/Kafka/Milvus及etcd/MinIO固定镜像；后续A13/A14将API/Worker/Travel/Maintenance/前端接入应用Compose。迁移保持独立串行入口，不让API容器启动时执行DDL。当前Windows已安装WSL3.0.3及必要组件，系统要求重启；基础容器尚未启动，不提前更新环境完成状态。操作说明见[Docker运行说明](../../../deploy/local/README.runtime-v1.md)。

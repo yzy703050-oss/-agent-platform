@@ -16,7 +16,7 @@
 - [x] 2.3 补齐原Schema的运行v1及7份样例，定义四MCP工具/可信meta/JCS hash、control授权撤回/预算接口、首版不自动清理结果与幂等映射；43正例/47反例通过，仅为材料检查，真实授权/并发/通用JCS仍须实施验证。
 - [x] 2.4 修正平台/Travel/control归属、本地FK、独立Task/Dispatch、消息序号、关键约束/索引/锁序/角色边界与串行迁移/legacy路由；依据database及engineering-protocol 2.1。具体DDL/GRANT和真实PG测试须在详细计划展开，未执行迁移。
 - [ ] 2.5 已记录精确依赖/tag/模型revision并核对SDK隐含重试；Kafka/Redis/Milvus的linux/amd64镜像digest已解析，仍需其余依赖镜像digest、依赖解析/项目编译及完整锁。现有HTTP总尝试3→4的代码适配属于3.1，不在文档复核时提前实施。
-- [ ] 2.6 本机只读核验已完成，docker/Kafka/Redis/Milvus及reranker尚未就绪；准备隔离环境，落实独立进程装配/串行迁移和容量配置，并在实施中真实验证公共许可/槽位/连接数/轮询/租约。不得因PG服务运行而勾选环境通过。
+- [ ] 2.6 用户已明确采用Docker并授权准备依赖；Compose配置/私有凭据/启动与健康检查脚本已准备，DockerDesktop4.91已有，WSL3.0.3安装成功，两项Windows组件返回3010，等待用户重启。容器、PG角色/迁移、公共许可、槽位、连接数和真实模型仍未验收，不能勾选环境完成。
 - [x] 2.7 已使用writing-plans交付并自审[详细实施计划](../../../docs/superpowers/plans/2026-11-06-agent-runtime-travel.md)：17项任务展开文件/接口、先失败测试、最小实现、验证命令与完成条件，逐项覆盖63项有效Requirement；技术细节已同步原design/database，未实施产品。
 - [x] 2.8 用户已审阅计划并于2026-11-06选择单代理执行；当前代理逐项实施及整体自审，不派子代理。
 

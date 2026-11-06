@@ -1,6 +1,6 @@
 # 独立 RAG HTTP MCP 与检索服务 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: 用户选择单代理时使用 superpowers:executing-plans；选择多子代理时使用 superpowers:subagent-driven-development。Steps use checkbox (`- [ ]`) syntax for tracking。执行方式待用户选择，不默认派子代理。
+> **For agentic workers:** REQUIRED SUB-SKILL: 用户选择单代理时使用 superpowers:executing-plans；选择多子代理时使用 superpowers:subagent-driven-development。Steps use checkbox (`- [ ]`) syntax for tracking。用户已选择单代理，不派子代理。
 
 **Goal:** 复用现有独立Python RAG，以远端同步MCP、自主管理文档/索引、统一混合检索、重排/可选时间融合及可追溯评测交付完整证据。
 
@@ -10,7 +10,7 @@
 
 **Spec:** [原specs](../../../openspec/changes/refactor-rag-mcp-retrieval-service/specs/)、[design](../../../openspec/changes/refactor-rag-mcp-retrieval-service/design.md)、[tasks](../../../openspec/changes/refactor-rag-mcp-retrieval-service/tasks.md)、[统一技术复核](../../../openspec/changes/refactor-agent-kernel-plan-execute/engineering-review.md)。平台侧按[Agent计划](2026-11-06-agent-runtime-travel.md)，本计划不重新定义平台运行协议。
 
-日期：2026-11-06。状态：待审阅，所有实施步骤未开始。实现目录固定为 `G:/简历项目/MODULAR-RAG-MCP-SERVER`，本计划及正式OpenSpec保存在小豆包仓库，外部RAG不初始化第二套OpenSpec。文件列表默认相对RAG根。Windows命令先设置 `$ragPython` 为已确认隔离venv的绝对解释器路径；当前已有解释器是 `G:/简历项目/MODULAR-RAG-MCP-SERVER/.venv/Scripts/python.exe`，R00新隔离环境建成后使用其路径。Linux CI用对应venv解释器逐条运行相同命令，不把系统python当验证环境。
+日期：2026-11-06。状态：单代理实施中，R00配置代码已推进，完整锁及真实依赖仍未完成。原仓库为 `G:/简历项目/MODULAR-RAG-MCP-SERVER`，本次独立实现目录为 `G:/简历项目/.worktrees/rag-runtime-v1`，本计划及正式OpenSpec保存在小豆包仓库，外部RAG不初始化第二套OpenSpec。文件列表默认相对RAG根。Windows命令先设置 `$ragPython` 为已确认隔离venv的绝对解释器路径；当前已有解释器是 `G:/简历项目/MODULAR-RAG-MCP-SERVER/.venv/Scripts/python.exe`，R00新隔离环境建成后使用其路径。Linux CI用对应venv解释器逐条运行相同命令，不把系统python当验证环境。
 
 ## Global Constraints
 
@@ -56,6 +56,8 @@
 **Depends:** 用户审阅两计划并选择执行方式；共用Agent A00的环境清单格式，不要求A00业务代码。
 
 **Files:**
+- Create: src/core/runtime_settings.py
+- Create: tests/unit/test_runtime_preflight.py
 - Modify: pyproject.toml
 - Create: requirements-runtime-v1.lock
 - Create: config/runtime_v1.example.yaml
@@ -495,10 +497,10 @@ if ($LASTEXITCODE -ne 0) { throw '上一项验证失败' }
 
 自审结果：21项有效Requirement均有映射；本change没有REMOVED要求。
 
-- 已核对所有任务都有文件、消费/产出接口、命名测试及关键断言、正确红灯原因、最小实现、验证命令和交付门槛；实施checkbox保持未开始。
+- 已核对所有任务都有文件、消费/产出接口、命名测试及关键断言、正确红灯原因、最小实现、验证命令和交付门槛；计划初次交付时实施checkbox均未开始；当前状态见各步骤及OpenSpec tasks。
 - 已核对跨任务类型归属与方法名；A10先定义ContextReader、A12实现，A05统一模型/工具调用计量及证据导入，避免向后依赖造成接口空洞。
 - 依赖图无环：R07→A15→R10→A16；每个Review Focus都落到对应任务测试，服务缺失与SKIP不能算完成。
-- 本轮只交付计划并协调原技术设计；没有运行产品迁移、修改产品代码或宣称新链路测试通过。用户审阅与执行方式选择仍待完成。
+- 本节为实施前的计划自审记录；用户已选择单代理。当前代码/测试/环境进度以OpenSpec tasks和docs/reports/runtime-v1为准，不能将计划材料验证当成新链路验收。
 
 计划材料验证（2026-11-06）：两change的`openspec validate --strict --no-interactive`均通过；原契约校验43份正例/47项反例通过；28个任务共140个未开始步骤、84项Requirement映射、链接/文件归属/先创建后修改及Markdown结构检查通过。这些结果不代表产品实现、数据库迁移或真实服务验收通过。
 
