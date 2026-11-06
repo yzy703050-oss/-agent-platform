@@ -1,0 +1,37 @@
+{
+  "id": "tool_call_general_weather_demo",
+  "user_id": "user_demo",
+  "conversation_id": "conversation_general_demo",
+  "run_id": "run_direct_general_demo",
+  "thread_id": "conversation_general_demo",
+  "call_key": "call_weather_demo",
+  "tool_name": "weather_query",
+  "domain": "weather",
+  "provider": "weather_provider_demo",
+  "input_hash": "fixture_not_a_real_hash",
+  "schema_version": 1,
+  "agent_kind": "general",
+  "thread_role": "entry",
+  "mode": "demo",
+  "arguments": {
+    "city": "上海",
+    "date": "2026-11-06"
+  },
+  "source_refs": [
+    {
+      "kind": "message",
+      "id": "msg_direct_weather_demo"
+    }
+  ],
+  "status": "succeeded",
+  "coverage": "partial",
+  "result_refs": [
+    {
+      "evidence_id": "evidence_shared_weather_demo",
+      "result_revision": 1
+    }
+  ],
+  "error": null,
+  "created_at": "2026-11-03T10:00:00+08:00",
+  "context_epoch": 1
+}

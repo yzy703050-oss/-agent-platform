@@ -1,0 +1,102 @@
+{
+  "snapshot": {
+    "schema_version": 1,
+    "plan_id": "plan_demo",
+    "travel_thread_id": "travel_demo",
+    "revision": 2,
+    "definition": {
+      "title": "上海酒店查询",
+      "goal": "提供符合当前要求的酒店候选",
+      "purpose": "personal",
+      "timezone": "Asia/Shanghai",
+      "stops": [],
+      "legs": [],
+      "requirements": [
+        {
+          "requirement_id": "req_metro",
+          "text": "酒店优先靠近地铁",
+          "origin": "user",
+          "scope": "tasks",
+          "task_ids": [
+            "task_hotel"
+          ],
+          "sources": [
+            {
+              "kind": "message",
+              "id": "msg_demo_001"
+            }
+          ]
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "task_hotel",
+          "title": "查询上海酒店",
+          "target": {
+            "kind": "plan"
+          },
+          "parameters": {
+            "hotel": {
+              "city": "上海",
+              "check_in": "2026-11-10",
+              "check_out": "2026-11-12",
+              "guests": 1,
+              "keywords": [
+                "地铁"
+              ]
+            },
+            "web": {
+              "query": "上海 示例地铁旁酒店 2026-11-10 至 2026-11-12 价格"
+            }
+          },
+          "requirement_ids": [
+            "req_metro"
+          ],
+          "ranking": [
+            "优先靠近地铁",
+            "其次比较总价"
+          ],
+          "items": [
+            {
+              "item_id": "item_hotel",
+              "domain": "hotel",
+              "depends_on": []
+            },
+            {
+              "item_id": "item_web",
+              "domain": "web",
+              "depends_on": []
+            }
+          ]
+        }
+      ]
+    },
+    "task_versions": [
+      {
+        "task_id": "task_hotel",
+        "task_revision": 2
+      }
+    ],
+    "selections": []
+  },
+  "items": [
+    {
+      "task_id": "task_hotel",
+      "task_revision": 2,
+      "item_id": "item_hotel",
+      "needs_query": true,
+      "status": "pending",
+      "last_successful_task_revision": 1,
+      "reason": "Task 定义改变，全部查询 Item 重新执行。"
+    },
+    {
+      "task_id": "task_hotel",
+      "task_revision": 2,
+      "item_id": "item_web",
+      "needs_query": true,
+      "status": "pending",
+      "last_successful_task_revision": null,
+      "reason": "Task 定义改变，全部查询 Item 重新执行。"
+    }
+  ]
+}

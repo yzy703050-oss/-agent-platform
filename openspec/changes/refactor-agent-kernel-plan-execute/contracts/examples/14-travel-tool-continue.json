@@ -1,0 +1,19 @@
+{
+  "mode": "continue",
+  "target": {
+    "plan_id": "plan_demo",
+    "travel_thread_id": "travel_demo",
+    "expected_revision": 1
+  },
+  "request": "改为 11 月 11 日入住，仍住两晚。",
+  "context": {
+    "text": "用户只修改原酒店查询的日期，其他已确认条件沿用。",
+    "sources": [
+      {
+        "kind": "message",
+        "id": "msg_demo_002"
+      }
+    ],
+    "through_message_id": "msg_demo_002"
+  }
+}

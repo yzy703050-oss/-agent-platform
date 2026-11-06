@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "task_id": "maintenance_demo",
+  "user_id": "user_demo",
+  "main_thread_id": "main_demo",
+  "trigger": "periodic",
+  "from_round": 1,
+  "through_round": 10,
+  "base_memory_revision": 0,
+  "messages": [
+    {
+      "message_id": "msg_memory_010",
+      "role": "user",
+      "text": "我出行一直都优先高铁。"
+    }
+  ],
+  "existing_memories": []
+}

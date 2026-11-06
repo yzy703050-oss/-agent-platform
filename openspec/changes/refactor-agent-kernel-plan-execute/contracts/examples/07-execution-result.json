@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "execution_step_id": "step_hotel_1",
+  "plan_id": "plan_demo",
+  "task_id": "task_hotel",
+  "task_revision": 1,
+  "item_id": "item_hotel",
+  "generation": 1,
+  "status": "succeeded",
+  "coverage": "partial",
+  "evidence_id": "evidence_demo_1",
+  "result_revision": 1,
+  "retrieved_at": "2026-11-03T10:00:30+08:00",
+  "valid_until": null,
+  "candidates": [
+    {
+      "candidate_id": "candidate_demo_hotel",
+      "title": "示例地铁旁酒店（虚构夹具）",
+      "price": null,
+      "attributes": {
+        "city": "上海",
+        "near_metro": true,
+        "fixture": true
+      },
+      "source_url": "https://example.com/demo-hotel",
+      "missing_fields": [
+        "price",
+        "availability"
+      ]
+    }
+  ],
+  "missing_fields": [
+    "price",
+    "availability"
+  ],
+  "error": null
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "request": {
+    "message_id": "msg_demo_001",
+    "text": "用户要求为一位旅客查询上海 11 月 10 日入住、12 日退房的酒店，优先靠近地铁。"
+  },
+  "short_term": {
+    "summary": {
+      "text": "首次创建，无既往子线程工作历史。",
+      "sources": [],
+      "through_message_id": null
+    },
+    "recent_turns": []
+  },
+  "long_term_memories": [],
+  "related_plans": [],
+  "memory_review": {
+    "interval": 10,
+    "new_effective_rounds": 1,
+    "review_due": false,
+    "reviewed_through_round": 0,
+    "summarized_through_round": 0
+  }
+}

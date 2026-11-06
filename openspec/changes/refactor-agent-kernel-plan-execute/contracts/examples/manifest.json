@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "fixtures_only": true,
+  "examples": [
+    {
+      "file": "01-travel-tool-create.json",
+      "definition": "TravelToolArgs"
+    },
+    {
+      "file": "02-delegation-input.json",
+      "definition": "DelegationInput"
+    },
+    {
+      "file": "03-planner-input.json",
+      "definition": "PlannerInput"
+    },
+    {
+      "file": "04-planner-draft.json",
+      "definition": "PlanDefinition"
+    },
+    {
+      "file": "05-plan-v1.json",
+      "definition": "PlanSnapshot"
+    },
+    {
+      "file": "06-execution-request.json",
+      "definition": "ExecutionRequest"
+    },
+    {
+      "file": "07-execution-result.json",
+      "definition": "ExecutionResult"
+    },
+    {
+      "file": "08-replanner-input.json",
+      "definition": "ReplannerInput"
+    },
+    {
+      "file": "09-replanner-patch.json",
+      "definition": "ReplannerDecision"
+    },
+    {
+      "file": "10-plan-v2.json",
+      "definition": "PlanSnapshot"
+    },
+    {
+      "file": "11-plan-v2-runtime-view.json",
+      "definition": "PlanView"
+    },
+    {
+      "file": "12-replanner-finish-v1.json",
+      "definition": "ReplannerDecision"
+    },
+    {
+      "file": "13-travel-result-v1.json",
+      "definition": "TravelCallResult"
+    },
+    {
+      "file": "14-travel-tool-continue.json",
+      "definition": "TravelToolArgs"
+    },
+    {
+      "file": "15-minimal-plan-missing-input.json",
+      "definition": "PlanDefinition"
+    },
+    {
+      "file": "16-successful-empty-result.json",
+      "definition": "ExecutionResult"
+    },
+    {
+      "file": "17-retry-exhausted-result.json",
+      "definition": "ExecutionResult"
+    },
+    {
+      "file": "18-memory-review-skip.json",
+      "definition": "MemoryReviewDecision"
+    },
+    {
+      "file": "19-memory-submit.json",
+      "definition": "MemorySubmitArgs"
+    },
+    {
+      "file": "20-memory-accepted.json",
+      "definition": "MemoryTaskReceipt"
+    },
+    {
+      "file": "21-memory-agent-input.json",
+      "definition": "MemoryAgentInput"
+    },
+    {
+      "file": "22-memory-proposal.json",
+      "definition": "MemoryProposal"
+    },
+    {
+      "file": "23-memory-no-change.json",
+      "definition": "MemoryProposal"
+    },
+    {
+      "file": "24-memory-saved.json",
+      "definition": "MemoryMaintenanceResult"
+    },
+    {
+      "file": "25-memory-no-change-result.json",
+      "definition": "MemoryMaintenanceResult"
+    },
+    {
+      "file": "26-multicity-plan.json",
+      "definition": "PlanSnapshot"
+    },
+    {
+      "file": "27-selection-patch.json",
+      "definition": "PlanPatch"
+    },
+    {
+      "file": "28-selection-only-plan-v2.json",
+      "definition": "PlanSnapshot"
+    },
+    {
+      "file": "29-explicit-refresh-patch.json",
+      "definition": "PlanPatch"
+    },
+    {
+      "file": "30-general-context.json",
+      "definition": "GeneralContext"
+    },
+    {
+      "file": "31-explicit-memory-write.json",
+      "definition": "MemoryWriteArgs"
+    },
+    {
+      "file": "32-explicit-memory-written.json",
+      "definition": "MemoryWriteResult"
+    },
+    {
+      "file": "33-user-memory-snapshot.json",
+      "definition": "UserMemorySnapshot"
+    },
+    {
+      "file": "34-general-direct-query.json",
+      "definition": "SharedToolCallRecord"
+    },
+    {
+      "file": "35-shared-query-evidence.json",
+      "definition": "SharedToolEvidenceRecord"
+    },
+    {
+      "file": "36-travel-entry-direct-query.json",
+      "definition": "SharedToolCallRecord"
+    },
+    {
+      "file": "37-runtime-dispatch.json",
+      "definition": "DispatchCommand"
+    },
+    {
+      "file": "38-travel-submit.json",
+      "definition": "TravelTaskSubmit"
+    },
+    {
+      "file": "39-trusted-travel-meta.json",
+      "definition": "TrustedTravelMeta"
+    },
+    {
+      "file": "40-travel-task-receipt.json",
+      "definition": "TravelTaskReceipt"
+    },
+    {
+      "file": "41-travel-task-result.json",
+      "definition": "TravelTaskResult"
+    },
+    {
+      "file": "42-travel-task-failed.json",
+      "definition": "TravelTaskResult"
+    },
+    {
+      "file": "43-travel-task-lookup.json",
+      "definition": "TravelTaskLookup"
+    }
+  ]
+}

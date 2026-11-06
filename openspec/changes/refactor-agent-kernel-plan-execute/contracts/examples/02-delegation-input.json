@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "scope": {
+    "user_id": "user_demo",
+    "main_thread_id": "main_demo",
+    "run_id": "run_demo_001",
+    "tool_call_id": "call_demo_001",
+    "operation_id": "op_demo_create",
+    "attempt": 1,
+    "deadline": "2026-11-03T10:02:00+08:00"
+  },
+  "args": {
+    "mode": "create",
+    "request": "按这些要求建立住宿安排计划，先给出酒店候选。",
+    "context": {
+      "text": "用户要求为一位旅客查询上海 11 月 10 日入住、12 日退房的酒店，优先靠近地铁。",
+      "sources": [
+        {
+          "kind": "message",
+          "id": "msg_demo_001"
+        }
+      ],
+      "through_message_id": "msg_demo_001"
+    }
+  }
+}

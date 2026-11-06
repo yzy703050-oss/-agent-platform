@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "task_id": "maintenance_demo",
+  "base_memory_revision": 0,
+  "updates": [
+    {
+      "op": "add",
+      "domain": "travel",
+      "text": "出行时优先高铁",
+      "sources": [
+        {
+          "kind": "message",
+          "id": "msg_memory_010"
+        }
+      ]
+    }
+  ]
+}

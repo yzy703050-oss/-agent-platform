@@ -1,0 +1,30 @@
+{
+  "id": "evidence_shared_weather_demo",
+  "user_id": "user_demo",
+  "conversation_id": "conversation_general_demo",
+  "tool_call_record_id": "tool_call_general_weather_demo",
+  "domain": "weather",
+  "provider": "weather_provider_demo",
+  "schema_version": 1,
+  "result_revision": 1,
+  "mode": "demo",
+  "snapshot": {
+    "city": "上海",
+    "date": "2026-11-06",
+    "coverage": "partial",
+    "missing_fields": [
+      "temperature"
+    ],
+    "facts": {
+      "description": "示例天气描述，非实时预报"
+    }
+  },
+  "source_refs": [
+    {
+      "kind": "message",
+      "id": "msg_direct_weather_demo"
+    }
+  ],
+  "fetched_at": "2026-11-03T10:00:01+08:00",
+  "expires_at": null
+}

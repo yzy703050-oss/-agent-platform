@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "plan_id": "plan_demo",
+  "expected_revision": 1,
+  "reason": "保留待核实价格的候选建议，不代表预订。",
+  "operations": [
+    {
+      "op": "set_selection",
+      "value": {
+        "selection_id": "selection_hotel",
+        "task_id": "task_hotel",
+        "task_revision": 1,
+        "item_id": "item_hotel",
+        "evidence": {
+          "evidence_id": "evidence_demo_1",
+          "result_revision": 1,
+          "candidate_id": "candidate_demo_hotel"
+        },
+        "reason": "候选靠近地铁；价格和库存仍待核实。"
+      }
+    }
+  ]
+}

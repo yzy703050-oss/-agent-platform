@@ -1,0 +1,56 @@
+{
+  "title": "上海酒店查询",
+  "goal": "先记录上海酒店查询，等待日期和人数信息",
+  "purpose": "personal",
+  "timezone": "Asia/Shanghai",
+  "stops": [],
+  "legs": [],
+  "requirements": [
+    {
+      "requirement_id": "req_metro",
+      "text": "酒店优先靠近地铁",
+      "origin": "user",
+      "scope": "tasks",
+      "task_ids": [
+        "task_hotel"
+      ],
+      "sources": [
+        {
+          "kind": "message",
+          "id": "msg_demo_001"
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "task_hotel",
+      "title": "查询上海酒店",
+      "target": {
+        "kind": "plan"
+      },
+      "parameters": {
+        "hotel": {
+          "city": "上海",
+          "check_in": null,
+          "check_out": null,
+          "guests": null
+        }
+      },
+      "requirement_ids": [
+        "req_metro"
+      ],
+      "ranking": [
+        "优先靠近地铁",
+        "其次比较总价"
+      ],
+      "items": [
+        {
+          "item_id": "item_hotel",
+          "domain": "hotel",
+          "depends_on": []
+        }
+      ]
+    }
+  ]
+}

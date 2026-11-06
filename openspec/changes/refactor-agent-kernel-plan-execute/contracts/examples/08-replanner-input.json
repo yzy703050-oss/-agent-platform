@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "request": "按这些要求建立住宿安排计划，先给出酒店候选。",
+  "plan": {
+    "snapshot": {
+      "schema_version": 1,
+      "plan_id": "plan_demo",
+      "travel_thread_id": "travel_demo",
+      "revision": 1,
+      "definition": {
+        "title": "上海酒店查询",
+        "goal": "提供符合当前要求的酒店候选",
+        "purpose": "personal",
+        "timezone": "Asia/Shanghai",
+        "stops": [],
+        "legs": [],
+        "requirements": [
+          {
+            "requirement_id": "req_metro",
+            "text": "酒店优先靠近地铁",
+            "origin": "user",
+            "scope": "tasks",
+            "task_ids": [
+              "task_hotel"
+            ],
+            "sources": [
+              {
+                "kind": "message",
+                "id": "msg_demo_001"
+              }
+            ]
+          }
+        ],
+        "tasks": [
+          {
+            "task_id": "task_hotel",
+            "title": "查询上海酒店",
+            "target": {
+              "kind": "plan"
+            },
+            "parameters": {
+              "hotel": {
+                "city": "上海",
+                "check_in": "2026-11-10",
+                "check_out": "2026-11-12",
+                "guests": 1,
+                "keywords": [
+                  "地铁"
+                ]
+              }
+            },
+            "requirement_ids": [
+              "req_metro"
+            ],
+            "ranking": [
+              "优先靠近地铁",
+              "其次比较总价"
+            ],
+            "items": [
+              {
+                "item_id": "item_hotel",
+                "domain": "hotel",
+                "depends_on": []
+              }
+            ]
+          }
+        ]
+      },
+      "task_versions": [
+        {
+          "task_id": "task_hotel",
+          "task_revision": 1
+        }
+      ],
+      "selections": []
+    },
+    "items": [
+      {
+        "task_id": "task_hotel",
+        "task_revision": 1,
+        "item_id": "item_hotel",
+        "needs_query": false,
+        "status": "succeeded",
+        "last_successful_task_revision": 1,
+        "reason": "本定义版本已执行；报价仍未知。"
+      }
+    ]
+  },
+  "execution": {
+    "plan_id": "plan_demo",
+    "plan_revision": 1,
+    "results": [
+      {
+        "schema_version": 1,
+        "execution_step_id": "step_hotel_1",
+        "plan_id": "plan_demo",
+        "task_id": "task_hotel",
+        "task_revision": 1,
+        "item_id": "item_hotel",
+        "generation": 1,
+        "status": "succeeded",
+        "coverage": "partial",
+        "evidence_id": "evidence_demo_1",
+        "result_revision": 1,
+        "retrieved_at": "2026-11-03T10:00:30+08:00",
+        "valid_until": null,
+        "candidates": [
+          {
+            "candidate_id": "candidate_demo_hotel",
+            "title": "示例地铁旁酒店（虚构夹具）",
+            "price": null,
+            "attributes": {
+              "city": "上海",
+              "near_metro": true,
+              "fixture": true
+            },
+            "source_url": "https://example.com/demo-hotel",
+            "missing_fields": [
+              "price",
+              "availability"
+            ]
+          }
+        ],
+        "missing_fields": [
+          "price",
+          "availability"
+        ],
+        "error": null
+      }
+    ],
+    "unresolved": [
+      "供应方示例未提供价格和库存，不能承诺可预订。"
+    ]
+  },
+  "prior_replans": []
+}

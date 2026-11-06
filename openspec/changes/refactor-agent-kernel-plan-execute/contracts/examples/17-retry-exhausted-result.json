@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "execution_step_id": "step_hotel_1",
+  "plan_id": "plan_demo",
+  "task_id": "task_hotel",
+  "task_revision": 1,
+  "item_id": "item_hotel",
+  "generation": 1,
+  "status": "failed",
+  "coverage": "unavailable",
+  "evidence_id": null,
+  "result_revision": null,
+  "retrieved_at": null,
+  "valid_until": null,
+  "candidates": [],
+  "missing_fields": [],
+  "error": {
+    "code": "PROVIDER_RETRY_EXHAUSTED",
+    "category": "transient",
+    "message": "供应方超时，有限重试后仍失败。",
+    "path": null,
+    "retry_exhausted": true,
+    "model_action": "replan"
+  }
+}

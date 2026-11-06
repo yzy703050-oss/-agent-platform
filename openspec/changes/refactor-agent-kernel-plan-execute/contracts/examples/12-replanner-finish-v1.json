@@ -1,0 +1,8 @@
+{
+  "kind": "finish",
+  "task_outcome": "partial",
+  "summary": "已取得酒店候选，尚无可靠价格与库存。",
+  "unresolved": [
+    "供应方示例未提供价格和库存，不能承诺可预订。"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "memories": [
+    {
+      "memory_id": "memory_train_preference",
+      "revision": 1,
+      "domain": "travel",
+      "text": "出行时优先高铁",
+      "authority": "inferred",
+      "status": "active",
+      "sources": [
+        {
+          "kind": "message",
+          "id": "msg_memory_010"
+        }
+      ]
+    }
+  ]
+}

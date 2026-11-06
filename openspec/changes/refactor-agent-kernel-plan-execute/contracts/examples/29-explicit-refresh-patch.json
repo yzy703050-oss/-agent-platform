@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "plan_id": "plan_demo",
+  "expected_revision": 1,
+  "reason": "用户要求刷新酒店报价",
+  "operations": [
+    {
+      "op": "refresh_queries",
+      "task_id": "task_hotel",
+      "item_ids": [
+        "item_hotel"
+      ],
+      "reason": "刷新当前报价"
+    }
+  ]
+}

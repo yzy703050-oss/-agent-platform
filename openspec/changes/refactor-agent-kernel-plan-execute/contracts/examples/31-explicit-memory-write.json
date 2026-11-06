@@ -1,0 +1,13 @@
+{
+  "update": {
+    "op": "add",
+    "domain": "travel",
+    "text": "出行优先高铁",
+    "sources": [
+      {
+        "kind": "message",
+        "id": "msg_explicit_demo"
+      }
+    ]
+  }
+}

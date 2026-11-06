@@ -1,0 +1,35 @@
+{
+  "kind": "patch",
+  "patch": {
+    "schema_version": 1,
+    "plan_id": "plan_demo",
+    "expected_revision": 1,
+    "reason": "加入网页查询补充酒店公开价格信息，不把未知报价写为零。",
+    "operations": [
+      {
+        "op": "update_task",
+        "task_id": "task_hotel",
+        "changes": {
+          "set": {
+            "parameters.web": {
+              "query": "上海 示例地铁旁酒店 2026-11-10 至 2026-11-12 价格"
+            },
+            "items": [
+              {
+                "item_id": "item_hotel",
+                "domain": "hotel",
+                "depends_on": []
+              },
+              {
+                "item_id": "item_web",
+                "domain": "web",
+                "depends_on": []
+              }
+            ]
+          },
+          "unset": []
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "plan_id": "plan_multicity_demo",
+  "travel_thread_id": "travel_multicity_demo",
+  "revision": 1,
+  "definition": {
+    "title": "北京—上海—杭州—北京示例",
+    "goal": "查询多城市交通和住宿候选",
+    "purpose": "personal",
+    "timezone": "Asia/Shanghai",
+    "stops": [
+      {
+        "stop_id": "stop_bj_out",
+        "city": "北京",
+        "departure_date": "2026-11-10"
+      },
+      {
+        "stop_id": "stop_sh",
+        "city": "上海",
+        "arrival_date": "2026-11-10",
+        "departure_date": "2026-11-12"
+      },
+      {
+        "stop_id": "stop_hz",
+        "city": "杭州",
+        "arrival_date": "2026-11-12",
+        "departure_date": "2026-11-14"
+      },
+      {
+        "stop_id": "stop_bj_in",
+        "city": "北京",
+        "arrival_date": "2026-11-14"
+      }
+    ],
+    "legs": [
+      {
+        "leg_id": "leg_1",
+        "from_stop_id": "stop_bj_out",
+        "to_stop_id": "stop_sh",
+        "departure_date": "2026-11-10"
+      },
+      {
+        "leg_id": "leg_2",
+        "from_stop_id": "stop_sh",
+        "to_stop_id": "stop_hz",
+        "departure_date": "2026-11-12"
+      },
+      {
+        "leg_id": "leg_3",
+        "from_stop_id": "stop_hz",
+        "to_stop_id": "stop_bj_in",
+        "departure_date": "2026-11-14"
+      }
+    ],
+    "requirements": [
+      {
+        "requirement_id": "req_budget",
+        "text": "总预算 3000 元；用于模型整体取舍与解释",
+        "origin": "user",
+        "scope": "plan",
+        "task_ids": [],
+        "sources": [
+          {
+            "kind": "message",
+            "id": "msg_multicity_demo"
+          }
+        ]
+      },
+      {
+        "requirement_id": "req_hotel",
+        "text": "每晚 400 元以内，优先靠近地铁",
+        "origin": "user",
+        "scope": "tasks",
+        "task_ids": [
+          "task_hotel_1",
+          "task_hotel_2"
+        ],
+        "sources": [
+          {
+            "kind": "message",
+            "id": "msg_multicity_demo"
+          }
+        ]
+      },
+      {
+        "requirement_id": "req_train",
+        "text": "交通优先高铁",
+        "origin": "user",
+        "scope": "tasks",
+        "task_ids": [
+          "task_train_1",
+          "task_train_2",
+          "task_train_3"
+        ],
+        "sources": [
+          {
+            "kind": "message",
+            "id": "msg_multicity_demo"
+          }
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "task_id": "task_train_1",
+        "title": "北京到上海高铁",
+        "target": {
+          "kind": "leg",
+          "id": "leg_1"
+        },
+        "parameters": {
+          "train": {
+            "origin": "北京",
+            "destination": "上海",
+            "departure_date": "2026-11-10",
+            "passengers": 1,
+            "keywords": [
+              "高铁"
+            ]
+          }
+        },
+        "requirement_ids": [
+          "req_train"
+        ],
+        "ranking": [
+          "优先高铁",
+          "其次比较总价"
+        ],
+        "items": [
+          {
+            "item_id": "item_train_1",
+            "domain": "train",
+            "depends_on": []
+          }
+        ]
+      },
+      {
+        "task_id": "task_train_2",
+        "title": "上海到杭州高铁",
+        "target": {
+          "kind": "leg",
+          "id": "leg_2"
+        },
+        "parameters": {
+          "train": {
+            "origin": "上海",
+            "destination": "杭州",
+            "departure_date": "2026-11-12",
+            "passengers": 1,
+            "keywords": [
+              "高铁"
+            ]
+          }
+        },
+        "requirement_ids": [
+          "req_train"
+        ],
+        "ranking": [
+          "优先高铁",
+          "其次比较总价"
+        ],
+        "items": [
+          {
+            "item_id": "item_train_2",
+            "domain": "train",
+            "depends_on": []
+          }
+        ]
+      },
+      {
+        "task_id": "task_train_3",
+        "title": "杭州到北京高铁",
+        "target": {
+          "kind": "leg",
+          "id": "leg_3"
+        },
+        "parameters": {
+          "train": {
+            "origin": "杭州",
+            "destination": "北京",
+            "departure_date": "2026-11-14",
+            "passengers": 1,
+            "keywords": [
+              "高铁"
+            ]
+          }
+        },
+        "requirement_ids": [
+          "req_train"
+        ],
+        "ranking": [
+          "优先高铁",
+          "其次比较总价"
+        ],
+        "items": [
+          {
+            "item_id": "item_train_3",
+            "domain": "train",
+            "depends_on": []
+          }
+        ]
+      },
+      {
+        "task_id": "task_hotel_1",
+        "title": "上海酒店",
+        "target": {
+          "kind": "stop",
+          "id": "stop_sh"
+        },
+        "parameters": {
+          "hotel": {
+            "city": "上海",
+            "check_in": "2026-11-10",
+            "check_out": "2026-11-12",
+            "guests": 1,
+            "keywords": [
+              "地铁"
+            ]
+          }
+        },
+        "requirement_ids": [
+          "req_hotel"
+        ],
+        "ranking": [
+          "优先靠近地铁",
+          "其次比较价格"
+        ],
+        "items": [
+          {
+            "item_id": "item_hotel_1",
+            "domain": "hotel",
+            "depends_on": []
+          }
+        ]
+      },
+      {
+        "task_id": "task_hotel_2",
+        "title": "杭州酒店",
+        "target": {
+          "kind": "stop",
+          "id": "stop_hz"
+        },
+        "parameters": {
+          "hotel": {
+            "city": "杭州",
+            "check_in": "2026-11-12",
+            "check_out": "2026-11-14",
+            "guests": 1,
+            "keywords": [
+              "地铁"
+            ]
+          }
+        },
+        "requirement_ids": [
+          "req_hotel"
+        ],
+        "ranking": [
+          "优先靠近地铁",
+          "其次比较价格"
+        ],
+        "items": [
+          {
+            "item_id": "item_hotel_2",
+            "domain": "hotel",
+            "depends_on": []
+          }
+        ]
+      }
+    ]
+  },
+  "task_versions": [
+    {
+      "task_id": "task_train_1",
+      "task_revision": 1
+    },
+    {
+      "task_id": "task_train_2",
+      "task_revision": 1
+    },
+    {
+      "task_id": "task_train_3",
+      "task_revision": 1
+    },
+    {
+      "task_id": "task_hotel_1",
+      "task_revision": 1
+    },
+    {
+      "task_id": "task_hotel_2",
+      "task_revision": 1
+    }
+  ],
+  "selections": []
+}

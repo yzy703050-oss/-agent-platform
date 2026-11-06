@@ -1,0 +1,3686 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:xiaodoubao:agent-contracts:v1",
+  "title": "Agent kernel contracts v1 design appendix",
+  "$defs": {
+    "SourceRef": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "message",
+            "policy",
+            "memory",
+            "evidence",
+            "thread_summary"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "ContextFact": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "text",
+        "sources"
+      ],
+      "additionalProperties": false
+    },
+    "ContextSummary": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "minItems": 0
+        },
+        "through_message_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "text",
+        "sources",
+        "through_message_id"
+      ],
+      "additionalProperties": false
+    },
+    "TravelTarget": {
+      "type": "object",
+      "properties": {
+        "plan_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "travel_thread_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "plan_id",
+        "travel_thread_id",
+        "expected_revision"
+      ],
+      "additionalProperties": false
+    },
+    "TravelToolArgs": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "create"
+            },
+            "request": {
+              "type": "string",
+              "minLength": 1
+            },
+            "context": {
+              "$ref": "#/$defs/ContextSummary"
+            }
+          },
+          "required": [
+            "mode",
+            "request",
+            "context"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "continue"
+            },
+            "target": {
+              "$ref": "#/$defs/TravelTarget"
+            },
+            "request": {
+              "type": "string",
+              "minLength": 1
+            },
+            "context": {
+              "$ref": "#/$defs/ContextSummary"
+            }
+          },
+          "required": [
+            "mode",
+            "target",
+            "request",
+            "context"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "RuntimeScope": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "main_thread_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "tool_call_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "operation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "user_id",
+        "main_thread_id",
+        "run_id",
+        "tool_call_id",
+        "operation_id",
+        "attempt",
+        "deadline"
+      ],
+      "additionalProperties": false
+    },
+    "DelegationInput": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/RuntimeScope"
+        },
+        "args": {
+          "$ref": "#/$defs/TravelToolArgs"
+        }
+      },
+      "required": [
+        "schema_version",
+        "scope",
+        "args"
+      ],
+      "additionalProperties": false
+    },
+    "Turn": {
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "user_message_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "user_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assistant_text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "user_message_id",
+        "user_text",
+        "assistant_text"
+      ],
+      "additionalProperties": false
+    },
+    "WorkingMemory": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/ContextSummary"
+        },
+        "recent_turns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Turn"
+          },
+          "minItems": 0
+        },
+        "prior_replans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReplanHistory"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "summary",
+        "recent_turns",
+        "prior_replans"
+      ],
+      "additionalProperties": false
+    },
+    "PlannerInput": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "delegation_context": {
+          "$ref": "#/$defs/ContextSummary"
+        },
+        "working_memory": {
+          "$ref": "#/$defs/WorkingMemory"
+        },
+        "policy_status": {
+          "enum": [
+            "available",
+            "unavailable",
+            "not_required"
+          ]
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ContextFact"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "schema_version",
+        "request",
+        "delegation_context",
+        "working_memory",
+        "policy_status",
+        "facts"
+      ],
+      "additionalProperties": false
+    },
+    "Requirement": {
+      "type": "object",
+      "properties": {
+        "requirement_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin": {
+          "enum": [
+            "policy",
+            "user",
+            "memory"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "plan",
+            "tasks"
+          ]
+        },
+        "task_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "minItems": 0
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "requirement_id",
+        "text",
+        "origin",
+        "scope",
+        "task_ids",
+        "sources"
+      ],
+      "additionalProperties": false
+    },
+    "Stop": {
+      "type": "object",
+      "properties": {
+        "stop_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "city": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arrival_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "departure_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "stop_id",
+        "city"
+      ],
+      "additionalProperties": false
+    },
+    "Leg": {
+      "type": "object",
+      "properties": {
+        "leg_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "from_stop_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "to_stop_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "departure_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "leg_id",
+        "from_stop_id",
+        "to_stop_id"
+      ],
+      "additionalProperties": false
+    },
+    "TaskTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "plan"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "stop",
+                "leg"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "HotelParameters": {
+      "type": "object",
+      "properties": {
+        "city": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "check_in": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "check_out": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guests": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TrainParameters": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "destination": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "departure_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "passengers": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "WebParameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "time_range": {
+          "enum": [
+            "",
+            "d",
+            "w",
+            "m",
+            "y"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "WeatherParameters": {
+      "type": "object",
+      "properties": {
+        "city": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TaskParameters": {
+      "type": "object",
+      "properties": {
+        "hotel": {
+          "$ref": "#/$defs/HotelParameters"
+        },
+        "train": {
+          "$ref": "#/$defs/TrainParameters"
+        },
+        "web": {
+          "$ref": "#/$defs/WebParameters"
+        },
+        "weather": {
+          "$ref": "#/$defs/WeatherParameters"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "QueryItem": {
+      "type": "object",
+      "properties": {
+        "item_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "domain": {
+          "enum": [
+            "hotel",
+            "train",
+            "web",
+            "weather"
+          ]
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "item_id",
+        "domain",
+        "depends_on"
+      ],
+      "additionalProperties": false
+    },
+    "TaskDefinition": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "$ref": "#/$defs/TaskTarget"
+        },
+        "parameters": {
+          "$ref": "#/$defs/TaskParameters"
+        },
+        "requirement_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "minItems": 0
+        },
+        "ranking": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QueryItem"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "task_id",
+        "title",
+        "target",
+        "parameters",
+        "requirement_ids",
+        "ranking",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "PlanDefinition": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "enum": [
+            "business",
+            "personal",
+            "unspecified"
+          ]
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Stop"
+          },
+          "minItems": 0
+        },
+        "legs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Leg"
+          },
+          "minItems": 0
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          },
+          "minItems": 0
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TaskDefinition"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "title",
+        "goal",
+        "purpose",
+        "timezone",
+        "stops",
+        "legs",
+        "requirements",
+        "tasks"
+      ],
+      "additionalProperties": false
+    },
+    "EvidenceRef": {
+      "type": "object",
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "result_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "required": [
+        "evidence_id",
+        "result_revision",
+        "candidate_id"
+      ],
+      "additionalProperties": false
+    },
+    "Selection": {
+      "type": "object",
+      "properties": {
+        "selection_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "task_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "item_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "evidence": {
+          "$ref": "#/$defs/EvidenceRef"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "selection_id",
+        "task_id",
+        "task_revision",
+        "item_id",
+        "evidence",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "PlanSnapshot": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "plan_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "travel_thread_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "definition": {
+          "$ref": "#/$defs/PlanDefinition"
+        },
+        "task_versions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "task_revision": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "task_id",
+              "task_revision"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "selections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Selection"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "schema_version",
+        "plan_id",
+        "travel_thread_id",
+        "revision",
+        "definition",
+        "task_versions",
+        "selections"
+      ],
+      "additionalProperties": false
+    },
+    "ItemView": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "task_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "item_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "needs_query": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "running",
+            "succeeded",
+            "failed",
+            "blocked",
+            "unknown"
+          ]
+        },
+        "last_successful_task_revision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "task_id",
+        "task_revision",
+        "item_id",
+        "needs_query",
+        "status",
+        "last_successful_task_revision",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "PlanView": {
+      "type": "object",
+      "properties": {
+        "snapshot": {
+          "$ref": "#/$defs/PlanSnapshot"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ItemView"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "snapshot",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "FieldChanges": {
+      "type": "object",
+      "properties": {
+        "set": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+          },
+          "additionalProperties": true
+        },
+        "unset": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "PatchOperation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "add_stop"
+            },
+            "value": {
+              "$ref": "#/$defs/Stop"
+            }
+          },
+          "required": [
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "update_stop"
+            },
+            "stop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "changes": {
+              "$ref": "#/$defs/FieldChanges"
+            }
+          },
+          "required": [
+            "op",
+            "stop_id",
+            "changes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "remove_stop"
+            },
+            "stop_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "required": [
+            "op",
+            "stop_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "add_leg"
+            },
+            "value": {
+              "$ref": "#/$defs/Leg"
+            }
+          },
+          "required": [
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "update_leg"
+            },
+            "leg_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "changes": {
+              "$ref": "#/$defs/FieldChanges"
+            }
+          },
+          "required": [
+            "op",
+            "leg_id",
+            "changes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "remove_leg"
+            },
+            "leg_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "required": [
+            "op",
+            "leg_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "add_task"
+            },
+            "value": {
+              "$ref": "#/$defs/TaskDefinition"
+            }
+          },
+          "required": [
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "update_task"
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "changes": {
+              "$ref": "#/$defs/FieldChanges"
+            }
+          },
+          "required": [
+            "op",
+            "task_id",
+            "changes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "remove_task"
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "required": [
+            "op",
+            "task_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "add_requirement"
+            },
+            "value": {
+              "$ref": "#/$defs/Requirement"
+            }
+          },
+          "required": [
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "update_requirement"
+            },
+            "requirement_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "changes": {
+              "$ref": "#/$defs/FieldChanges"
+            }
+          },
+          "required": [
+            "op",
+            "requirement_id",
+            "changes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "remove_requirement"
+            },
+            "requirement_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "required": [
+            "op",
+            "requirement_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "update_plan"
+            },
+            "changes": {
+              "$ref": "#/$defs/FieldChanges"
+            }
+          },
+          "required": [
+            "op",
+            "changes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "set_selection"
+            },
+            "value": {
+              "$ref": "#/$defs/Selection"
+            }
+          },
+          "required": [
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "clear_selection"
+            },
+            "selection_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "required": [
+            "op",
+            "selection_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "refresh_queries"
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "item_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "minItems": 1
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "op",
+            "task_id",
+            "item_ids",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "reorder_stops"
+            },
+            "stop_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "minItems": 0
+            }
+          },
+          "required": [
+            "op",
+            "stop_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "reorder_tasks"
+            },
+            "task_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "op",
+            "task_ids"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PlanPatch": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "plan_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PatchOperation"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "schema_version",
+        "plan_id",
+        "expected_revision",
+        "reason",
+        "operations"
+      ],
+      "additionalProperties": false
+    },
+    "CommitResult": {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "plan_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "previous_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "committed_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "invalidated_task_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "minItems": 0
+        },
+        "refreshed_item_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "operation_id",
+        "plan_id",
+        "previous_revision",
+        "committed_revision",
+        "changed",
+        "invalidated_task_ids",
+        "refreshed_item_ids"
+      ],
+      "additionalProperties": false
+    },
+    "ExecutionRequest": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/RuntimeScope"
+        },
+        "plan_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "plan_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "task_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "item_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "execution_step_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "domain": {
+          "enum": [
+            "hotel",
+            "train",
+            "web",
+            "weather"
+          ]
+        },
+        "input": {
+          "type": "object"
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          },
+          "minItems": 0
+        },
+        "ranking": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "input_hash": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "schema_version",
+        "scope",
+        "plan_id",
+        "plan_revision",
+        "task_id",
+        "task_revision",
+        "item_id",
+        "execution_step_id",
+        "generation",
+        "domain",
+        "input",
+        "requirements",
+        "ranking",
+        "input_hash"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "domain": {
+                "const": "hotel"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "input": {
+                "type": "object",
+                "properties": {
+                  "city": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "check_in": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "check_out": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "guests": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "keywords": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 0
+                  }
+                },
+                "required": [
+                  "city",
+                  "check_in",
+                  "check_out",
+                  "guests"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "domain": {
+                "const": "train"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "input": {
+                "type": "object",
+                "properties": {
+                  "origin": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "destination": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "departure_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "passengers": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "keywords": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 0
+                  }
+                },
+                "required": [
+                  "origin",
+                  "destination",
+                  "departure_date",
+                  "passengers"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "domain": {
+                "const": "web"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "input": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "time_range": {
+                    "enum": [
+                      "",
+                      "d",
+                      "w",
+                      "m",
+                      "y"
+                    ]
+                  }
+                },
+                "required": [
+                  "query"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "domain": {
+                "const": "weather"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "input": {
+                "type": "object",
+                "properties": {
+                  "city": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                },
+                "required": [
+                  "city",
+                  "date"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Money": {
+      "type": "object",
+      "properties": {
+        "amount_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "basis": {
+          "enum": [
+            "night",
+            "stay",
+            "person",
+            "total",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "amount_minor",
+        "currency",
+        "basis"
+      ],
+      "additionalProperties": false
+    },
+    "Candidate": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "price": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attributes": {
+          "type": "object"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uri"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "missing_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "candidate_id",
+        "title",
+        "price",
+        "attributes",
+        "source_url",
+        "missing_fields"
+      ],
+      "additionalProperties": false
+    },
+    "ErrorDetail": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "validation",
+            "conflict",
+            "permission",
+            "transient",
+            "unsupported",
+            "internal",
+            "cancelled",
+            "deadline"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retry_exhausted": {
+          "type": "boolean"
+        },
+        "model_action": {
+          "enum": [
+            "correct_input",
+            "replan",
+            "report_partial",
+            "none"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "path",
+        "retry_exhausted",
+        "model_action"
+      ],
+      "additionalProperties": false
+    },
+    "ExecutionResult": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "execution_step_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "plan_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "task_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "item_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "blocked",
+            "cancelled",
+            "unknown",
+            "stale"
+          ]
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "empty",
+            "unavailable"
+          ]
+        },
+        "evidence_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result_revision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retrieved_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_until": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Candidate"
+          },
+          "minItems": 0
+        },
+        "missing_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorDetail"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "execution_step_id",
+        "plan_id",
+        "task_id",
+        "task_revision",
+        "item_id",
+        "generation",
+        "status",
+        "coverage",
+        "evidence_id",
+        "result_revision",
+        "retrieved_at",
+        "valid_until",
+        "candidates",
+        "missing_fields",
+        "error"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "succeeded"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "type": "null"
+              },
+              "evidence_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "result_revision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "retrieved_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "coverage": {
+                "enum": [
+                  "complete",
+                  "partial",
+                  "empty"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "coverage": {
+                "const": "empty"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "succeeded"
+              },
+              "candidates": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "failed",
+                  "blocked",
+                  "cancelled"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "$ref": "#/$defs/ErrorDetail"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ExecutionReport": {
+      "type": "object",
+      "properties": {
+        "plan_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "plan_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionResult"
+          },
+          "minItems": 0
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "plan_id",
+        "plan_revision",
+        "results",
+        "unresolved"
+      ],
+      "additionalProperties": false
+    },
+    "ReplanHistory": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "committed_revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "reason",
+        "changes",
+        "outcome",
+        "committed_revision"
+      ],
+      "additionalProperties": false
+    },
+    "ReplannerInput": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "plan": {
+          "$ref": "#/$defs/PlanView"
+        },
+        "execution": {
+          "$ref": "#/$defs/ExecutionReport"
+        },
+        "prior_replans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReplanHistory"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "schema_version",
+        "request",
+        "plan",
+        "execution",
+        "prior_replans"
+      ],
+      "additionalProperties": false
+    },
+    "ReplannerDecision": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "patch"
+            },
+            "patch": {
+              "$ref": "#/$defs/PlanPatch"
+            }
+          },
+          "required": [
+            "kind",
+            "patch"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "finish"
+            },
+            "task_outcome": {
+              "enum": [
+                "complete",
+                "partial",
+                "blocked"
+              ]
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1
+            },
+            "unresolved": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0
+            }
+          },
+          "required": [
+            "kind",
+            "task_outcome",
+            "summary",
+            "unresolved"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PlanDirectoryEntry": {
+      "type": "object",
+      "properties": {
+        "plan_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "travel_thread_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "start_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "end_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lifecycle": {
+          "enum": [
+            "active",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "progress": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "plan_id",
+        "travel_thread_id",
+        "title",
+        "cities",
+        "start_date",
+        "end_date",
+        "request_scope",
+        "revision",
+        "lifecycle",
+        "progress",
+        "updated_at"
+      ],
+      "additionalProperties": false
+    },
+    "TravelCallResult": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "call_status": {
+          "enum": [
+            "succeeded",
+            "failed"
+          ]
+        },
+        "task_outcome": {
+          "enum": [
+            "complete",
+            "partial",
+            "blocked"
+          ]
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlanDirectoryEntry"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ContextFact"
+          },
+          "minItems": 0
+        },
+        "selections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Selection"
+          },
+          "minItems": 0
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "commits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CommitResult"
+          },
+          "minItems": 0
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorDetail"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "call_status",
+        "task_outcome",
+        "plan",
+        "summary",
+        "facts",
+        "selections",
+        "unresolved",
+        "commits",
+        "error"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "call_status": {
+                "const": "succeeded"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "plan": {
+                "$ref": "#/$defs/PlanDirectoryEntry"
+              },
+              "error": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "error": {
+                "$ref": "#/$defs/ErrorDetail"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MemoryReviewDecision": {
+      "type": "object",
+      "properties": {
+        "needed": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "needed",
+        "reason",
+        "source_message_ids"
+      ],
+      "additionalProperties": false
+    },
+    "MemorySubmitArgs": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "reason",
+        "source_message_ids"
+      ],
+      "additionalProperties": false
+    },
+    "MemoryTaskReceipt": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "status": {
+          "const": "accepted"
+        },
+        "saved": {
+          "const": false
+        }
+      },
+      "required": [
+        "task_id",
+        "status",
+        "saved"
+      ],
+      "additionalProperties": false
+    },
+    "MemoryRecord": {
+      "type": "object",
+      "properties": {
+        "memory_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "domain": {
+          "enum": [
+            "general",
+            "travel"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority": {
+          "enum": [
+            "explicit",
+            "inferred"
+          ]
+        },
+        "status": {
+          "enum": [
+            "active",
+            "retracted"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "memory_id",
+        "revision",
+        "domain",
+        "text",
+        "authority",
+        "status",
+        "sources"
+      ],
+      "additionalProperties": false
+    },
+    "MemoryAgentInput": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "user_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "main_thread_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "trigger": {
+          "enum": [
+            "periodic",
+            "explicit_reanalysis"
+          ]
+        },
+        "from_round": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "through_round": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "base_memory_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "message_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "role": {
+                "enum": [
+                  "user",
+                  "assistant"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "message_id",
+              "role",
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "existing_memories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MemoryRecord"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "schema_version",
+        "task_id",
+        "user_id",
+        "main_thread_id",
+        "trigger",
+        "from_round",
+        "through_round",
+        "base_memory_revision",
+        "messages",
+        "existing_memories"
+      ],
+      "additionalProperties": false
+    },
+    "MemoryUpdate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "add"
+            },
+            "domain": {
+              "enum": [
+                "general",
+                "travel"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SourceRef"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "op",
+            "domain",
+            "text",
+            "sources"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "replace"
+            },
+            "memory_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "expected_revision": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "domain": {
+              "enum": [
+                "general",
+                "travel"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SourceRef"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "op",
+            "memory_id",
+            "expected_revision",
+            "domain",
+            "text",
+            "sources"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "retract"
+            },
+            "memory_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "expected_revision": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SourceRef"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "op",
+            "memory_id",
+            "expected_revision",
+            "sources"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MemoryProposal": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "base_memory_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MemoryUpdate"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "schema_version",
+        "task_id",
+        "base_memory_revision",
+        "updates"
+      ],
+      "additionalProperties": false
+    },
+    "MemoryMaintenanceResult": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed"
+          ]
+        },
+        "updates_applied": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "memory_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reviewed_through_round": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "summarized_through_round": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorDetail"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "task_id",
+        "status",
+        "updates_applied",
+        "memory_revision",
+        "reviewed_through_round",
+        "summarized_through_round",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "GeneralContext": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "message_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "message_id",
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "short_term": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "$ref": "#/$defs/ContextSummary"
+            },
+            "recent_turns": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Turn"
+              }
+            }
+          },
+          "required": [
+            "summary",
+            "recent_turns"
+          ],
+          "additionalProperties": false
+        },
+        "long_term_memories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MemoryRecord"
+          }
+        },
+        "related_plans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanDirectoryEntry"
+          }
+        },
+        "memory_review": {
+          "type": "object",
+          "properties": {
+            "interval": {
+              "const": 10
+            },
+            "new_effective_rounds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "review_due": {
+              "type": "boolean"
+            },
+            "reviewed_through_round": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "summarized_through_round": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "interval",
+            "new_effective_rounds",
+            "review_due",
+            "reviewed_through_round",
+            "summarized_through_round"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "request",
+        "short_term",
+        "long_term_memories",
+        "related_plans",
+        "memory_review"
+      ],
+      "additionalProperties": false
+    },
+    "MemoryWriteArgs": {
+      "type": "object",
+      "properties": {
+        "update": {
+          "$ref": "#/$defs/MemoryUpdate"
+        }
+      },
+      "required": [
+        "update"
+      ],
+      "additionalProperties": false
+    },
+    "MemoryWriteResult": {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "const": "succeeded"
+        },
+        "memory_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "updates_applied": {
+          "const": 1
+        }
+      },
+      "required": [
+        "operation_id",
+        "status",
+        "memory_revision",
+        "updates_applied"
+      ],
+      "additionalProperties": false
+    },
+    "UserMemorySnapshot": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "memories"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "memories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MemoryRecord"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "SharedToolCallRecord": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "user_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "conversation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "thread_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "call_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "tool_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "input_hash": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "agent_kind": {
+          "enum": [
+            "general",
+            "travel"
+          ]
+        },
+        "thread_role": {
+          "enum": [
+            "entry",
+            "plan_work"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "live",
+            "demo"
+          ]
+        },
+        "arguments": {
+          "type": "object"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          }
+        },
+        "status": {
+          "enum": [
+            "accepted",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "unknown"
+          ]
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "empty",
+            "unavailable"
+          ]
+        },
+        "result_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "evidence_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "result_revision": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "evidence_id",
+              "result_revision"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorDetail"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "context_epoch": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "conversation_id",
+        "run_id",
+        "thread_id",
+        "call_key",
+        "tool_name",
+        "domain",
+        "provider",
+        "input_hash",
+        "schema_version",
+        "agent_kind",
+        "thread_role",
+        "mode",
+        "arguments",
+        "source_refs",
+        "status",
+        "coverage",
+        "result_refs",
+        "error",
+        "created_at",
+        "context_epoch"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "succeeded"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result_refs": {
+                "minItems": 1
+              },
+              "error": {
+                "type": "null"
+              },
+              "coverage": {
+                "enum": [
+                  "complete",
+                  "partial",
+                  "empty"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "failed",
+                  "cancelled"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "$ref": "#/$defs/ErrorDetail"
+              },
+              "coverage": {
+                "const": "unavailable"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "coverage": {
+                "const": "empty"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "succeeded"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SharedToolEvidenceRecord": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "user_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "conversation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "tool_call_record_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "result_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mode": {
+          "enum": [
+            "live",
+            "demo"
+          ]
+        },
+        "snapshot": {
+          "type": "object"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          }
+        },
+        "fetched_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "conversation_id",
+        "tool_call_record_id",
+        "domain",
+        "provider",
+        "schema_version",
+        "result_revision",
+        "mode",
+        "snapshot",
+        "source_refs",
+        "fetched_at",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "DispatchCommand": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "message_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "source_run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "delegation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "dispatch_seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "schema_version",
+        "message_id",
+        "source_run_id",
+        "delegation_id",
+        "dispatch_seq",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "TrustedTravelMeta": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "scope_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "scope_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "subject_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "conversation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "source_run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "delegation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "source_context_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deadline_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "schema_version",
+        "scope_id",
+        "scope_hash",
+        "subject_id",
+        "conversation_id",
+        "source_run_id",
+        "delegation_id",
+        "source_context_epoch",
+        "deadline_at"
+      ],
+      "additionalProperties": false
+    },
+    "TravelTaskSubmit": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "request_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "hash_version": {
+          "const": "jcs-sha256-v1"
+        },
+        "input_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "args": {
+          "$ref": "#/$defs/TravelToolArgs"
+        }
+      },
+      "required": [
+        "schema_version",
+        "request_key",
+        "hash_version",
+        "input_hash",
+        "args"
+      ],
+      "additionalProperties": false
+    },
+    "TravelTaskLookup": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "required": [
+        "schema_version",
+        "task_id"
+      ],
+      "additionalProperties": false
+    },
+    "TravelTaskFind": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "request_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "input_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "schema_version",
+        "request_key",
+        "input_hash"
+      ],
+      "additionalProperties": false
+    },
+    "TravelTaskReceipt": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "request_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "input_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "timed_out",
+            "interrupted"
+          ]
+        },
+        "state_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "deadline_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "schema_version",
+        "task_id",
+        "request_key",
+        "input_hash",
+        "status",
+        "state_version",
+        "deadline_at"
+      ],
+      "additionalProperties": false
+    },
+    "TravelTaskResult": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "request_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "input_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "timed_out",
+            "interrupted"
+          ]
+        },
+        "result_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "result": {
+          "$ref": "#/$defs/TravelCallResult"
+        }
+      },
+      "required": [
+        "schema_version",
+        "task_id",
+        "request_key",
+        "input_hash",
+        "status",
+        "result_version",
+        "completed_at",
+        "result"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "succeeded"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "properties": {
+                  "call_status": {
+                    "const": "succeeded"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "result": {
+                "properties": {
+                  "call_status": {
+                    "const": "failed"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

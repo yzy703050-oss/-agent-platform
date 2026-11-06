@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "scope_id": "scope_demo",
+  "scope_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "subject_id": "user_demo",
+  "conversation_id": "conversation_demo",
+  "source_run_id": "run_demo",
+  "delegation_id": "delegation_demo",
+  "source_context_epoch": 0,
+  "deadline_at": "2026-11-06T08:05:00Z"
+}

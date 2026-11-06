@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "task_id": "remote_task_demo",
+  "request_key": "request_demo",
+  "input_hash": "301f3727fad90da93cb95051e1dc43861eb82a59aeeea50a7d0e26baf3b0c2aa",
+  "status": "succeeded",
+  "result_version": 1,
+  "completed_at": "2026-11-06T08:00:30Z",
+  "result": {
+    "schema_version": 1,
+    "call_status": "succeeded",
+    "task_outcome": "partial",
+    "plan": {
+      "plan_id": "plan_demo",
+      "travel_thread_id": "travel_demo",
+      "title": "上海酒店查询",
+      "cities": [
+        "上海"
+      ],
+      "start_date": "2026-11-10",
+      "end_date": "2026-11-12",
+      "request_scope": "一位旅客酒店查询",
+      "revision": 1,
+      "lifecycle": "active",
+      "progress": "已查询；价格和库存未知",
+      "updated_at": "2026-11-03T10:00:30+08:00"
+    },
+    "summary": "已取得酒店候选，尚无可靠价格与库存。",
+    "facts": [
+      {
+        "text": "已返回一个示例酒店候选，报价与库存未知。",
+        "sources": [
+          {
+            "kind": "evidence",
+            "id": "evidence_demo_1"
+          }
+        ]
+      }
+    ],
+    "selections": [],
+    "unresolved": [
+      "供应方示例未提供价格和库存，不能承诺可预订。"
+    ],
+    "commits": [
+      {
+        "operation_id": "op_demo_create",
+        "plan_id": "plan_demo",
+        "previous_revision": 0,
+        "committed_revision": 1,
+        "changed": true,
+        "invalidated_task_ids": [],
+        "refreshed_item_ids": []
+      }
+    ],
+    "error": null
+  }
+}

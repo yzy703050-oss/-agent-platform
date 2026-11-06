@@ -1,0 +1,7 @@
+{
+  "needed": false,
+  "reason": "最近十轮只有临时行程查询，没有稳定偏好或明确记忆指令。",
+  "source_message_ids": [
+    "msg_demo_001"
+  ]
+}

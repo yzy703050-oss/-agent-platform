@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "scope": {
+    "user_id": "user_demo",
+    "main_thread_id": "main_demo",
+    "run_id": "run_demo_001",
+    "tool_call_id": "call_demo_001",
+    "operation_id": "op_demo_create",
+    "attempt": 1,
+    "deadline": "2026-11-03T10:02:00+08:00"
+  },
+  "plan_id": "plan_demo",
+  "plan_revision": 1,
+  "task_id": "task_hotel",
+  "task_revision": 1,
+  "item_id": "item_hotel",
+  "execution_step_id": "step_hotel_1",
+  "generation": 1,
+  "domain": "hotel",
+  "input": {
+    "city": "上海",
+    "check_in": "2026-11-10",
+    "check_out": "2026-11-12",
+    "guests": 1,
+    "keywords": [
+      "地铁"
+    ]
+  },
+  "requirements": [
+    {
+      "requirement_id": "req_metro",
+      "text": "酒店优先靠近地铁",
+      "origin": "user",
+      "scope": "tasks",
+      "task_ids": [
+        "task_hotel"
+      ],
+      "sources": [
+        {
+          "kind": "message",
+          "id": "msg_demo_001"
+        }
+      ]
+    }
+  ],
+  "ranking": [
+    "优先靠近地铁",
+    "其次比较总价"
+  ],
+  "input_hash": "sha256:demo-placeholder-not-a-real-digest"
+}
