@@ -35,7 +35,9 @@ try {
     $output = @(& go mod verify 2>&1)
     $output | Set-Content -LiteralPath (Join-Path $logDir 'A00-modules.log')
     if ($LASTEXITCODE -ne 0) { Finish-Failure 'A00_modules_failed' }
-    $output = @(& go build ./cmd/... 2>&1)
+    $buildDir = Join-Path $logDir 'bin'
+    New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
+    $output = @(& go build -o ($buildDir + [IO.Path]::DirectorySeparatorChar) ./cmd/... 2>&1)
     $output | Set-Content -LiteralPath (Join-Path $logDir 'A00-build.log')
     if ($LASTEXITCODE -ne 0) { Finish-Failure 'A00_build_failed' }
     @{ ok = $true; scope = 'A00_config_modules_build_only'; passedTests = $passed; servicesValidated = $false } | ConvertTo-Json -Compress
