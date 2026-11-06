@@ -23,4 +23,5 @@ node_modules/
 Thumbs.db
 *.log
 /.cache/
+/scripts/tests/__pycache__/
 

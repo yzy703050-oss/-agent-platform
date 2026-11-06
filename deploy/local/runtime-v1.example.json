@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "isolated": true,
+  "mode": "fixture",
+  "services": {
+    "postgres": {"host": "127.0.0.1", "port": 15432},
+    "redis": {"host": "127.0.0.1", "port": 16379},
+    "kafka": {"host": "127.0.0.1", "port": 19092},
+    "milvus": {"host": "127.0.0.1", "port": 19530}
+  },
+  "models": {
+    "embedding": {"pathEnv": "XDB_EMBEDDING_PATH", "revision": "7999e1d3359715c523056ef9478215996d62a620"},
+    "reranker": {"pathEnv": "XDB_RERANKER_PATH", "revision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"}
+  },
+  "credentials": {
+    "platformDSNEnv": "RUNTIME_PLATFORM_DSN",
+    "travelDSNEnv": "RUNTIME_TRAVEL_DSN",
+    "controlMigrationDSNEnv": "RUNTIME_CONTROL_DSN"
+  },
+  "fixtureLimits": {
+    "maxModelAttempts": 32,
+    "maxToolAttempts": 64,
+    "maxTokenBudget": 500000,
+    "returnReserveSeconds": 15
+  }
+}

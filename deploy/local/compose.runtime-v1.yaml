@@ -1,0 +1,106 @@
+# Isolated linux/amd64 integration fixture; never starts application processes.
+# Set an explicit project name and disposable passwords before running manually.
+name: ${XDB_RUNTIME_PROJECT:?set a unique isolated compose project name}
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:4717f90960a225c2d1c5dac50508c401230f693ff626e06e84e6db0a68ded508
+    platform: linux/amd64
+    environment:
+      POSTGRES_USER: runtime_fixture_admin
+      POSTGRES_DB: runtime_fixture
+      POSTGRES_PASSWORD: ${XDB_FIXTURE_PG_PASSWORD:?set disposable fixture password}
+    ports: ["127.0.0.1:15432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U runtime_fixture_admin -d runtime_fixture"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:8.10.3@sha256:e2728231060693472a8efb488dd139a8142a01bd0612ae70429bf5b5be924be1
+    platform: linux/amd64
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--min-replicas-to-write", "0"]
+    ports: ["127.0.0.1:16379:6379"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  kafka:
+    image: apache/kafka:4.4.0@sha256:76af3d0116abbb33b4cd964af410d4921c33d1f663e7a95d5453a9c35a84869b
+    platform: linux/amd64
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:19092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://127.0.0.1:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+    ports: ["127.0.0.1:19092:19092"]
+    volumes: ["kafka-data:/tmp/kraft-combined-logs"]
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:29092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.25@sha256:dc2bdc588d2adc5272204a1fff7f1d89f31e8caacea78fdf509fd409d7162a9d
+    platform: linux/amd64
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    command: ["etcd", "--advertise-client-urls=http://etcd:2379", "--listen-client-urls=http://0.0.0.0:2379", "--data-dir=/etcd"]
+    volumes: ["etcd-data:/etcd"]
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  minio:
+    image: milvusdb/minio:RELEASE.2024-12-18T13-15-44Z@sha256:34c8e2f52a5984492555427fee07254c80036bdb7079bb91679232abd7a4fa20
+    platform: linux/amd64
+    environment:
+      MINIO_ROOT_USER: runtime_fixture
+      MINIO_ROOT_PASSWORD: ${XDB_FIXTURE_MINIO_PASSWORD:?set disposable fixture password}
+    command: ["minio", "server", "/minio_data", "--console-address", ":9001"]
+    volumes: ["minio-data:/minio_data"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  milvus:
+    image: milvusdb/milvus:v2.6.26@sha256:e6066d0afc4eeab69b7c9269e49be2b9ae54c740a21c05f230c4e5743c646ee3
+    platform: linux/amd64
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY_ID: runtime_fixture
+      MINIO_SECRET_ACCESS_KEY: ${XDB_FIXTURE_MINIO_PASSWORD:?set disposable fixture password}
+    ports: ["127.0.0.1:19530:19530", "127.0.0.1:19091:9091"]
+    volumes: ["milvus-data:/var/lib/milvus"]
+    depends_on:
+      etcd: {condition: service_healthy}
+      minio: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+volumes:
+  postgres-data:
+  redis-data:
+  kafka-data:
+  etcd-data:
+  minio-data:
+  milvus-data:
