@@ -65,6 +65,12 @@ class RuntimeToolsTest(unittest.TestCase):
         self.assertEqual(len(result["checks"]), 8)
         self.assertIn("require_integration_tests", result["reason"])
 
+    def test_verify_protocol_case_runs_the_fixture_tests(self):
+        result = self.invoke("verify-runtime.ps1", {"version": 1, "isolated": True}, "-Case", "A01", "-RequireCases", expect_success=True)
+        self.assertTrue(result["ok"])
+        self.assertGreaterEqual(result["passedTests"], 43)
+        self.assertFalse(result["servicesValidated"])
+
 
 if __name__ == "__main__":
     unittest.main()

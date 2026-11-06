@@ -95,6 +95,10 @@ go test ./internal/config -run '^TestRuntimeConfig' -count=1
 **Depends:** A00依赖解析完成。
 
 **Files:**
+- Create: backend/internal/runtimeprotocol/agent-contracts.schema.json（原Schema部署副本，字节一致性测试约束）
+- Modify: scripts/verify-runtime.ps1
+- Modify: scripts/tests/test_runtime_tools.py
+- Create: docs/reports/runtime-v1/A01.md
 - Create: backend/internal/model/runtimev1/authorization.go
 - Create: backend/internal/model/runtimev1/run.go
 - Create: backend/internal/model/runtimev1/wire.go
@@ -109,22 +113,22 @@ go test ./internal/config -run '^TestRuntimeConfig' -count=1
 - Consumes: 原contracts/agent-contracts.schema.json全部适用$defs，尤其TravelToolArgs/PlanDefinition/Patch/Memory及七个运行v1定义；现有model仅作legacy类型。
 - Produces: runtimev1中同名Go DTO逐一映射Schema（不含Eino依赖）；LeaseRef{WorkerID string,Epoch int64,ExpiresAt time.Time}；ExecRef{ScopeID,ScopeHash,OwnerKind,OwnerID,ThreadID string;Lease LeaseRef}，OwnerKind=entry_job/travel_task/memory_operation。runtimeprotocol.DecodeStrict(raw []byte, definition string, dst any) error；InputHash(args json.RawMessage, meta runtimev1.TrustedTravelMeta) (string,error)；ValidateResult(receipt runtimev1.TravelTaskReceipt, result runtimev1.TravelTaskResult) error。 另在run.go定义RunView{ID,Status string;DeadlineAt time.Time}、JobLease{Ref ExecRef;ScheduleSeq,CheckpointVersion int64;DeadlineAt time.Time}、TravelTaskLease{TaskID string;Ref ExecRef;CheckpointVersion int64;DeadlineAt time.Time}，供后续本地仓储消费，其他字段仅按正式归属/版本表补充。 LimitSnapshot在run.go定义固定MaxModelAttempts/MaxToolAttempts/TokenUpperBound/MaxModelInputTokens/MaxModelOutputTokens及ToolTimeout/DeadlineAt，取自接纳时配置，不在恢复时重新读取默认值。
 
-- [ ] **Step 1 — 先写有意义的失败测试：** TestWireFixtureParity；TestJCSCanonicalInput；TestRejectSpoofedScopeAndAcceptedAsResult。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
+- [x] **Step 1 — 先写有意义的失败测试：** TestWireFixtureParity；TestJCSCanonicalInput；TestRejectSpoofedScopeAndAcceptedAsResult。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
 ```go
 // RFC8785对象键按UTF-16排序；非ASCII键、指数、-0和转义使用固定向量。
 if hashA != hashB { t.Fatal("key order changed business identity") }
 if errDuplicateKey == nil || errUnsafeInteger == nil { t.Fatal("lossy input accepted") }
 if errAcceptedResult == nil || errFailedAsSuccess == nil { t.Fatal("receipt mistaken for result") }
 ```
-- [ ] **Step 2 — 运行并确认红灯根因：**
+- [x] **Step 2 — 运行并确认红灯根因：**
 ```powershell
 go test ./internal/runtimeprotocol -count=1
 ```
 预期：FAIL，新协议解码/摘要入口不存在，或旧RuntimeScope/普通JSON无法满足JCS向量、重复键及受理/结果分离。
-- [ ] **Step 3 — 最小实现：** 手写集中且有责任划分的类型，不为旧DTO做全仓无差别替换。DecodeStrict在JCS前拒绝重复键、非法UTF-8/孤立代理、未知字段、多JSON值、不安全整数/非有限数；保留缺省与null差异。用固定jcs.Transform而不是encoding/json排序模拟JCS。InputHash严格采用原协议4.1对象，密钥/transport ID/父epoch不入hash；样例37～43由Go验证，caller仍来自认证，Schema成功不代表授权。
-- [ ] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
+- [x] **Step 3 — 最小实现：** 手写集中且有责任划分的类型，不为旧DTO做全仓无差别替换。DecodeStrict在JCS前拒绝重复键、非法UTF-8/孤立代理、未知字段、多JSON值、不安全整数/非有限数；保留缺省与null差异。用固定jcs.Transform而不是encoding/json排序模拟JCS。InputHash严格采用原协议4.1对象，密钥/transport ID/父epoch不入hash；样例37～43由Go验证，caller仍来自认证，Schema成功不代表授权。
+- [x] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
 完成条件：43份原夹具的对应结构、RFC向量及身份/结果负例均通过；领域与运行类型命名区分计划TaskDefinition和专业TravelTask。
-- [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A01 正式领域DTO、运行协议与严格JCS`）。
+- [x] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A01 正式领域DTO、运行协议与严格JCS`）。
 
 ### A02：三schema增量迁移、账号权限与legacy读取
 
