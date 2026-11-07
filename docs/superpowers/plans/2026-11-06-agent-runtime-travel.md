@@ -39,7 +39,7 @@
 - 顺序主线：A00→A01→A02→A03→A04；之后按每任务Depends推进。A05共享查询、A06计划、A07Task/MCP完成后，A08父挂起与A09分发闭环；A10专业执行、A11结果恢复、A12记忆、A13进程、A14前端、A15联合故障、A16交付。
 - A10消费自己定义的ContextReader端口，先用授权夹具验证，A12实现并在A13接线；这只是接口依赖，不能跳过真实上下文验收。
 - RAG R00～R07独立实现；A15消费R07已完成HTTP服务/真实检索。RAG R10消费A15一次联合报告；A16在R10后归档，避免环形依赖。
-- 用户已要求Docker部署并授权准备依赖；DockerDesktop已有，WSL安装完成但需重启，容器与模型尚未验收。A00预检仍是门槛。真实服务可来自显式隔离远端配置。无服务的单元任务可开展；依赖真实服务的任务必须停在未完成，不能SKIP后打勾。
+- 用户已要求Docker部署并授权准备依赖；2026-11-07补全DockerDesktop安装，WSL引擎、六个基础容器及PG/Redis/Kafka基础协议与Milvus健康探针已通过。业务角色/迁移与真实模型尚未验收，A00预检仍是门槛。真实服务可来自显式隔离远端配置。无服务的单元任务可开展；依赖真实服务的任务必须停在未完成，不能SKIP后打勾。
 - 第一次执行先按using-git-worktrees检查native隔离/当前分支；两个仓库分别盘点已跟踪/未跟踪WIP，只迁入任务必需且有清单的基线，保留原工作区。若分支复现必须纳入既有改动，先展示具体清单再确认，不能把无关WIP提交成当前任务。
 - 新运行模型位于internal/model/runtimev1，协议严格解码在runtimeprotocol；platformpg/travelpg只持所属schema连接；control/permit只管授权/调用账/预准入；service/travelplan管正式业务；toolquery管无计划事实；旧service/trip和repository/postgres只用于受控legacy适配，不复制旧编排。
 - A02 fixture使用独立临时数据库＋真实登录角色，因为session_user不能用SET ROLE假造；REQUIRE_RUNTIME_TESTS=1时缺管理员/服务必须FAIL。清理只针对本次记录的xdb_v1_测试资源，不指向开发库。

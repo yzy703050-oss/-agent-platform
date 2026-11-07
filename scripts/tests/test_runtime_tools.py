@@ -14,14 +14,14 @@ PWSH = shutil.which("pwsh")
 
 
 class RuntimeToolsTest(unittest.TestCase):
-    def invoke(self, script, profile, *args, expect_success=False, extra_env=None):
+    def invoke(self, script, profile, *args, expect_success=False, extra_env=None, timeout=30):
         self.assertIsNotNone(PWSH, "PowerShell 7 is required for script tests")
         with tempfile.TemporaryDirectory(prefix="xdb-runtime-tools-") as directory:
             path = Path(directory) / "profile.json"
             path.write_text(json.dumps(profile), encoding="utf-8")
             result = subprocess.run(
                 [PWSH, "-NoProfile", "-File", str(ROOT / "scripts" / script), "-Profile", str(path), *args],
-                capture_output=True, text=True, timeout=30, env={**os.environ, **(extra_env or {})},
+                capture_output=True, text=True, timeout=timeout, env={**os.environ, **(extra_env or {})},
             )
         if expect_success:
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -66,7 +66,8 @@ class RuntimeToolsTest(unittest.TestCase):
         self.assertIn("require_integration_tests", result["reason"])
 
     def test_verify_protocol_case_runs_the_fixture_tests(self):
-        result = self.invoke("verify-runtime.ps1", {"version": 1, "isolated": True}, "-Case", "A01", "-RequireCases", expect_success=True)
+        # This case runs Go tests, module verification and all command builds.
+        result = self.invoke("verify-runtime.ps1", {"version": 1, "isolated": True}, "-Case", "A01", "-RequireCases", expect_success=True, timeout=180)
         self.assertTrue(result["ok"])
         self.assertGreaterEqual(result["passedTests"], 43)
         self.assertFalse(result["servicesValidated"])

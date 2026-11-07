@@ -14,7 +14,7 @@ pwsh -NoProfile -File scripts/runtime-docker.ps1 -Action Status
 
 Prepare 不启动服务；它创建隔离配置、随机凭据与当前进程使用的 Docker CLI 配置，并在 CLI 可用时实际运行 `compose config --quiet`。再次执行复用原凭据，不更改用户的 `.env` 或全局 Docker CLI 配置。Up 在 Windows 必要时启动已有 Docker Desktop，使用 Linux 引擎，拉取锁定镜像并等待全部六个健康检查。失败返回非零，日志保存在本地状态目录。
 
-本机于 2026-11-06 安装了 WSL 3.0.3；VirtualMachinePlatform 和 Windows Subsystem for Linux 两项组件均返回 3010，安装结果为 `reboot_required`。同一次 Windows 启动内，Up 会明确返回 `windows_reboot_required_for_wsl`。需要用户重启 Windows；脚本不执行重启。重启后仍使用同一条 Up 命令继续，不重复生成密码。
+本机于 2026-11-06 安装了 WSL 3.0.3，并于 2026-11-07 补全 Docker Desktop 4.91.0 安装；Linux 引擎和六个依赖容器已通过健康检查，基础协议探针结果见[本机报告](../../docs/reports/runtime-v1/docker-setup.md)。若其他机器启用 Windows 组件后要求重启，Up 会在同次 Windows 启动内明确返回 `windows_reboot_required_for_wsl`；脚本不执行重启。重启后仍使用同一条 Up 命令继续，不重复生成密码。
 
 默认状态目录为当前工作区的 `.cache/runtime-v1`，可用 `-StateDirectory <绝对目录>` 显式指定另一个私有目录。它包含：
 
@@ -37,6 +37,8 @@ Prepare 不启动服务；它创建隔离配置、随机凭据与当前进程使
 | etcd / MinIO | 仅 Compose 内部网络 | Milvus 官方组合依赖；不公开管理端口 |
 
 所有公开端口绑定回环地址。镜像固定 linux/amd64 manifest，见 `compose.runtime-v1.yaml`。此文件用于开发与真实集成测试，不提供多主机容灾。正式授权、预算围栏、Redis Sentinel 和多实例应用故障矩阵仍按 OpenSpec 执行。
+
+Kafka 数据卷挂载到官方镜像已授权给 `appuser` 的 `/var/lib/kafka/data`，`KAFKA_LOG_DIRS` 使用相同路径。若已使用旧版配置创建过 root 所有的空目录，仅改挂载目标不会改变旧卷的权限；应先核对卷的 Compose project/volume 标签，再修正该目录的归属，保留数据卷。
 
 Up/Status 只有在每个服务都为 running/healthy 时返回 `ok=true`；返回范围为 `docker_dependency_health_only`。之后仍需验证 PG 认证/权限/迁移、Redis 实际命令、Kafka 消息收发以及 Milvus 中文索引。Embedding/Reranker 权重和 RAG 模型加载另由 R00/R06 核验。
 
