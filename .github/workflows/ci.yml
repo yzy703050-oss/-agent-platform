@@ -19,6 +19,8 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://ci:ci-disposable-only@127.0.0.1:5432/platform_test?sslmode=disable
       REQUIRE_DATABASE_TESTS: "1"
+      RUNTIME_TEST_ADMIN_DSN: postgres://ci:ci-disposable-only@127.0.0.1:5432/platform_test?sslmode=disable
+      RUNTIME_TEST_ALLOW_DB_CREATE: "1"
       GIN_MODE: release
     defaults:
       run:

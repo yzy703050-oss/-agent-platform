@@ -1,4 +1,8 @@
 *.sh text eol=lf
+# Migration checksums use the same embedded SQL bytes on Windows and Linux.
+backend/migrations/control/*.sql text eol=lf
+backend/migrations/platform/*.sql text eol=lf
+backend/migrations/travel/*.sql text eol=lf
 # Source prompt and contract hashes cover exact UTF-8 bytes on every platform.
 backend/internal/agent/agents/travel/prompts/*.txt -text
 backend/internal/agent/agents/travel/prompts/runtime/*.txt -text

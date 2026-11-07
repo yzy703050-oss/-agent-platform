@@ -1,6 +1,6 @@
 # 数据库领域字典与物理映射输入
 
-更新：2026-11-06。本附录保留领域字段及约束供技术复核，正式行为见[specs](../specs/)，当前服务边界见[Design](../design.md)和[执行协议](../mq-mcp-dispatch-protocol.md)。
+更新：2026-11-07。用户确认从空库部署，旧数据库不保留、不导入、不做兼容读取。本附录保留领域字段及约束供技术复核，正式行为见[specs](../specs/)，当前服务边界见[Design](../design.md)和[执行协议](../mq-mcp-dispatch-protocol.md)。
 
 平台与Travel共PG实例、不同schema和角色，各自拥有任务/业务/证据，不跨服务业务FK或联合事务。下列原字段、数量及父子映射不能直接作为DDL，须按该边界重新核验。平台持有Delegation/Outbox/Dispatch，Travel持有Task及专业业务；公共预算和授权访问需单独限定权限。未生成或执行迁移SQL。
 
@@ -10,7 +10,7 @@
 
 | schema | 物理职责及约束 |
 | --- | --- |
-| platform | users/sessions/settings/page_leases、入口conversations/threads/messages、Run/入口Job/checkpoints/events、Delegation/Dispatch/Outbox、入口tool_calls/evidence、用户统一记忆及memory_operations；root Thread与主会话绑定；现有public表保留legacy读取，不默认搬表 |
+| platform | users/sessions/settings/page_leases、入口conversations/threads/messages、Run/入口Job/checkpoints/events、Delegation/Dispatch/Outbox、入口tool_calls/evidence、用户统一记忆及memory_operations；root Thread与主会话绑定；新库不建立旧public业务表或legacy读取 |
 | travel | tasks（持久专业任务，区别于计划JSON中的Task定义）、threads/messages/checkpoints、专业tool_calls/evidence、plans/revisions/execution_steps/actions；一个plan唯一绑定本schema的plan_work Thread |
 | control | 私有session/run/context guards、execution_scopes、resource_limits/outbound_calls；仅白名单函数EXECUTE，不给运行角色直接表DML。详见[公共协议2.1](../engineering-protocol.md#21-公共授权与调用账的受控边界)，不另在platform/travel维护一份预算账 |
 
@@ -29,7 +29,7 @@
 | L3 共享工具与证据 | 2 | tool_calls、tool_evidence | 无须 TripPlan 的真实查询调用和不可变结果证据 |
 | L4 差旅计划业务 | 4 | travel_plans、travel_plan_revisions、travel_execution_steps、travel_actions | 正式计划、版本、任务执行和可靠提交 |
 | L5 用户长期记忆 | 2 | user_memory_revisions、memory_operations | 用户统一记忆快照和检查、写入、后台维护 |
-| 合计 | 23 | 当前设计盘点，非数量限制 | 历史表保留及过渡断点表可能使物理数量更多 |
+| 合计 | 23 | 当前设计盘点，非数量限制 | 服务本地恢复及传输缓存使实际表数更多 |
 
 与上一版相比增加4张运行表，checkpoint演进不按表数限制物理迁移做法。tool_calls/tool_evidence继续承接共享查询；旧决策及证据表保留历史，不物理删除、不双写。
 
@@ -88,7 +88,7 @@
 | --- | --- |
 | id、user_id、conversation_id、page_id、idempotency_key、request_hash | 当前用户请求及幂等身份 |
 | status、attempt、version、context_eligible、error_code、partial_output | 外层生命周期、围栏、有效性与真实错误 |
-| kernel_version、config_fingerprint、root_context_epoch | 新旧控制流及恢复兼容、当时配置和上下文代次 |
+| kernel_version、config_fingerprint、root_context_epoch | 当前内核及恢复兼容、当时配置和上下文代次 |
 | memory_round_no、created_at、updated_at | 该轮有效用户对话的登记和时间 |
 
 保留每会话非终态互斥。memory_round_no 使用非空部分唯一键(conversation_id,memory_round_no)，与根线程计数同事务；模型/工具/子流程次数不另算用户轮次。恢复不能重置总预算。
@@ -111,7 +111,7 @@
 
 ### 4.5 checkpoints
 
-新记录以(job_id,checkpoint_version)唯一，保留run/user/conversation/thread归属、产生lease_epoch、engine/version/format、fingerprint、payload/hash、中断映射及来源代次；Job只指向当前有效版本。General/Travel各自保存现场、逐层交接，不共用一份分布式调用栈。旧run_id主键/字节保留legacy读取，物理演进可采用过渡表和可空列，不能强改旧行含义。Eino联合提交与定向恢复仍需实际证明。
+新记录以(job_id,checkpoint_version)唯一，保留run/user/conversation/thread归属、产生lease_epoch、engine/version/format、fingerprint、payload/hash、中断映射及来源代次；Job只指向当前有效版本。General/Travel各自保存现场、逐层交接，不共用一份分布式调用栈。新库不导入旧run_id断点或设置legacy过渡列。Eino联合提交与定向恢复仍需实际证明。
 
 ### 4.6 agent_threads
 
@@ -245,11 +245,11 @@ UNIQUE(plan_id,task_id,task_revision,item_id,generation)，FK只连接本地专�
 
 沿用PK(run_id,operation_id)。新格式不设置到travel_decisions的外键，也不以该表作为恢复或Replanner历史来源。arguments/request_hash及必要依据在操作受理后固定；改变提议应使用新的受控操作身份，不能覆盖原幂等参数。
 
-status=succeeded与计划修订、指针、选择及受影响执行安排同事务；同operation_id同参数返回原result，不同参数拒绝，unknown先对账。查询由tool_calls执行，不为每次查询再创建action；长期记忆由memory_operations管理。原travel_operation_receipts保留历史，新写成功结果以actions.result为权威。
+status=succeeded与计划修订、指针、选择及受影响执行安排同事务；同operation_id同参数返回原result，不同参数拒绝，unknown先对账。查询由tool_calls执行，不为每次查询再创建action；长期记忆由memory_operations管理。新库不创建原travel_operation_receipts，成功结果以actions.result为权威。
 
 已接受的变化从action.arguments、revision.patch/snapshot和提交结果追溯；未接受提议的必要错误、字段、原因与无进展信号记入有来源边界的run_events，不要求额外保存所有模型提议。Replanner的prior_replans由操作、修订、执行报告及必要事件装配，保留“原因—改动—效果”；checkpoint仍负责执行位置。事件不替代成功回执，模型隐含思维链不保存。
 
-旧travel_decisions仅作legacy历史读取，既有ID、提议和关联原样保留；本轮确认的是新流程省略该独立表，不执行删表或改写历史。
+新库不创建旧travel_decisions，不导入旧提议和业务回执。
 
 ## 7. L5：用户统一长期记忆（2表）
 
@@ -288,7 +288,7 @@ FK(user_id) → users；FK(operation_id,user_id) → memory_operations(id,user_i
 | conversation_id / thread_id / context_epoch | text / text / bigint | 发起主线程及当时上下文代次 |
 | source_run_id | text | 来源 Run，仅用于归属和有效性，不作为后台活动租约 |
 | tool_call_id / decision_key | text NULL | 明确工具调用或Maintenance周期身份；周期不伪造模型tool_call_id |
-| kind | text | review_only / explicit_write / periodic_summary / explicit_reanalysis / legacy_import |
+| kind | text | review_only / explicit_write / periodic_summary / explicit_reanalysis |
 | request_hash / arguments | text / JSONB object | 固化有效请求、理由及来源 |
 | review_from_round / review_through_round | bigint NULL | 本次必要性检查范围 |
 | from_round / through_round | bigint NULL | 实际总结范围；可早于本次检查起点 |
@@ -303,7 +303,7 @@ FK(user_id) → users；FK(operation_id,user_id) → memory_operations(id,user_i
 
 PK(id)，UNIQUE(id,user_id)，非空工具身份 UNIQUE(source_run_id,tool_call_id)，非空判断身份 UNIQUE(source_run_id,decision_key)；FK → 同用户/主会话的 Run 与根 agent_threads。历史操作的 context_epoch 只作版本依据，不 FK 到线程当前 epoch，否则清除会被旧记录阻塞；提交服务核对它仍为当前代次。
 
-旧review_only保留decision_key；明确写入及explicit_reanalysis有真实tool_call_id；periodic_summary使用由thread/epoch/检查上界派生的稳定decision_key，不要求工具调用；legacy_import用确定性ID。后台索引覆盖status/lease/next_attempt；periodic_summary的accepted/running/unknown建部分UNIQUE(thread_id,context_epoch)，每主线程同代次最多一个在途周期操作。未知阶段先对账，不因重投再调用同一判断模型。
+新版本review_only使用decision_key；明确写入及explicit_reanalysis有真实tool_call_id；periodic_summary使用由thread/epoch/检查上界派生的稳定decision_key，不要求工具调用。后台索引覆盖status/lease/next_attempt；periodic_summary的accepted/running/unknown建部分UNIQUE(thread_id,context_epoch)，每主线程同代次最多一个在途周期操作。未知阶段先对账，不因重投再调用同一判断模型。
 
 有效轮次由成功根线程user_input所在Run登记一次，与Thread计数同事务。Maintenance按reviewed之后仍有效成功轮次数量判断十轮，不用最大编号相减；在途/失败Run不冒记成功覆盖。固定本批上界后新完成轮次进入后批。
 
@@ -371,6 +371,6 @@ erDiagram
 
 ## 10. 历史、范围与待验证事项
 
-现有18表来自迁移文件，不代表线上库核验；本版23表仅为当前盘点。travel_decisions、travel_query_evidence、travel_query_jobs、travel_operation_receipts、travel_preference_revisions、travel_memory_summaries六张旧表保留历史，新流程不写两套权威。映射见[migration.md](migration.md)。
+旧数据库数据按2026-11-07用户决定不保留，不再将旧表数量或映射作为部署条件。新库初始化见[migration.md](migration.md)。
 
-本轮不删除表、不改001～005；Kafka/Redis和多实例运行已纳入工程设计但尚未接通。需要验证双入口、直接查询免计划、证据授权/时效、Task局部重查、迟到结果、幂等、Job恢复及后台来源竞争。详细实施计划、DDL、产品测试及实现verify未执行。材料检查另见[verification.md](verification.md)及[工程复核记录](../engineering-review.md)。
+新部署不执行001～005旧表迁移；固定Docker依赖已启动，多实例应用链路仍按任务实施。需要验证双入口、直接查询免计划、证据授权/时效、Task局部重查、迟到结果、幂等、Job恢复及后台来源竞争。详细实施计划、DDL、产品测试及实现verify未执行。材料检查另见[verification.md](verification.md)及[工程复核记录](../engineering-review.md)。

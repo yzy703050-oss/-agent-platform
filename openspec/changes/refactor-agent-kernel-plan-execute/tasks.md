@@ -14,13 +14,15 @@
 - [x] 2.1 对照代码/接口/相关基线测试及活跃add-general-web-search核对规格替代关系；结论与保护映射见engineering-review.md，未替搜索变更完成公网验收或归档。
 - [x] 2.2 完成固定Eino完整嵌套checkpoint、退出/定向恢复、连续原调用和SessionValues命名空间隔离实验；Set失败可观测，接法见design 4.1。此项仅为SDK接缝验证，PG联合事务及多进程故障在3.2实施验收。
 - [x] 2.3 补齐原Schema的运行v1及7份样例，定义四MCP工具/可信meta/JCS hash、control授权撤回/预算接口、首版不自动清理结果与幂等映射；43正例/47反例通过，仅为材料检查，真实授权/并发/通用JCS仍须实施验证。
-- [x] 2.4 修正平台/Travel/control归属、本地FK、独立Task/Dispatch、消息序号、关键约束/索引/锁序/角色边界与串行迁移/legacy路由；依据database及engineering-protocol 2.1。具体DDL/GRANT和真实PG测试须在详细计划展开，未执行迁移。
+- [x] 2.4 修正平台/Travel/control归属、本地FK、独立Task/Dispatch、消息序号、关键约束/索引/锁序/角色边界与串行版本迁移；依据database及engineering-protocol 2.1。具体DDL/GRANT和真实PG测试在A02实施；2026-11-07按用户要求取消legacy路由。
 - [ ] 2.5 已记录精确依赖/tag/模型revision并核对SDK隐含重试；Kafka/Redis/Milvus的linux/amd64镜像digest已解析，仍需其余依赖镜像digest、依赖解析/项目编译及完整锁。现有HTTP总尝试3→4的代码适配属于3.1，不在文档复核时提前实施。
-- [ ] 2.6 用户已明确采用Docker并授权准备依赖；2026-11-07补全DockerDesktop4.91安装，WSL3.0.3后端已启动，六个依赖容器全部healthy。主机侧PG认证/临时事务、Redis认证读写、Kafka消息往返及Milvus健康探针通过，见docs/reports/runtime-v1/docker-setup.md。PG业务角色/迁移、公共许可、槽位、连接数和真实模型仍未验收，保持未完成。
+- [ ] 2.6 用户已明确采用Docker并授权准备依赖；2026-11-07补全DockerDesktop4.91安装，WSL3.0.3后端已启动，六个依赖容器全部healthy。主机侧PG认证/临时事务、Redis认证读写、Kafka消息往返及Milvus健康探针通过，见docs/reports/runtime-v1/docker-setup.md。PG业务角色与迁移已在A02验收；公共许可、槽位、连接数和真实模型仍未验收，保持未完成。
 - [x] 2.7 已使用writing-plans交付并自审[详细实施计划](../../../docs/superpowers/plans/2026-11-06-agent-runtime-travel.md)：17项任务展开文件/接口、先失败测试、最小实现、验证命令与完成条件，逐项覆盖63项有效Requirement；技术细节已同步原design/database，未实施产品。
 - [x] 2.8 用户已审阅计划并于2026-11-06选择单代理执行；当前代理逐项实施及整体自审，不派子代理。
 
 本轮技术复核与5包Go基线、66项RAG单元、3项隔离SDK实验的证据及限制见engineering-review.md。用户新增确认：Travel最多8轮、连续2轮无实质进展结束；已同步specs/design，未修改产品。
+
+2026-11-07用户新增决定：旧数据库数据全部不要求保留；取消旧数据导入和历史兼容读取，按全新数据库部署。
 
 ## 3. 实施与交付
 
@@ -29,7 +31,7 @@
 - [ ] 3.1 读取本change的apply指导和详细计划，在一次apply中按适用TDD实施，逐项维护任务证据。
 - [x] 3.1.0 A00 运行配置、有限预算、角色凭据、固定SDK及预检/验证入口已实施；证据见docs/reports/runtime-v1/A00.md。真实环境2.6仍未完成，不将SKIP计为集成通过。
 - [x] 3.1.1 A01 已实现63个正式DTO、严格解码、JCS输入摘要和结果配对；43夹具及全部63协议测试/子测试通过，证据见docs/reports/runtime-v1/A01.md；不代表授权或DB已验证。
-- [ ] 3.1.2 A02 三schema增量迁移、账号权限与legacy读取；完成依据见详细计划对应任务。
+- [x] 3.1.2 A02 全新三schema初始化、增量版本迁移与账号权限隔离已实施；专用13项检查通过，后端550 passed/8 skipped/0 failed，证据见docs/reports/runtime-v1/A02.md。
 - [ ] 3.1.3 A03 原子授权撤回、共享预算与Redis准入；完成依据见详细计划对应任务。
 - [ ] 3.1.4 A04 固定期限的Run接纳、入口Job认领与终态；完成依据见详细计划对应任务。
 - [ ] 3.1.5 A05 无计划共享查询、证据和唯一重试层；完成依据见详细计划对应任务。
@@ -43,7 +45,7 @@
 - [ ] 3.1.13 A13 独立进程装配与双入口真实委派；完成依据见详细计划对应任务。
 - [ ] 3.1.14 A14 跨API SSE、草稿快照与简化交互；完成依据见详细计划对应任务。
 - [ ] 3.1.15 A15 全拓扑故障矩阵与真实RAG同步接缝；完成依据见详细计划对应任务。
-- [ ] 3.1.16 A16 迁移演练、全量审核、规格核对与归档收尾；完成依据见详细计划对应任务。
+- [ ] 3.1.16 A16 新库部署演练、全量审核、规格核对与归档收尾；完成依据见详细计划对应任务。
 - [ ] 3.2 实际验证发布/认领/offset/MCP受理/结果收集崩溃窗口、同key/旧seq、过期/旧epoch、最终failed、三次重试和无主动唤醒恢复。
 - [ ] 3.3 验证双API/双Worker/双Travel、多实例共享额度、Redis丢许可/SSE补读、领域Patch/证据/记忆，以及同步RAG真实接缝。
 - [ ] 3.4 审核任务及代码/测试证据，运行详细计划与项目相关测试/构建，完成所选方式的代码审查及规格核对；无verify工作流时人工核对并如实报告。

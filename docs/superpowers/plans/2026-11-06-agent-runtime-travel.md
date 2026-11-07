@@ -20,11 +20,11 @@
 - Travel最多8个“执行＋重新规划”轮次，连续2轮无实质进展结束；初始Planner不计轮。最终failed/部分结果交父，不自动新Task或换key。
 - 同PG实例，platform/travel各自schema和运行角色；只在本服务建业务FK。control私有表只经白名单函数，授权撤回与业务提交按正式锁序裁决。
 - 一个用户问题一个Run；waiting仍互斥；纯查询无TripPlan。两入口规划同能力，差旅入口不先调用General。
-- 无用户暂停/继续/整轮取消/活动Run补充，页面关闭不停止任务；旧不兼容checkpoint不恢复，旧数据/撤回/来源排除保留。
+- 无用户暂停/继续/整轮取消/活动Run补充，页面关闭不停止任务；旧数据库数据按2026-11-07用户决定不保留；新运行仍保护撤回与来源排除。
 - 计划首版完整创建、后续受控Patch；Task变化全Task Item重查、无关Task保留；selection不升查询版本，refresh增generation。
 - 20,000估算token/80%检查/单次最多3个旧完整轮次；每入口主Thread10轮成功有效对话检查长期记忆，reviewed/summarized分开、空更新允许。
 - RAG不是子Agent，不建RAG Job/Topic/Outbox；API Key不代替用户授权。未知报价为null，酒店地点不等于报价/库存/预订。
-- 保持001～005、用户原文/历史表和冻结报告；不清业务库、不覆盖.env。用户已授权安装Docker所需后端，实际就绪仍须验证，模型缺失不得伪报。
+- 新部署从空库建立新schema，不导入旧数据；001～005代码与冻结报告仅作工程追溯，不覆盖原.env。用户已授权安装Docker所需后端，实际就绪仍须验证，模型缺失不得伪报。
 
 ## Review Focus
 
@@ -32,7 +32,7 @@
 2. Session撤回恰好与Travel提交竞争：只有按guard锁顺序先发生的合法提交可成功，不能只做远端预检。对应A03/A15。
 3. 含emoji键、大整数、显式null和重复键的输入不可因错误JCS或有损JSON合并成相同业务身份。对应A01/A07。
 4. Redis丢许可、失去owner及仍在途HTTP并存时，不能立即放出正式资源额度或退未知预算。对应A03/A05/A15。
-5. public旧历史、旧暂停与新platform/travel同时存在时，保留可读及来源排除，旧执行不复活/不阻塞新会话。对应A02/A16。
+5. 空库初始化及重放时，platform/travel保持隔离，不导入旧任务或依赖public旧表。对应A02/A16。
 
 ## 执行顺序、前置条件与文件职责
 
@@ -41,7 +41,7 @@
 - RAG R00～R07独立实现；A15消费R07已完成HTTP服务/真实检索。RAG R10消费A15一次联合报告；A16在R10后归档，避免环形依赖。
 - 用户已要求Docker部署并授权准备依赖；2026-11-07补全DockerDesktop安装，WSL引擎、六个基础容器及PG/Redis/Kafka基础协议与Milvus健康探针已通过。业务角色/迁移与真实模型尚未验收，A00预检仍是门槛。真实服务可来自显式隔离远端配置。无服务的单元任务可开展；依赖真实服务的任务必须停在未完成，不能SKIP后打勾。
 - 第一次执行先按using-git-worktrees检查native隔离/当前分支；两个仓库分别盘点已跟踪/未跟踪WIP，只迁入任务必需且有清单的基线，保留原工作区。若分支复现必须纳入既有改动，先展示具体清单再确认，不能把无关WIP提交成当前任务。
-- 新运行模型位于internal/model/runtimev1，协议严格解码在runtimeprotocol；platformpg/travelpg只持所属schema连接；control/permit只管授权/调用账/预准入；service/travelplan管正式业务；toolquery管无计划事实；旧service/trip和repository/postgres只用于受控legacy适配，不复制旧编排。
+- 新运行模型位于internal/model/runtimev1，协议严格解码在runtimeprotocol；platformpg/travelpg只持所属schema连接；control/permit只管授权/调用账/预准入；service/travelplan管正式业务；toolquery管无计划事实；旧service/trip和repository/postgres仅为尚未清理旧代码的回归基线，新部署不装配它们。
 - A02 fixture使用独立临时数据库＋真实登录角色，因为session_user不能用SET ROLE假造；REQUIRE_RUNTIME_TESTS=1时缺管理员/服务必须FAIL。清理只针对本次记录的xdb_v1_测试资源，不指向开发库。
 - 每任务遵循红→绿→整理→复测；记录命令、退出码、预期失败根因和实际结果到docs/reports/runtime-v1及原tasks对应行，不另建需求或讨论快照。计划checkbox记录步骤，OpenSpec tasks记录交付状态。
 - 每任务第5步仅提交相对起始基线的本任务增量：检查diff并选择hunk，不盲目git add整个已有修改文件；无法安全分离则保留工作区并列出具体冲突，不提交他人改动。单代理由当前代理自审；仅用户选择多子代理时逐项独立规格/质量评审。
@@ -130,44 +130,42 @@ go test ./internal/runtimeprotocol -count=1
 完成条件：43份原夹具的对应结构、RFC向量及身份/结果负例均通过；领域与运行类型命名区分计划TaskDefinition和专业TravelTask。
 - [x] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A01 正式领域DTO、运行协议与严格JCS`）。
 
-### A02：三schema增量迁移、账号权限与legacy读取
+### A02：全新三schema初始化、版本迁移与账号隔离
 
-**OpenSpec mapping:** 实施子项3.1.2；2.4、3.1；agent-delegation/新请求切换与旧记录保留；identity-and-conversations/用户数据隔离。
-**Depends:** A00真实隔离PG及管理账号可用；A01。
+**OpenSpec mapping:** 实施子项3.1.2；2.4、3.1；agent-delegation/全新数据库部署与新请求切换；identity-and-conversations/用户数据隔离。
+**Depends:** A00真实隔离PG及管理账号可用；A01。用户于2026-11-07取消旧数据库数据保留。
 
 **Files:**
 - Create: backend/cmd/migrate/main.go
 - Create: backend/internal/migration/runner.go
-- Create: backend/internal/migration/backfill.go
+- Create: backend/internal/migration/roles.go
 - Create: backend/migrations/control/001_coordination.up.sql
 - Create: backend/migrations/platform/001_runtime.up.sql
 - Create: backend/migrations/travel/001_runtime.up.sql
 - Create: backend/internal/repository/platformpg/repository.go
 - Create: backend/internal/repository/travelpg/repository.go
-- Create: backend/internal/legacyreader/reader.go
 - Create: backend/tests/runtimeintegration/fixture_test.go
 - Create: backend/tests/runtimeintegration/migration_test.go
 - Modify: backend/migrations/migrations.go
+- Modify: scripts/verify-runtime.ps1
+- Modify: .github/workflows/ci.yml
+- Modify: .gitattributes
 
 **Interfaces:**
-- Consumes: A01 DTO；原database/README第0节和migration.md的归属/唯一键/扫描索引/锁序。
-- Produces: migration.Apply(ctx context.Context, pool *pgxpool.Pool, component string) error；migration.ImportLegacy(ctx,pool,manifestPath string) (ImportReport,error)；platformpg.New(pool)、travelpg.New(pool)。测试newRuntimeFixture(t *testing.T)创建专用临时数据库及真实登录角色，返回Admin/Platform/Travel连接；只有已核验xdb_v1_前缀与记录OID的测试资源允许清理。
+- migration.Provision(ctx,pool,prefix,passwords)仅由管理员显式准备专用角色；Principals不含密码。
+- migration.Apply(ctx,pool,component)仅由对应组件迁移登录执行；control→platform→travel串行、摘要校验、可重放；platformpg.New(pool)、travelpg.New(pool)划定本地仓储。
+- newRuntimeFixture(t)创建xdb_v1_专用临时数据库与真实角色；清理必须核对前缀和记录OID。新部署不调用旧001～005或任何legacy导入/读取接口。
 
-- [ ] **Step 1 — 先写有意义的失败测试：** TestRuntimeMigrationIdempotent；TestSchemaRolesDenyCrossBusinessAccess；TestLegacyImportPreservesFacts。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
-```go
-if second.ImportedRows != 0 { t.Fatal("backfill duplicated facts") }
-if travelCanReadPlatform || platformCanWriteTravel { t.Fatal("schema boundary bypass") }
-if before.LegacyPayloadHash != after.LegacyPayloadHash { t.Fatal("legacy rewritten") }
-```
-- [ ] **Step 2 — 运行并确认红灯根因：**
+- [x] **Step 1 — 先写有意义的失败测试：** TestRuntimeMigrationIdempotent、TestSchemaRolesDenyCrossBusinessAccess、TestRuntimeMigrationConstraints、TestRuntimeMigrationFreshDatabase、TestRuntimeMigrationRejectsChangedHistory。覆盖新结构、独立登录权限、同服务复合归属、空库无旧数据导入与已执行SQL摘要保护。
+- [x] **Step 2 — 运行并确认红灯根因：**
 ```powershell
-go test ./tests/runtimeintegration -run 'Test(RuntimeMigration|SchemaRoles|LegacyImport)' -count=1 -v
+go test ./tests/runtimeintegration -run 'Test(RuntimeMigration|SchemaRoles)' -count=1 -v
 ```
-预期：FAIL，目标schema/版本表/角色/受控历史适配缺失，或旧Migrate不能建立目标约束；缺隔离PG须明确失败而非SKIP。
-- [ ] **Step 3 — 最小实现：** 不改001～005。control→platform→travel分别迁移owner/版本表串行DDL；创建私有control guards/scopes/resource_limits/outbound_calls，platform入口Run/Job/checkpoints/Delegation/Dispatch/Outbox/消息/工具/记忆，travel tasks/threads/messages/checkpoints/工具/计划/actions。FK仅同schema，跨业务用原ID/版本/hash引用。活动Run唯一、同caller/subject/request_key唯一、同计划线程活动Task唯一、dispatch资格及Outbox键唯一；lease/state/counter/checkpoint字段CHECK与到期扫描索引按正式设计落实。运行角色无CREATE/对方业务权限，固定search_path；legacy reader只读必要列。导入保留ID/来源/撤回，旧暂停收尾不恢复，旧计划不造可执行Travel线程。Admin建库/建角色与迁移账号分开，不拿普通运行账号执行DDL。 远端证据恢复缓存为本服务evidence_imports，唯一origin_service/origin_id/origin_revision并固定content_hash/授权来源/原payload，不伪造本地tool_call或跨schema FK。
-- [ ] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
-完成条件：全新与含旧夹具数据库可重放，权限用不同真实session_user连接证明；无跨schema业务FK；旧数据哈希不变；运行进程无需DDL权限。
-- [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A02 三schema增量迁移、账号权限与legacy读取`）。
+预期：目标schema/角色/约束尚未实现而失败；缺隔离PG明确失败，不能SKIP。
+- [x] **Step 3 — 最小实现：** 独立NOLOGIN owner/迁移登录/运行登录，固定search_path和最小schema权限；三个服务本地结构、唯一键、FK、租约/状态/计数/断点CHECK及扫描索引；control私有guard/scope/resource_limits/outbound_calls；接收方evidence_imports固定原身份、hash、授权来源和原payload。跨服务不建业务FK，不创建旧数据兼容字段、旧历史读取账号或导入程序。
+- [x] **Step 4 — 使用Step 2同一命令复测并整理：** 全新初始化及重复迁移通过；真实session_user证明权限；完整后端测试、vet、模块和构建通过，报告明确可用依赖及跳过项。
+完成条件：新库可以初始化和安全重放，运行账号无需DDL权限；没有跨schema业务FK，也没有旧数据库运行状态导入。
+- [x] **Step 5 — 审查与记录：** 当前代理自审，维护任务和报告，仅提交本任务增量；建议提交消息`feat(runtime): initialize isolated schemas and migration roles`。
 
 ### A03：原子授权撤回、共享预算与Redis准入
 
@@ -672,7 +670,7 @@ pwsh -File ../scripts/runtime-fault-matrix.ps1 -Profile $runtimeProfile -Case Al
 完成条件：矩阵必做项无SKIP、逐项有真实状态与独立调用计数；失败原始输出保留，模拟供应方与真实依赖范围清晰；完成原3.2/3.3及RAG联合接入证据。
 - [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A15 全拓扑故障矩阵与真实RAG同步接缝`）。
 
-### A16：迁移演练、全量审核、规格核对与归档收尾
+### A16：新库部署演练、全量审核、规格核对与归档收尾
 
 **OpenSpec mapping:** 实施子项3.1.16；3.4、3.5；全部原规格及两计划完成条件。
 **Depends:** A00～A15、RAG R09/R10；用户选择的执行方式持续有效。
@@ -687,13 +685,13 @@ pwsh -File ../scripts/runtime-fault-matrix.ps1 -Profile $runtimeProfile -Case Al
 - Modify: openspec/changes/refactor-agent-kernel-plan-execute/tasks.md
 
 **Interfaces:**
-- Consumes: 所有任务已验证的代码/测试/记录；A02 legacy兼容、A15联合报告、R10 RAG最终报告；活跃搜索变更保留未完成状态。
+- Consumes: 所有任务已验证的代码/测试/记录；A02全新数据库初始化、A15联合报告、R10 RAG最终报告；活跃搜索变更保留未完成状态。
 - Produces: verify-runtime.ps1 -Case All -RequireCases全量报告；runbook精确启动/迁移/回退/故障复现。OpenSpec任务证据逐项映射，verify工作流存在时运行，否则人工矩阵；archive后本分支包含同步规格与归档文件。
 
-- [ ] **Step 1 — 先写有意义的失败测试：** TestCutoverOldPausedDoesNotOccupyConversation；TestLegacyDataReadableAndNewFormatNotExecutedByOldRuntime；TestUpgradeReplayAndReadOnlyRollback。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
+- [ ] **Step 1 — 先写有意义的失败测试：** TestFreshDeploymentHasNoLegacyTasks；TestFreshDatabaseReplay；TestRollbackPreservesNewRuntimeFacts。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
 ```go
-if legacyCheckpointResumed || legacyPausedBlocksNewRun { t.Fatal("unsafe legacy cutover") }
-if oldPayloadHash != retainedPayloadHash || newFactsDeletedForRollback { t.Fatal("destructive rollback") }
+if importedLegacyTasks != 0 { t.Fatal("unexpected legacy task import") }
+if newFactsDeletedForRollback { t.Fatal("destructive rollback") }
 if unverifiedTaskCheckedDone || failedRequiredTestArchived { t.Fatal("false completion") }
 ```
 - [ ] **Step 2 — 运行并确认红灯根因：**
@@ -708,11 +706,11 @@ npm --prefix ../frontend run test -- --run
 if ($LASTEXITCODE -ne 0) { throw '上一项验证失败' }
 npm --prefix ../frontend run build
 ```
-预期：FAIL，先写切换/回退行为回归，旧流程会恢复旧checkpoint或无法按新格式只读；全量审核阶段不人为制造全量失败来冒充TDD。
-- [ ] **Step 3 — 最小实现：** 隔离库演练新建、含旧数据升级、重复backfill、非终态收尾、原始历史/偏好撤回保留及只读回退；清理旧执行/启动迁移/页面控制路径但不删历史表。按选择的单代理自审或多代理规格＋质量复审完成代码审查；Linux Go1.26.x执行race，Windows未提供race环境时不假称通过。真实模型/供应方冒烟使用显式live profile及有限预算，未执行如实列出，不能让脚本模型冒充质量证据。读取OpenSpec verify/归档指导并核对CLI能力，逐条需求/场景/任务/测试证据，重要偏差修复重验。只在两change完成各自必要条件后分别archive，尊重RAG→Agent引用依赖，不自动归档未完成搜索变更。最后使用finishing-a-development-branch给出合并/PR/保留选择，按用户选择操作。
+预期：FAIL，先写切换/回退行为回归，空库装配、版本检查或新事实安全回退尚未满足；全量审核阶段不人为制造全量失败来冒充TDD。
+- [ ] **Step 3 — 最小实现：** 隔离库演练全新部署、重复初始化、独立迁移与新事实安全回退；停止旧执行者，清理旧启动迁移/页面控制路径，不导入旧库。按选择的单代理自审或多代理规格＋质量复审完成代码审查；Linux Go1.26.x执行race，Windows未提供race环境时不假称通过。真实模型/供应方冒烟使用显式live profile及有限预算，未执行如实列出，不能让脚本模型冒充质量证据。读取OpenSpec verify/归档指导并核对CLI能力，逐条需求/场景/任务/测试证据，重要偏差修复重验。只在两change完成各自必要条件后分别archive，尊重RAG→Agent引用依赖，不自动归档未完成搜索变更。最后使用finishing-a-development-branch给出合并/PR/保留选择，按用户选择操作。
 - [ ] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
 完成条件：任务完成证据、相关全量测试/构建、代码审查与规格一致性全部满足；未完成项不归档。两仓库各自分支/提交和归档位置可追溯，用户决定最终集成方式。
-- [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A16 迁移演练、全量审核、规格核对与归档收尾`）。
+- [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A16 新库部署演练、全量审核、规格核对与归档收尾`）。
 
 ## 规格覆盖与计划自审
 
@@ -724,7 +722,7 @@ npm --prefix ../frontend run build
 | [agent-delegation](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/agent-delegation/spec.md) / 子Agent提交的持久延迟重试 | A09 |
 | [agent-delegation](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/agent-delegation/spec.md) / 双入口共享查询与按需规划 | A05、A13 |
 | [agent-delegation](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/agent-delegation/spec.md) / 正式计划的只读与修改边界 | A06、A13 |
-| [agent-delegation](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/agent-delegation/spec.md) / 新请求切换与旧记录保留 | A02、A16 |
+| [agent-delegation](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/agent-delegation/spec.md) / 全新数据库部署与新请求切换 | A02、A16 |
 | [agent-delegation](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/agent-delegation/spec.md) / 会话信息与业务状态延续 | A12 |
 | [agent-delegation](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/agent-delegation/spec.md) / 差旅子线程上下文延续 | A07、A12 |
 | [agent-delegation](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/agent-delegation/spec.md) / 计划与差旅子线程对应 | A07、A12 |
@@ -784,7 +782,7 @@ npm --prefix ../frontend run build
 | [tripplan-lifecycle](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/tripplan-lifecycle/spec.md) / 版本化结果复用 | A05、A06 |
 | [tripplan-lifecycle](../../../openspec/changes/refactor-agent-kernel-plan-execute/specs/tripplan-lifecycle/spec.md) / 可追溯修订与原子提交 | A06 |
 
-自审结果：63项有效Requirement均有映射；25项REMOVED要求不重新实施，其历史数据/回归保护由A02/A16负责。
+自审结果：63项有效Requirement均有映射；25项REMOVED要求不重新实施，旧数据库保留已由用户取消；A02/A16负责新库初始化及新版本回归保护。
 
 - 已核对所有任务都有文件、消费/产出接口、命名测试及关键断言、正确红灯原因、最小实现、验证命令和交付门槛；计划初次交付时实施checkbox均未开始；当前状态见各步骤及OpenSpec tasks。
 - 已核对跨任务类型归属与方法名；A10先定义ContextReader、A12实现，A05统一模型/工具调用计量及证据导入，避免向后依赖造成接口空洞。

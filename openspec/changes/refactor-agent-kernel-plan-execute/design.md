@@ -7,7 +7,7 @@
 ## Goals / Non-Goals
 
 - 保留工程底座，按双入口、共享查询和独立专业服务的边界替换旧控制流程。
-- 建立可靠异步交接、版本化规划、证据复用和有界恢复；原始用户及业务数据继续保留。
+- 建立可靠异步交接、版本化规划、证据复用和有界恢复；新版本产生的原始用户及业务数据按规格保存；旧数据库按2026-11-07用户决定不保留。
 - 本轮仅整理设计，不改产品代码、执行DDL或安装服务；不升级Eino。
 - 不提供活动Run补充、用户暂停/继续/整轮取消；页面离线不停止执行。业务安排的取消仍通过受控计划Patch处理。
 - 不新增动态Agent发布平台、预订/支付能力或每个内部角色的微服务。
@@ -86,7 +86,7 @@ General与差旅助手保留两个会话入口，共用身份、Run、记忆及�
 
 技术复核采用受限control schema函数承担同步授权guard、scope及唯一调用账，白名单函数基于数据库登录角色限定服务身份；Session/Run/上下文变化与其guard本地同事务，业务提交持guard锁裁决撤回竞争。没有跨平台/Travel业务联合事务或直接表访问。具体字段、接口、角色及锁序见[公共协议2.1](engineering-protocol.md#21-公共授权与调用账的受控边界)。部署需显式给有限预算上界，不在实现中猜付费额度。
 
-实施细化：JCS使用已核对源码/API的`github.com/gowebpki/jcs v1.0.1`之`Transform([]byte)`，在其前增加重复键、非法Unicode、非有限/不安全数及工具Schema检查；标准库JSON排序不能替代JCS。该依赖尚未加入go.mod或运行项目编译，必须在实施计划的依赖与RFC向量测试中验证；来源为[固定版本源码](https://github.com/gowebpki/jcs/tree/v1.0.1)。新增运行代码使用独立platformpg/travelpg消费方仓储，现有postgres保持legacy读取/迁移基线，避免同一个Repository凭据同时写两个业务schema。
+实施细化：JCS使用已核对源码/API的`github.com/gowebpki/jcs v1.0.1`之`Transform([]byte)`，在其前增加重复键、非法Unicode、非有限/不安全数及工具Schema检查；标准库JSON排序不能替代JCS。该依赖尚未加入go.mod或运行项目编译，必须在实施计划的依赖与RFC向量测试中验证；来源为[固定版本源码](https://github.com/gowebpki/jcs/tree/v1.0.1)。新增运行代码使用独立platformpg/travelpg消费方仓储，现有postgres仅为尚未替换旧代码的回归基线，新部署不使用它读取旧数据库，避免同一个Repository凭据同时写两个业务schema。
 
 Cookie/PG Session/CSRF沿用，首版不缓存认证正结果。Run固定原Session，撤销/过期后阻止新有效推进；跨服务核验与撤回传播必须落实，API Key不能代替用户执行授权。Maintenance后台记忆有独立服务授权、操作、租约和预算。
 
@@ -100,7 +100,7 @@ Run正式事件在PG按seq持久化，与状态/结果同事务。Redis只提示
 
 平台/Travel通过HTTP MCP同步取得完整证据；RAG不作子Agent，不建Job/请求结果Topic或Outbox。调用方保持running、续租和占槽，已有证据优先复用，未存只读查询允许预算内必要重算。检索、索引、管理、时间感知及评测的正式设计在[RAG change](../refactor-rag-mcp-retrieval-service/design.md)。
 
-保留001～005迁移及旧用户/消息/计划/证据/回执；旧业务数据的保留与讨论稿清理无关。旧控制流程、提示语义和不兼容checkpoint不能直接进入新流程。升级、必要转换、旧数据显示、非终态收尾和回退先在隔离库演练；不改写已发布迁移，不用有损down migration制造兼容。
+用户于2026-11-07确认从空库部署，旧数据库数据不要求保留或兼容。新部署不执行001～005，不导入旧身份、业务历史、记忆或断点；启用新链路前停止旧执行者。原迁移文件仅用于剩余旧代码的工程回归。新版本产生的数据继续按当前规格审计、隔离和恢复。
 
 ### 7. 技术复核与实施进入条件
 
@@ -129,5 +129,7 @@ Run正式事件在PG按seq持久化，与状态/结果同事务。Redis只提示
 技术复核 → writing-plans及执行方式选择 → 单次apply/TDD → 任务证据/真实测试/代码审查/规格核对 → archive及分支收尾。当前CLI无独立verify工作流时明确报告并人工核对，strict validate仅检查材料，不能替代产品验收。活跃add-general-web-search的未完成事项仍保留，不因本次整理覆盖。
 
 ### Docker部署实施决定
+
+A02实现细化：管理员通过独立`migration.Provision`入口创建带前缀的专用角色与schema；三个schema owner均NOLOGIN，各自迁移账号仅可SET ROLE到本owner，运行账号不继承owner。迁移账号可只读前序组件的版本元数据，用于验证control→platform→travel顺序，不获得对方业务表权限。`migration.Apply`拒绝管理员或运行账号冒充迁移账号，校验已应用SQL摘要并串行提交。按2026-11-07用户最新决定取消legacy导入、历史读取账号和兼容状态。
 
 用户于2026-11-06要求代理准备数据库/Redis等依赖，并明确使用Docker部署。原先不自动安装服务的边界已由这次明确授权覆盖；仍保护现有业务库和原配置。依赖使用隔离Compose，PG/Redis/Kafka/Milvus及etcd/MinIO固定镜像；后续A13/A14将API/Worker/Travel/Maintenance/前端接入应用Compose。迁移保持独立串行入口，不让API容器启动时执行DDL。2026-11-07补全DockerDesktop4.91安装，WSL3.0.3后端已运行，六个基础容器健康且基础协议探针通过；业务角色/迁移、授权预算及真实模型仍按后续任务验收。操作说明见[Docker运行说明](../../../deploy/local/README.runtime-v1.md)。

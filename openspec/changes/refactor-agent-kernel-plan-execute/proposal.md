@@ -20,13 +20,13 @@
 - 首次创建覆盖当前请求的完整或最小计划，后续提交按稳定 ID 的 Patch，保存完整快照与修改记录；Task 保存查询定义，Item 仅表示查询及 needs_query 状态，被修改 Task 重新查询，其他 Task 的有效结果保留。
 - **BREAKING** 要求按政策高于用户、用户高于记忆供模型规划与排序，不再按 hard/soft 标签筛选候选；继续保留结构、权限、版本、引用与真实结果校验。
 - 演进执行项和证据存储；保留事务、权限、回执、恢复及查询客户端能力，替换旧 Main/规划总结的控制流程。
-- 用户最新确认省略独立travel_decisions。travel_actions保存受理操作的结构化参数、必要依据和可靠回执，revisions保存实际变更，run_events保存必要拒绝/错误；旧决策表保留历史，新流程停写。
+- 用户最新确认省略独立travel_decisions。travel_actions保存受理操作的结构化参数、必要依据和可靠回执，revisions保存实际变更，run_events保存必要拒绝/错误；新流程不创建独立旧决策表，也不导入旧数据库记录。
 - 数据按平台与Travel划分所有权，各自保存任务、执行现场、调用账和结果；平台保存Delegation、事务Outbox、持久分发操作及远端任务映射。首版共用PG实例、不同schema及数据权限，无跨服务业务联合事务，不固定表数。Stop/Leg/Task/Item与业务回执设计保留，物理映射需复核。
 - **BREAKING** 长期记忆按每个入口主 Thread 的 10 轮新增有效对话，由 Maintenance 进行程序检查及模型必要性判断，有必要才后台总结；允许空更新，检查/总结覆盖分开。明确记忆工具仍由入口模型调用，不等阈值、不做关键词检测。
 - **BREAKING** 子Agent调用分发采用PG事务Outbox与Kafka，Dispatch Worker持久认领后经MCP提交，Travel本地任务通过自身执行池/租约运行，平台可靠收集后续跑。不恢复旧entry/travel双Topic或同库父子Job事务，也不重复直接向Travel发Kafka执行消息。Travel→RAG仍同步MCP工具，无RAG任务/结果MQ。
 - 执行发布/接纳、子任务新调用/提交及结果回填均校验当前状态、deadline、授权和代次。全局deadline到期终结且不重试；用户后续将局部可重试失败改为最多三次重试、四次总尝试，累计次数不因重投/恢复清零。Outbox首版只后台轮询、不实现主动唤醒，PG not_before到期投递，不默认增加Kafka延迟Topic或Redis ZSET调度。
 - 沿用 Cookie/PG Session/CSRF、SSE补读、providerhttp及Redis缓存/共享准入方向；适配多实例、跨服务授权、预算和结果归属。执行可靠性见mq-mcp-dispatch-protocol，公共设施见engineering-protocol。
-- 旧入口、旧计划和旧断点的迁移策略在实施前确认；不清空历史、不预先承诺无损兼容。
+- 用户于2026-11-07明确旧数据库数据均可舍弃；采用全新数据库结构，不实施旧账号/消息/计划/记忆/断点导入与兼容读取。
 
 ## Capabilities
 
@@ -50,10 +50,10 @@
 
 ## Impact
 
-涉及 `agent/agents/general`、`agent/agents/travel`、`agenttools/travel`、`service/trip`、领域模型、PostgreSQL Repository、后续迁移、bootstrap 及相关测试。外层 contracts/manager/einoruntime 保留职责并验证嵌套适配；移除用户暂停/继续/整轮取消接口与控件，页面租约不再触发执行暂停，不实现活动消息注入或取消工具。HTTP/SSE 查询、认证及来源保护保留，不整体重写供应方客户端。旧暂停/取消历史继续只读保留，切换需明确解除旧非终态占用，不在新流程复活旧断点。
+涉及 `agent/agents/general`、`agent/agents/travel`、`agenttools/travel`、`service/trip`、领域模型、PostgreSQL Repository、后续迁移、bootstrap 及相关测试。外层 contracts/manager/einoruntime 保留职责并验证嵌套适配；移除用户暂停/继续/整轮取消接口与控件，页面租约不再触发执行暂停，不实现活动消息注入或取消工具。HTTP/SSE 查询、认证及来源保护保留，不整体重写供应方客户端。部署前停止旧执行者，新库不导入旧任务或旧断点。
 
 项目固定 Eino `v0.9.0-beta.1`，本提案不自动升级。现有 `add-general-web-search` 变更仍未归档，集成时需核对重叠文件和能力，不覆盖它的未完成事项。
 
 ## Non-goals
 
-不重建平台或仓库，不按角色拆微服务，不做动态Agent发布、预订支付或通用协作引擎。Kafka用于本次子Agent调用分发，独立事件总线另行设计；不强制外部MCP服务理解Kafka，不默认叠加ZSET与延迟Topic。旧文档/数据保留，本轮不进入产品实施。
+不重建平台或仓库，不按角色拆微服务，不做动态Agent发布、预订支付或通用协作引擎。Kafka用于本次子Agent调用分发，独立事件总线另行设计；不强制外部MCP服务理解Kafka，不默认叠加ZSET与延迟Topic。旧代码和冻结契约仅作工程追溯，新部署不要求保留旧数据库数据；本变更已进入实施。
