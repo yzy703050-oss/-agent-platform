@@ -162,6 +162,10 @@ func canonicalInput(raw []byte) ([]byte, error) {
 	return canonical, nil
 }
 
+// CanonicalJSON applies the same unambiguous, lossless JSON boundary to local
+// immutable records whose payload is not a separate public schema definition.
+func CanonicalJSON(raw []byte) ([]byte, error) { return canonicalInput(raw) }
+
 func safeValue(raw []byte) (any, error) {
 	if len(raw) > wireLimit || !utf8.Valid(raw) || !validEscapedUnicode(raw) {
 		return nil, errJSON

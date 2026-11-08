@@ -281,30 +281,36 @@ A04验收（2026-11-08）：专项23项通过；全后端599 passed/8 live skipp
 - Create: backend/internal/evidence/reader.go
 - Create: backend/internal/repository/platformpg/evidence_imports.go
 - Create: backend/internal/repository/travelpg/evidence_imports.go
+- Create: backend/internal/repository/runtimepg/（固定服务分支的公共事务实现，不接受任意schema）
+- Create: backend/migrations/control/005_call_context.up.sql、backend/migrations/platform/004_query_outputs.up.sql、backend/migrations/travel/002_query_outputs.up.sql
+- Modify: backend/internal/repository/platformpg/runs.go、backend/internal/control/types.go（原限额受控投影与物理调用指纹）
+- Modify: backend/internal/runtimeprotocol/codec.go（复用原安全解析的通用JCS入口）、scripts/verify-runtime.ps1（完成后注册专项）
 
 **Interfaces:**
 - Consumes: A03每次实际尝试登记/资源许可，A04有效ExecRef；既有train/hotel/weather/websearch客户端；RAG四工具v1/远端HTTP参数。
 - Produces: toolquery.Service.Execute(ctx context.Context, ref runtimev1.ExecRef, in QueryInput) (runtimev1.SharedToolEvidenceRecord,error)；FindSaved(ctx context.Context,ref runtimev1.ExecRef,callKey string) (record,bool,error)。QueryInput{CallKey,Domain,Mode,Provider string;Arguments json.RawMessage;SourceRefs []runtimev1.SourceRef;ForceRefresh bool}；QueryStore由platformpg/travelpg各自实现。mcp.HTTPClient.CallEvidence(ctx context.Context,callKey string,query PolicyQuery) (EvidenceResponse,error)；QueryInput→供应方参数适配保持注册Schema，PolicyQuery携query/逻辑库/top_k/可选time_context。 mcp.EvidenceResponse{Evidence model.PolicyEvidence;Execution,Raw json.RawMessage}保存可选执行追踪与完整原响应，不能因legacy解码丢版本/降级信息。runtimeports.AttemptStore.Reserve(ctx context.Context,ref runtimev1.ExecRef,in control.AttemptInput) (control.Attempt,error)、Settle(ctx context.Context,ref runtimev1.ExecRef,in control.Settlement) error、FindModelOutput(ctx context.Context,ref runtimev1.ExecRef,callKey string) (json.RawMessage,bool,error)、SaveModelOutput(ctx context.Context,ref runtimev1.ExecRef,attemptID,callKey string,output json.RawMessage) error由各本地仓储实现，准入同时核验自己的Job/Task epoch。runtimeports.WithCall(ctx context.Context,ref runtimev1.ExecRef,logicalKey string,attemptNo int) context.Context只供程序注入。llm.NewMetered(base em.ToolCallingChatModel,store runtimeports.AttemptStore,permits permit.Service,resourceKeys []string) em.ToolCallingChatModel包装Generate/Stream/WithTools，完整模型输出先在所属messages中持久化，再返回上层；已存输出按原logical key和指纹复用。 PolicyQuery{Query,Collection,QueryType string;TopK int;TimeContext json.RawMessage}。evidence.Locator{OriginService,OriginID,ContentHash string;OriginRevision int64}与View{ReferenceID string;ResultRevision int64;Record runtimev1.SharedToolEvidenceRecord}在evidence/reader.go定义；Reader.Resolve(ctx context.Context,ref runtimev1.ExecRef,evidenceID string,revision int64) (View,error)，统一读本地事实或已验证imports，selection另校验candidate_id。
 
-- [ ] **Step 1 — 先写有意义的失败测试：** TestDirectQueryHasNoPlan；TestRetryFourAttemptsAcrossRestart；TestSavedEvidenceNoRecompute；TestMCPHTTPResultLimitAndScope；TestMeteredModelPreservesWithToolsAndSavedOutput；TestCrossServiceEvidenceIdentityAndRevokedSource。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
+- [x] **Step 1 — 先写有意义的失败测试：** TestDirectQueryHasNoPlan；TestRetryFourAttemptsAcrossRestart；TestSavedEvidenceNoRecompute；TestMCPHTTPResultLimitAndScope；TestMeteredModelPreservesWithToolsAndSavedOutput；TestCrossServiceEvidenceIdentityAndRevokedSource。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
 ```go
 if plans != 0 || delegations != 0 { t.Fatal("direct query created plan") }
 if actualAttempts != 4 || logicalCalls != 1 { t.Fatal("retry multiplied/reset") }
 if savedEvidence != replayedEvidence || extraRequests != 0 { t.Fatal("recomputed saved result") }
 if hotel.Price != nil || hotel.Booked { t.Fatal("invented price/booking") }
 ```
-- [ ] **Step 2 — 运行并确认红灯根因：**
+- [x] **Step 2 — 运行并确认红灯根因：**
 ```powershell
 go test ./internal/toolquery ./internal/client/providerhttp ./internal/client/mcp ./internal/client/llm -count=1
 if ($LASTEXITCODE -ne 0) { throw '上一项验证失败' }
 go test ./tests/runtimeintegration -run 'Test(DirectQuery|RetryFour|SavedEvidence|MCPHTTP|CrossServiceEvidence)' -count=1 -v
 ```
 预期：FAIL，旧查询依赖TripPlan、HTTP只有3次总尝试、未持久化attempt或只支持stdio；故意断在结果提交前/后区分可重算与应复用。
-- [ ] **Step 3 — 最小实现：** 查询事实由实际所属schema持有，tool_call/evidence同事务成功；空成功也保存证据，权限/模式/输入/新鲜度核验后复用。所有网络在事务外；本地timer实现U(0,1/2/4秒)，持久化次数和next_retry_at，SDK隐藏重试关闭。providerhttp可供仅一次物理发送，由本服务拥有重试计数，禁止两层循环。网页继续零自动重试。HTTP MCP池按服务身份复用、禁独立SSE/默认重连，完整响应上限1,000,000字节包括SDK外壳，超限明确失败。GET /internal/v1/evidence/:id/versions/:rev验证服务凭据＋scope并返回不可变body/hash；调用方校验后持久传输快照，不改原事实。模型/辅助模型同样通过Metered包装核验并登记，每次实际调用受原Run预算/账户共享许可约束；WithTools返回仍被包装。每个阶段/轮次的稳定callKey由执行记录派生，不用随机transport ID；完整输出及调用关联先保存到本地messages再返回，崩溃后优先复用。新runtime模型客户端每次只发一次HTTP，由上层累计四次策略负责；不叠加旧NewTravel内部retry。流式已显示后失败只保存草稿/失败，不重开流，其Runner断言放A08。 远端引用为remote:<注册service slug>:<SHA256原id UTF-8>，slug≤32使引用≤160字符；表存完整原身份/原payload/hash，命名空间冲突拒绝，candidate_id不变。导入只存evidence_imports，正文权威在原服务；首次委派由可信caller/scope将原平台引用映射给专业上下文。已存快照仍检查当前授权/来源撤回/新鲜度，不伪造本地供应方调用。
+- [x] **Step 3 — 最小实现：** 查询事实由实际所属schema持有，tool_call/evidence同事务成功；空成功也保存证据，权限/模式/输入/新鲜度核验后复用。所有网络在事务外；本地timer实现U(0,1/2/4秒)，持久化次数和next_retry_at，SDK隐藏重试关闭。providerhttp可供仅一次物理发送，由本服务拥有重试计数，禁止两层循环。网页继续零自动重试。HTTP MCP池按服务身份复用、禁独立SSE/默认重连，完整响应上限1,000,000字节包括SDK外壳，超限明确失败。GET /internal/v1/evidence/:id/versions/:rev验证服务凭据＋scope并返回不可变body/hash；调用方校验后持久传输快照，不改原事实。模型/辅助模型同样通过Metered包装核验并登记，每次实际调用受原Run预算/账户共享许可约束；WithTools返回仍被包装。每个阶段/轮次的稳定callKey由执行记录派生，不用随机transport ID；完整输出及调用关联先保存到本地messages再返回，崩溃后优先复用。新runtime模型客户端每次只发一次HTTP，由上层累计四次策略负责；不叠加旧NewTravel内部retry。流式已显示后失败只保存草稿/失败，不重开流，其Runner断言放A08。 远端引用为remote:<注册service slug>:<SHA256原id UTF-8>，slug≤32使引用≤160字符；表存完整原身份/原payload/hash，命名空间冲突拒绝，candidate_id不变。导入只存evidence_imports，正文权威在原服务；首次委派由可信caller/scope将原平台引用映射给专业上下文。已存快照仍检查当前授权/来源撤回/新鲜度，不伪造本地供应方调用。
 模型预算预留必须使用已验证的模型输入硬上限与实际设置的输出max_tokens；20,000上下文估算不能充当费用硬上界。供应方用量未知时保留预留，不退款或重置尝试；辅助模型与WithTools派生实例同样计量。
-- [ ] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
+- [x] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
 完成条件：两入口和Executor都能复用接口，纯查询无计划；真实尝试由独立HTTP接收计数核对，已存结果不重算，权限/未知价格/响应大小边界通过。
-- [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A05 无计划共享查询、证据和唯一重试层`）。
+- [x] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A05 无计划共享查询、证据和唯一重试层`）。
+
+验收记录：2026-11-08 A05专项42项通过；全后端635 passed/8 live skipped/0 failed；真实隔离PG/Redis及本地HTTP接收端、Docker11迁移应用/重放与权限/摘要审计通过。单代理自审及规格映射见[报告](../../reports/runtime-v1/A05.md)。新运行边界尚待A13装配，真实模型仍未验收。
 
 ### A06：正式计划、原子Patch及Task局部失效
 

@@ -6,7 +6,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -18,8 +20,77 @@ func (f attemptTransport) RoundTrip(r *http.Request) (*http.Response, error) { r
 type attemptDoer func(*http.Request) (*http.Response, error)
 
 func (f attemptDoer) Do(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestRuntimeStatusRetryDelayAndTransportUnwrap(t *testing.T) {
+	t.Run("status", func(t *testing.T) {
+		doer := SingleAttempt(attemptDoer(func(*http.Request) (*http.Response, error) {
+			r := testResponse(429)
+			r.Header.Set("Retry-After", "2")
+			return r, nil
+		}))
+		req, _ := http.NewRequest("GET", "https://example.test", nil)
+		var out any
+		err := Decode(context.Background(), doer, req, &out)
+		var after interface{ RetryDelay() time.Duration }
+		if !errors.As(err, &after) || after.RetryDelay() != 2*time.Second {
+			t.Fatalf("retry delay discarded: %v", err)
+		}
+	})
+	t.Run("nested_transport", func(t *testing.T) {
+		var count atomic.Int32
+		original := &http.Client{Transport: NewResilientTransport(attemptTransport(func(*http.Request) (*http.Response, error) { count.Add(1); return testResponse(503), nil }), ResilienceOptions{Sleep: func(context.Context, time.Duration) error { return nil }})}
+		req, _ := http.NewRequest("GET", "https://example.test", nil)
+		response, err := SingleHTTPClient(original).Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if count.Load() != 1 {
+			t.Fatalf("runtime retained nested retry transport: %d", count.Load())
+		}
+	})
+}
 func testResponse(status int) *http.Response {
 	return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{}`))}
+}
+
+func TestResilienceFourPhysicalAttempts(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	var windows []time.Duration
+	client := NewResilient(server.Client(), ResilienceOptions{Sleep: func(context.Context, time.Duration) error { return nil }, Jitter: func(window time.Duration) time.Duration { windows = append(windows, window); return 0 }})
+	req, _ := http.NewRequest(http.MethodGet, server.URL, nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if calls.Load() != 4 || len(windows) != 3 || windows[0] != time.Second || windows[1] != 2*time.Second || windows[2] != 4*time.Second {
+		t.Fatalf("physical attempts=%d backoff=%v", calls.Load(), windows)
+	}
+}
+
+func TestSingleAttemptBypassesDefaultRetry(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	client := Default(SingleAttempt(server.Client()))
+	req, _ := http.NewRequest(http.MethodGet, server.URL, nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if calls.Load() != 1 {
+		t.Fatalf("runtime physical attempt was retried %d times", calls.Load())
+	}
 }
 
 func TestTravelProviderResilience(t *testing.T) {
@@ -56,7 +127,7 @@ func TestTravelProviderResilience(t *testing.T) {
 			resp.Body.Close()
 			expected := 1
 			if status == 429 || status == 500 || status == 502 || status == 503 || status == 504 {
-				expected = 3
+				expected = 4
 			}
 			if calls != expected {
 				t.Errorf("status %d calls=%d want %d", status, calls, expected)

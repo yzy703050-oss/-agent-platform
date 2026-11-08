@@ -2,6 +2,7 @@
 package websearch
 
 import (
+	"agent-platform/backend/internal/client/providerhttp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -32,7 +33,10 @@ type Response struct {
 	Message string   `json:"message"`
 	Results []Result `json:"results"`
 }
-type Client struct{ search duckduckgo.Search }
+type Client struct {
+	search  duckduckgo.Search
+	runtime bool
+}
 
 // NewWithProxy isolates optional search proxy settings from other platform clients.
 func NewWithProxy(ctx context.Context, proxyURL string) (*Client, error) {
@@ -53,6 +57,16 @@ func NewWithProxy(ctx context.Context, proxyURL string) (*Client, error) {
 }
 
 func New(ctx context.Context, transport http.RoundTripper) (*Client, error) {
+	return newSearch(ctx, transport, false)
+}
+
+// Runtime performs one page request through the retained official parser. The
+// query ledger owns each physical send; SDK pagination cannot add hidden work.
+func NewRuntime(ctx context.Context, transport http.RoundTripper) (*Client, error) {
+	client := providerhttp.SingleHTTPClient(&http.Client{Transport: transport})
+	return newSearch(ctx, client.Transport, true)
+}
+func newSearch(ctx context.Context, transport http.RoundTripper, runtime bool) (*Client, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -63,14 +77,14 @@ func New(ctx context.Context, transport http.RoundTripper) (*Client, error) {
 		}
 	}
 	httpClient := &http.Client{
-		Transport: &boundedTransport{inner: transport}, Timeout: 10 * time.Second,
+		Transport: &boundedTransport{inner: transport, onePage: runtime}, Timeout: 10 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	search, err := duckduckgo.NewSearch(ctx, &duckduckgo.Config{HTTPClient: httpClient, MaxResults: 5, Region: duckduckgo.RegionWT})
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	return &Client{search: search}, nil
+	return &Client{search: search, runtime: runtime}, nil
 }
 
 func (c *Client) Search(ctx context.Context, request Request) (Response, error) {
@@ -85,6 +99,9 @@ func (c *Client) Search(ctx context.Context, request Request) (Response, error) 
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return Response{}, context.DeadlineExceeded
+		}
+		if c.runtime {
+			return Response{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 		}
 		return Response{}, ErrUnavailable
 	}

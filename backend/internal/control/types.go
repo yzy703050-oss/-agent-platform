@@ -17,19 +17,21 @@ type Reservation struct {
 }
 
 type ScopeInput struct {
-	ScopeID        string          `json:"scope_id"`
-	OwnerService   string          `json:"owner_service"`
-	SubjectID      string          `json:"subject_id"`
-	SourceRunID    string          `json:"source_run_id,omitempty"`
-	ConversationID string          `json:"conversation_id"`
-	DelegationID   string          `json:"delegation_id,omitempty"`
-	OperationID    string          `json:"operation_id,omitempty"`
-	Capabilities   []string        `json:"capabilities"`
-	Targets        []string        `json:"targets"`
-	SourceScope    json.RawMessage `json:"source_scope"`
-	ContextEpoch   int64           `json:"context_epoch"`
-	ExpiresAt      time.Time       `json:"expires_at"`
-	BudgetLimits   Reservation     `json:"budget_limits"`
+	ScopeID           string                   `json:"scope_id"`
+	OwnerService      string                   `json:"owner_service"`
+	SubjectID         string                   `json:"subject_id"`
+	SourceRunID       string                   `json:"source_run_id,omitempty"`
+	ConversationID    string                   `json:"conversation_id"`
+	DelegationID      string                   `json:"delegation_id,omitempty"`
+	OperationID       string                   `json:"operation_id,omitempty"`
+	Capabilities      []string                 `json:"capabilities"`
+	Targets           []string                 `json:"targets"`
+	SourceScope       json.RawMessage          `json:"source_scope"`
+	ContextEpoch      int64                    `json:"context_epoch"`
+	ExpiresAt         time.Time                `json:"expires_at"`
+	BudgetLimits      Reservation              `json:"budget_limits"`
+	ExecutionLimits   *runtimev1.LimitSnapshot `json:"execution_limits,omitempty"`
+	ConfigFingerprint string                   `json:"config_fingerprint,omitempty"`
 }
 
 type AuthorizedScope struct {
@@ -45,6 +47,7 @@ type AttemptInput struct {
 	ResourceKeys                              []string
 	Reservation                               Reservation
 	HoldUntil                                 time.Time
+	InputHash                                 string
 }
 
 type Attempt struct {
@@ -56,6 +59,7 @@ type Attempt struct {
 	Reservation Reservation `json:"reservation"`
 	HoldUntil   time.Time   `json:"hold_until"`
 	Replayed    bool        `json:"replayed"`
+	InputHash   string      `json:"input_hash"`
 }
 
 type Settlement struct {

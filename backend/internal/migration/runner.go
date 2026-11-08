@@ -173,6 +173,19 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, component string) error {
 		if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION control.close_invalid_run_guard(text) TO "+identifier(p.Runtime("platform"))+","+identifier(p.Runtime("maintenance"))); err != nil {
 			return err
 		}
+		for _, service := range []string{"platform", "travel", "maintenance"} {
+			for _, signature := range []string{"control.scope_call_context(text,text,text,text)", "control.call_history(text,text,text)", "control.bind_attempt_input(text,text)", "control.schedule_call_retry(text,timestamptz)", "control.own_attempt(text,text,text)", "control.model_call_context(text,text)", "control.evidence_call_context(text,text)"} {
+				if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+signature+" TO "+identifier(p.Runtime(service))); err != nil {
+					return err
+				}
+			}
+		}
+		if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION control.peer_evidence_context(text,text,text,text,bigint,text) TO "+identifier(p.Runtime("platform"))+","+identifier(p.Runtime("travel"))); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION control.attach_run_execution(text,text,jsonb,text) TO "+identifier(p.Runtime("platform"))); err != nil {
+			return err
+		}
 	}
 	if component == "platform" {
 		for _, signature := range []string{"platform.create_session(text,text,text,text,timestamptz)", "platform.revoke_session(text)"} {

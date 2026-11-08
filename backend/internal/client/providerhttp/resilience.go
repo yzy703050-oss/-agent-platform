@@ -182,7 +182,7 @@ func (r *Resilient) Do(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 	key := req.URL.Scheme + "://" + req.URL.Host + req.URL.EscapedPath()
 	slot := r.slot(key)
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < 4; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -230,7 +230,7 @@ func (r *Resilient) Do(req *http.Request) (*http.Response, error) {
 			return resp, err
 		}
 		r.breakers.failure(key, lease)
-		if attempt == 2 || req.Body != nil && req.GetBody == nil {
+		if attempt == 3 || req.Body != nil && req.GetBody == nil {
 			return resp, err
 		}
 		delay := r.opts.Jitter(time.Second << attempt)

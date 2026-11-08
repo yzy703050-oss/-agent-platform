@@ -1,6 +1,7 @@
 package websearch
 
 import (
+	"agent-platform/backend/internal/client/providerhttp"
 	"bytes"
 	"io"
 	"net/http"
@@ -9,10 +10,16 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-type boundedTransport struct{ inner http.RoundTripper }
+type boundedTransport struct {
+	inner   http.RoundTripper
+	onePage bool
+}
 
 func (t *boundedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err := req.Context().Err(); err != nil {
+		if t.onePage {
+			return nil, providerhttp.ErrRequest
+		}
 		return nil, err
 	}
 	if req.URL.String() != "https://html.duckduckgo.com/html/" || req.Method != http.MethodPost {
@@ -30,9 +37,15 @@ func (t *boundedTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
+		if t.onePage {
+			return nil, providerhttp.ResponseStatus(response)
+		}
 		return nil, ErrUnavailable
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
+	if err != nil && t.onePage {
+		return nil, providerhttp.ErrRequest
+	}
 	if err != nil || len(data) > 1<<20 {
 		return nil, ErrUnavailable
 	}
@@ -61,6 +74,14 @@ func (t *boundedTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	}
 	if !results && !strings.Contains(strings.ToLower(doc.Text()), "no results") {
 		return nil, ErrUnavailable
+	}
+	if t.onePage {
+		doc.Find("div.nav-link").Remove()
+		html, err := doc.Html()
+		if err != nil {
+			return nil, ErrUnavailable
+		}
+		data = []byte(html)
 	}
 	response.Body = io.NopCloser(bytes.NewReader(data))
 	return response, nil

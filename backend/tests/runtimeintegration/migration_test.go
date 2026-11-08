@@ -89,7 +89,7 @@ func TestRuntimeMigrationIdempotent(t *testing.T) {
 	f.apply(t)
 	for _, component := range []string{"control", "platform", "travel"} {
 		var count int
-		expected := map[string]int{"control": 4, "platform": 3, "travel": 1}[component]
+		expected := map[string]int{"control": 5, "platform": 4, "travel": 2}[component]
 		if err := f.Admin.QueryRow(ctx, "SELECT count(*) FROM "+component+".schema_migrations").Scan(&count); err != nil || count != expected {
 			t.Fatalf("%s versions=%d err=%v", component, count, err)
 		}

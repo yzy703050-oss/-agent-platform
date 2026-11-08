@@ -96,6 +96,16 @@ A04实施细化：接纳先持原Session/context guard及`run:active_per_user`�
 
 A04入口事务显式使用READ COMMITTED，不能依赖连接默认隔离设置；用户行锁序列化后，额度COUNT和幂等回读须看见前一事务刚提交的Run。失权running接管累计原Job.retry_count，最多三次恢复，正常waiting→ready不额外算故障重试；无有效限额快照则可靠interrupted。终态消息/事件写入后再次核验授权、固定deadline和租约，随后关闭Run guard并提交，存储等待跨过期限时整体回滚。
 
+A05实施细化：platformpg/travelpg以各自连接委托固定platform/travel分支的runtimepg存储公共逻辑，统一授权/租约、调用账、证据及模型输出，不能传任意schema或取得对方业务权限。outbound_calls增补不可变输入摘要与持久next_retry_at，仍为唯一物理调用账；受控函数只向本服务返回相应scope的历史。Run预算附带原LimitSnapshot/兼容指纹，后台scope在签发时包含独立限额，Travel通过control读取该投影而不读取platform表。
+
+A05证据传输采用scope.source_scope.evidence数组逐项授予`origin_service/origin_id/origin_revision/content_hash`，服务Bearer映射稳定peer身份；源服务仅通过peer_evidence_context核对其本地事实的精确授权，不能把请求中的service字符串当身份。GET `/internal/v1/evidence/:id/versions/:rev`携执行scope ID/hash与预期内容摘要，返回JCS规范化的原记录；跨服务导入每次复用均重新向源端校验，网络前后各核验调用方自己的Task/Job围栏。imports保留原payload及授权来源，不创建远端事实对应的本地tool_calls。首次保存的返回值从PG读取，确保微秒时间精度与后续传输摘要一致。模型输出允许后台operation归属，run_id与operation_id互斥，仍保存在本服务messages并不可变。
+
+运行时模型由NewRuntime提供单次HTTP传输与运维验证过的输入硬上界，再由NewMetered包装Generate/Stream/WithTools；绑定工具冻结，指纹覆盖原输入、实际通用生成选项、工具Schema、模型配置和原执行配置。只转发受支持的Eino通用选项；供应方专用setter不进入实际请求。正数费用预算须配置明确的每百万token微额单价，缺失用量保持未知，不采纳SDK合成的零值。HTTP已知可重试状态使用持久1/2/4秒全抖动窗口及Retry-After，最多四次；未知物理完成状态保留原hold，不透明重发。完整流先入库再EOF，半流仅输出草稿并失败。MCP显式固定2025-11-25，禁独立SSE与自动重连；复用服务会话/连接池但禁止请求body重放。网页运行时继续保留官方解析器和注册Schema，只取一次页面响应，抑制SDK自动翻页，以免在一次记账内追加物理请求；旧入口的客户端在后续装配切换前保持原路径。
+
+平台messages增加互斥的operation归属，后台model_output不借用旧Run；operation/user/conversation/thread通过本地复合FK匹配。完整model_output按稳定key及输入/模型/工具指纹不可变保存，当前授权/来源仍须检查，之后才能返回可用完整结果。计量模型使用已注册的单次发送客户端及显式硬输入/输出界限；正费用预算还需要明确单位定价，未知用量不退款。流式增量只作草稿，完整输出保存失败或半流错误不能透明重开另一调用。
+
+工具注册项固定domain/mode/provider、受控资源及查询参数适配；未配置能力不发送。每个逻辑调用第一次固定deadline，重试沿用该期限与原key，已完成的同key调用不因force_refresh再次执行，刷新须由上层生成新的generation/key。跨服务证据快照校验完整正文摘要、原身份、来源/上下文和时效，保留原candidate_id，仅在接收方使用受控remote命名空间。
+
 实施细化：JCS使用已核对源码/API的`github.com/gowebpki/jcs v1.0.1`之`Transform([]byte)`，在其前增加重复键、非法Unicode、非有限/不安全数及工具Schema检查；标准库JSON排序不能替代JCS。该依赖尚未加入go.mod或运行项目编译，必须在实施计划的依赖与RFC向量测试中验证；来源为[固定版本源码](https://github.com/gowebpki/jcs/tree/v1.0.1)。新增运行代码使用独立platformpg/travelpg消费方仓储，现有postgres仅为尚未替换旧代码的回归基线，新部署不使用它读取旧数据库，避免同一个Repository凭据同时写两个业务schema。
 
 Cookie/PG Session/CSRF沿用，首版不缓存认证正结果。Run固定原Session，撤销/过期后阻止新有效推进；跨服务核验与撤回传播必须落实，API Key不能代替用户执行授权。Maintenance后台记忆有独立服务授权、操作、租约和预算。

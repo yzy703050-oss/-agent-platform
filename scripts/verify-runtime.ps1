@@ -20,6 +20,7 @@ $available = @{
     A02 = @{ package = './tests/runtimeintegration'; pattern = '^Test(RuntimeMigration|SchemaRoles)'; scope = 'A02_postgres_fresh_schema_roles_only' }
     A03 = @{ package = './tests/runtimeintegration'; pattern = '^Test(AuthorizationCommit|ServiceRole|Budget|Control|AtomicSession|Redis)'; scope = 'A03_postgres_authority_budget_redis_loss_only' }
     A04 = @{ package = './tests/runtimeintegration'; pattern = '^Test(Admit|DeadlineStarts|ExpiredEpoch|TerminalMessage)'; scope = 'A04_postgres_admission_entry_lifecycle_only' }
+    A05 = @{ package = @('./tests/runtimeintegration','./internal/client/llm','./internal/client/mcp','./internal/client/providerhttp','./internal/toolquery','./internal/evidence'); pattern = '^Test(DirectQuery|RetryFour|SavedEvidence|MCPHTTP|Metered|RuntimeHTTP|RuntimeStatus|SingleAttempt|ResilienceFour|CrossServiceEvidence|BackgroundExecution|ForegroundExecution|WebProvider|PolicyProvider|TravelProvider|RemoteIdentity)'; scope = 'A05_scoped_queries_model_accounting_http_mcp_evidence_only' }
 }
 $requested = if ($Case -eq 'All') { @(0..16 | ForEach-Object { 'A{0:D2}' -f $_ }) } else { @($Case) }
 $missing = @($requested | Where-Object { -not $available.ContainsKey($_) })

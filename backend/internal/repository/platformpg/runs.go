@@ -105,7 +105,10 @@ func (r *Repository) AdmitRun(ctx context.Context, scope model.Scope, in platfor
 	}
 	result = runtimev1.RunView{ID: uuid.NewString(), Status: "accepted", Version: 1, DeadlineAt: admittedAt.Add(r.runtime.RunTimeout)}
 	jobID := uuid.NewString()
-	budget, _ := json.Marshal(r.runtime.Budget)
+	budget, _ := json.Marshal(struct {
+		control.Reservation
+		Execution any `json:"execution"`
+	}{r.runtime.Budget, map[string]any{"limits": r.runtime.Snapshot(result.DeadlineAt), "fingerprint": r.runtime.ConfigFingerprint}})
 	if _, err = tx.Exec(ctx, "SELECT control.register_run_guard($1,$2,$3,$4,$5,$6::jsonb)", result.ID, scope.UserID, in.ConversationID, scope.SessionID, result.DeadlineAt, budget); err != nil {
 		if deniedAuthority(err) {
 			err = model.ErrUnauthenticated
