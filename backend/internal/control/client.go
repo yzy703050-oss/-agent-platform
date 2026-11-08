@@ -12,6 +12,31 @@ import (
 
 type Client struct{}
 
+type AdmissionAuthority struct {
+	ContextEpoch  int64 `json:"context_epoch"`
+	MaxActiveRuns int   `json:"max_active_runs"`
+}
+
+func (Client) LockAdmission(ctx context.Context, tx pgx.Tx, userID, sessionID, conversationID string) (AdmissionAuthority, error) {
+	var result AdmissionAuthority
+	var raw []byte
+	err := tx.QueryRow(ctx, "SELECT control.admission_authority($1,$2,$3)", sessionID, userID, conversationID).Scan(&raw)
+	if err == nil {
+		err = json.Unmarshal(raw, &result)
+	}
+	return result, err
+}
+
+func (Client) AssertEntryControl(ctx context.Context, tx pgx.Tx, ref runtimev1.ExecRef, capability string) (AuthorizedScope, error) {
+	var result AuthorizedScope
+	var raw []byte
+	err := tx.QueryRow(ctx, "SELECT control.assert_entry_control($1,$2,$3)", ref.ScopeID, ref.ScopeHash, capability).Scan(&raw)
+	if err == nil {
+		err = json.Unmarshal(raw, &result)
+	}
+	return result, err
+}
+
 func (Client) IssueScope(ctx context.Context, tx pgx.Tx, in ScopeInput) (AuthorizedScope, error) {
 	var result AuthorizedScope
 	err := jsonCall(ctx, tx, "SELECT control.issue_scope($1::jsonb)", in, &result)

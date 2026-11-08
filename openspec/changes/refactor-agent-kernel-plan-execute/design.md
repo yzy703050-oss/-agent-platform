@@ -90,6 +90,12 @@ A03实施细化（2026-11-08）：control增量002提供授权、guard及调用�
 
 control增量003补齐control_rpc：仍在原outbound_calls登记、受资源硬并发和scope绝对期限约束，供应方四维预占均为0；其独立轮询频率与传输重试由Dispatch/Collector负责，不冒充模型或工具尝试。002已在本地应用，因此不改写其SQL或摘要，以003增量调整。Run的固定deadline与Session绝对到期独立保存；接纳不因Session剩余时间较短而改写Run窗口，每次授权仍检查Session真实到期。
 
+A04实施细化：接纳先持原Session/context guard及`run:active_per_user`配置行的共享锁，再锁platform.users额度行、conversation和Run/Job。额度从非终态Run核对，含waiting；该资源行必须由部署显式配置，不按API副本各给一份。接纳内部新建的Run guard/scope只涉及本事务新身份以及已经持有的guard，不反向等待其他既有control行。时间取锁后PG clock_timestamp，created_at与deadline使用同一接纳时刻；请求hash在服务端按原始content的SHA-256生成，保留既有16000字节正文/200字节幂等键边界。
+
+认领、续租及终态属于入口控制事务，从开始就持Run guard UPDATE锁，避免完成时SHARE→UPDATE升级与预算准入/终态竞争。JobLease补充RunVersion与接纳时LimitSnapshot，FinishInput显式携ExpectedRunVersion；持有真实worker/epoch、当前未过期租约且版本匹配才能提交。系统失效收尾使用只对platform/maintenance开放的受控入口，按真实deadline/撤回/上下文失效判定，不能凭调用者声明超时结束有效Run。失权Job只有匹配内核/配置、版本及payload摘要的持久断点才能认领；无可验证现场则可靠interrupted。断点正文的Eino解析及定向恢复仍由A08负责，认领不代替恢复执行验证。
+
+A04入口事务显式使用READ COMMITTED，不能依赖连接默认隔离设置；用户行锁序列化后，额度COUNT和幂等回读须看见前一事务刚提交的Run。失权running接管累计原Job.retry_count，最多三次恢复，正常waiting→ready不额外算故障重试；无有效限额快照则可靠interrupted。终态消息/事件写入后再次核验授权、固定deadline和租约，随后关闭Run guard并提交，存储等待跨过期限时整体回滚。
+
 实施细化：JCS使用已核对源码/API的`github.com/gowebpki/jcs v1.0.1`之`Transform([]byte)`，在其前增加重复键、非法Unicode、非有限/不安全数及工具Schema检查；标准库JSON排序不能替代JCS。该依赖尚未加入go.mod或运行项目编译，必须在实施计划的依赖与RFC向量测试中验证；来源为[固定版本源码](https://github.com/gowebpki/jcs/tree/v1.0.1)。新增运行代码使用独立platformpg/travelpg消费方仓储，现有postgres仅为尚未替换旧代码的回归基线，新部署不使用它读取旧数据库，避免同一个Repository凭据同时写两个业务schema。
 
 Cookie/PG Session/CSRF沿用，首版不缓存认证正结果。Run固定原Session，撤销/过期后阻止新有效推进；跨服务核验与撤回传播必须落实，API Key不能代替用户执行授权。Maintenance后台记忆有独立服务授权、操作、租约和预算。

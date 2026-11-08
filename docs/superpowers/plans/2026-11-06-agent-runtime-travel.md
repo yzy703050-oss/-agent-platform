@@ -224,28 +224,34 @@ A03验收（2026-11-08）：专项25项通过；全后端576 passed/8 live skipp
 - Create: backend/internal/platformrun/service.go
 - Create: backend/internal/platformrun/types.go
 - Create: backend/tests/runtimeintegration/admission_job_test.go
-- Modify: backend/internal/model/run.go
+- Modify: backend/internal/model/runtimev1/run.go（RunView.Version、JobLease.RunVersion/Limits；既有model.Run保留给尚未替换的代码）
+- Create: backend/migrations/control/004_entry_guards.up.sql（接纳/入口控制/失效收尾的受控锁）
+- Create: backend/migrations/platform/003_entry_admission.up.sql（按用户扫描非终态Run的部分索引）
+- Modify: backend/internal/control/client.go、backend/internal/migration/runner.go、backend/internal/repository/platformpg/repository.go
+- Modify: scripts/verify-runtime.ps1（专项入口）；迁移测试按新增版本更新
 
 **Interfaces:**
 - Consumes: A03 control客户端、A02全新platform连接；仍由服务端model.Scope认证身份。
-- Produces: platformrun.Service.Admit(ctx context.Context, scope model.Scope, in SubmitInput) (runtimev1.RunView,error)；platformpg.ClaimEntry(ctx,workerID string) (runtimev1.JobLease,bool,error)；RenewEntry(ctx context.Context,lease runtimev1.JobLease) (runtimev1.JobLease,error)；FinishRun(ctx context.Context,ref runtimev1.ExecRef,in FinishInput) error。SubmitInput为conversation_id/idempotency_key/content/request_hash；FinishInput为真实status/code/最终消息/partial refs。RunView/JobLease/状态事件DTO由A01 run.go定义，JobLease.Ref为ExecRef、checkpoint版本、固定deadline。
+- Produces: platformrun.Service.Admit(ctx context.Context, scope model.Scope, in SubmitInput) (runtimev1.RunView,error)；platformpg.ClaimEntry(ctx,workerID string) (runtimev1.JobLease,bool,error)；RenewEntry(ctx context.Context,lease runtimev1.JobLease) (runtimev1.JobLease,error)；FinishRun(ctx context.Context,ref runtimev1.ExecRef,in FinishInput) error；CloseInvalidRun(ctx context.Context,runID string) (bool,error)。SubmitInput为conversation_id/idempotency_key/content/request_hash；FinishInput为真实status/code/最终消息/partial refs与ExpectedRunVersion。RunView/JobLease沿用A01 run.go并补RunVersion/Limits；可靠事件沿用既有contracts.Event，不另建竞争DTO。NewRuntime(pool,platformrun.Config)集中校验/固定运行配置；platformrun.New使用其AdmissionStore端口，不启动执行器。
 
-- [ ] **Step 1 — 先写有意义的失败测试：** TestAdmitIdempotencyAndConflict；TestDeadlineStartsAtAdmission；TestExpiredEpochCannotRenewOrCommit；TestTerminalMessageEventAtomicity。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
+- [x] **Step 1 — 先写有意义的失败测试：** TestAdmitIdempotencyAndConflict；TestDeadlineStartsAtAdmission；TestExpiredEpochCannotRenewOrCommit；TestTerminalMessageEventAtomicity。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
 ```go
 if duplicate.ID != first.ID || messages != 1 { t.Fatal("duplicate admission") }
 if deadline.Sub(admittedAt) != 300*time.Second { t.Fatal("deadline reset") }
 if renewed.Lease.Epoch != claimed.Lease.Epoch { t.Fatal("renew changed epoch") }
 if oldCommitErr == nil || terminalTransitions != 1 { t.Fatal("stale writer accepted") }
 ```
-- [ ] **Step 2 — 运行并确认红灯根因：**
+- [x] **Step 2 — 运行并确认红灯根因：**
 ```powershell
 go test ./tests/runtimeintegration -run 'Test(AdmitIdempotency|DeadlineStarts|ExpiredEpoch|TerminalMessage)' -count=1 -v
 ```
 预期：FAIL，旧Run从执行开始计时、仅attempt围栏，或接管/终态消息不是当前Job授权下的原子提交。
-- [ ] **Step 3 — 最小实现：** 接纳事务按control→用户额度→会话→Run/Job顺序，保存原Session、固定deadline、预算配置、用户消息及可靠事件。waiting仍占会话非终态互斥。用PG clock_timestamp在锁后复核期限；领取新epoch、续租不改epoch且不续回过期租约。完成/失败/超时与最终消息/seq同事务，拒绝旧version/owner/epoch；活动执行额度按原配置守持久上限，不以页面在线决定存活。
-- [ ] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
+- [x] **Step 3 — 最小实现：** 接纳事务按control→用户额度→会话→Run/Job顺序，保存原Session、固定deadline、预算配置、用户消息及可靠事件。waiting仍占会话非终态互斥。用PG clock_timestamp在锁后复核期限；领取新epoch、续租不改epoch且不续回过期租约。完成/失败/超时与最终消息/seq同事务，拒绝旧version/owner/epoch；活动执行额度按原配置守持久上限，不以页面在线决定存活。
+- [x] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
 完成条件：同key/不同内容/不同活动请求边界清晰，排队计时、过期接管、双终态竞争和存储失败回滚通过。
-- [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A04 固定期限的Run接纳、入口Job认领与终态`）。
+- [x] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A04 固定期限的Run接纳、入口Job认领与终态`）。
+
+A04验收（2026-11-08）：专项23项通过；全后端599 passed/8 live skipped/0 failed；脚本6项通过；vet/mod verify/build及两change严格validate通过。Docker库control001～004/platform001～003/travel001应用与重放、权限/摘要审计通过，临时测试库/角色0。证据见[报告](../../reports/runtime-v1/A04.md)。本阶段验证断点元数据/摘要围栏，完整Eino正文解析与定向恢复仍为A08；API/Worker接线仍为A13。
 
 ### A05：无计划共享查询、证据和唯一重试层
 

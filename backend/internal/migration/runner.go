@@ -165,6 +165,14 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, component string) error {
 				return err
 			}
 		}
+		for _, signature := range []string{"control.admission_authority(text,text,text)", "control.assert_entry_control(text,text,text)"} {
+			if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+signature+" TO "+identifier(p.Runtime("platform"))); err != nil {
+				return err
+			}
+		}
+		if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION control.close_invalid_run_guard(text) TO "+identifier(p.Runtime("platform"))+","+identifier(p.Runtime("maintenance"))); err != nil {
+			return err
+		}
 	}
 	if component == "platform" {
 		for _, signature := range []string{"platform.create_session(text,text,text,text,timestamptz)", "platform.revoke_session(text)"} {
