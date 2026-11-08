@@ -86,6 +86,10 @@ General与差旅助手保留两个会话入口，共用身份、Run、记忆及�
 
 技术复核采用受限control schema函数承担同步授权guard、scope及唯一调用账，白名单函数基于数据库登录角色限定服务身份；Session/Run/上下文变化与其guard本地同事务，业务提交持guard锁裁决撤回竞争。没有跨平台/Travel业务联合事务或直接表访问。具体字段、接口、角色及锁序见[公共协议2.1](engineering-protocol.md#21-公共授权与调用账的受控边界)。部署需显式给有限预算上界，不在实现中猜付费额度。
 
+A03实施细化（2026-11-08）：control增量002提供授权、guard及调用账白名单，platform增量002提供Session创建/撤销包装；包装以platform owner操作本地Session，在同事务调用control入口，登录身份始终使用session_user。运行账号继续无Session写权限。scope不可变定义由数据库生成SHA-256摘要；预算四维使用非负整数model_attempts/tool_attempts/token_upper_bound/cost_upper_micros，前台按source_run_id汇总、后台按operation_id汇总。结算保留尝试次数，只有已证实未发送才全额释放；未知用量保留预占。当前租约校验由各服务仓储在准入同事务执行，control不直接访问业务表。Redis重建在PG resource行锁内取原调用占用并递增generation，Lua携generation拒绝旧持有者，不把Redis作为正式授权账。
+
+control增量003补齐control_rpc：仍在原outbound_calls登记、受资源硬并发和scope绝对期限约束，供应方四维预占均为0；其独立轮询频率与传输重试由Dispatch/Collector负责，不冒充模型或工具尝试。002已在本地应用，因此不改写其SQL或摘要，以003增量调整。Run的固定deadline与Session绝对到期独立保存；接纳不因Session剩余时间较短而改写Run窗口，每次授权仍检查Session真实到期。
+
 实施细化：JCS使用已核对源码/API的`github.com/gowebpki/jcs v1.0.1`之`Transform([]byte)`，在其前增加重复键、非法Unicode、非有限/不安全数及工具Schema检查；标准库JSON排序不能替代JCS。该依赖尚未加入go.mod或运行项目编译，必须在实施计划的依赖与RFC向量测试中验证；来源为[固定版本源码](https://github.com/gowebpki/jcs/tree/v1.0.1)。新增运行代码使用独立platformpg/travelpg消费方仓储，现有postgres仅为尚未替换旧代码的回归基线，新部署不使用它读取旧数据库，避免同一个Repository凭据同时写两个业务schema。
 
 Cookie/PG Session/CSRF沿用，首版不缓存认证正结果。Run固定原Session，撤销/过期后阻止新有效推进；跨服务核验与撤回传播必须落实，API Key不能代替用户执行授权。Maintenance后台记忆有独立服务授权、操作、租约和预算。

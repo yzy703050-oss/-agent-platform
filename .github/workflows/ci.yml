@@ -6,6 +6,12 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     services:
+      redis:
+        image: redis@sha256:e2728231060693472a8efb488dd139a8142a01bd0612ae70429bf5b5be924be1
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
       postgres:
         image: postgres:17-alpine
         env:
@@ -21,6 +27,7 @@ jobs:
       REQUIRE_DATABASE_TESTS: "1"
       RUNTIME_TEST_ADMIN_DSN: postgres://ci:ci-disposable-only@127.0.0.1:5432/platform_test?sslmode=disable
       RUNTIME_TEST_ALLOW_DB_CREATE: "1"
+      RUNTIME_TEST_REDIS_ADDR: 127.0.0.1:6379
       GIN_MODE: release
     defaults:
       run:

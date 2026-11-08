@@ -2,6 +2,8 @@ package runtimeintegration
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"sync"
 	"testing"
@@ -9,9 +11,54 @@ import (
 	"agent-platform/backend/internal/migration"
 	"agent-platform/backend/internal/repository/platformpg"
 	"agent-platform/backend/internal/repository/travelpg"
+	"agent-platform/backend/migrations"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func TestRuntimeMigrationPlatformRequiresControlCapabilities(t *testing.T) {
+	f := newRuntimeFixture(t)
+	ctx := context.Background()
+	// A real v001-only installation, not a corrupted migration receipt.
+	tx, err := f.Admin.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "SET LOCAL ROLE "+pgx.Identifier{f.Principals.Owner("control")}.Sanitize()); err != nil {
+		t.Fatal(err)
+	}
+	sql, err := migrations.Files.ReadFile("control/001_coordination.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec(ctx, string(sql)); err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.Sum256(sql)
+	if _, err = tx.Exec(ctx, "CREATE TABLE control.schema_migrations(version text PRIMARY KEY,content_hash text NOT NULL,applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec(ctx, "INSERT INTO control.schema_migrations(version,content_hash) VALUES('001',$1)", hex.EncodeToString(hash[:])); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec(ctx, "GRANT SELECT ON control.schema_migrations TO "+pgx.Identifier{f.Principals.Migrator("platform")}.Sanitize()); err != nil {
+		t.Fatal(err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err = migration.Apply(ctx, f.Migrations["platform"], "platform"); err == nil {
+		t.Fatal("platform atomic sessions installed before control capabilities")
+	}
+	if err = migration.Apply(ctx, f.Migrations["control"], "control"); err != nil {
+		t.Fatal(err)
+	}
+	if err = migration.Apply(ctx, f.Migrations["platform"], "platform"); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestRuntimeMigrationIdempotent(t *testing.T) {
 	f := newRuntimeFixture(t)
@@ -42,7 +89,8 @@ func TestRuntimeMigrationIdempotent(t *testing.T) {
 	f.apply(t)
 	for _, component := range []string{"control", "platform", "travel"} {
 		var count int
-		if err := f.Admin.QueryRow(ctx, "SELECT count(*) FROM "+component+".schema_migrations").Scan(&count); err != nil || count != 1 {
+		expected := map[string]int{"control": 3, "platform": 2, "travel": 1}[component]
+		if err := f.Admin.QueryRow(ctx, "SELECT count(*) FROM "+component+".schema_migrations").Scan(&count); err != nil || count != expected {
 			t.Fatalf("%s versions=%d err=%v", component, count, err)
 		}
 	}

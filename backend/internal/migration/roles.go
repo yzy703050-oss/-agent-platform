@@ -96,7 +96,9 @@ func Provision(ctx context.Context, pool *pgxpool.Pool, prefix string, passwords
 		if err = tx.QueryRow(ctx, "SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname=$1", component).Scan(&actualOwner); err != nil || actualOwner != owner {
 			return Principals{}, fmt.Errorf("refusing foreign schema owner")
 		}
-		if _, err = tx.Exec(ctx, "REVOKE ALL ON SCHEMA "+identifier(component)+" FROM PUBLIC; ALTER ROLE "+identifier(migrator)+" IN DATABASE "+identifier(database)+" SET search_path=pg_catalog,"+identifier(component)+"; ALTER DEFAULT PRIVILEGES FOR ROLE "+identifier(owner)+" IN SCHEMA "+identifier(component)+" REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC"); err != nil {
+		// Function EXECUTE starts as a global PUBLIC default in PostgreSQL.
+		// A per-schema REVOKE cannot remove that global grant.
+		if _, err = tx.Exec(ctx, "REVOKE ALL ON SCHEMA "+identifier(component)+" FROM PUBLIC; ALTER ROLE "+identifier(migrator)+" IN DATABASE "+identifier(database)+" SET search_path=pg_catalog,"+identifier(component)+"; ALTER DEFAULT PRIVILEGES FOR ROLE "+identifier(owner)+" REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC"); err != nil {
 			return Principals{}, err
 		}
 		if component != "control" {

@@ -18,6 +18,7 @@ $available = @{
     A00 = @{ package = './internal/config'; pattern = '^TestRuntimeConfig'; scope = 'A00_config_modules_build_only' }
     A01 = @{ package = './internal/runtimeprotocol'; pattern = '.'; scope = 'A01_protocol_modules_build_only' }
     A02 = @{ package = './tests/runtimeintegration'; pattern = '^Test(RuntimeMigration|SchemaRoles)'; scope = 'A02_postgres_fresh_schema_roles_only' }
+    A03 = @{ package = './tests/runtimeintegration'; pattern = '^Test(AuthorizationCommit|ServiceRole|Budget|Control|AtomicSession|Redis)'; scope = 'A03_postgres_authority_budget_redis_loss_only' }
 }
 $requested = if ($Case -eq 'All') { @(0..16 | ForEach-Object { 'A{0:D2}' -f $_ }) } else { @($Case) }
 $missing = @($requested | Where-Object { -not $available.ContainsKey($_) })

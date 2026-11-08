@@ -39,7 +39,7 @@
 - 顺序主线：A00→A01→A02→A03→A04；之后按每任务Depends推进。A05共享查询、A06计划、A07Task/MCP完成后，A08父挂起与A09分发闭环；A10专业执行、A11结果恢复、A12记忆、A13进程、A14前端、A15联合故障、A16交付。
 - A10消费自己定义的ContextReader端口，先用授权夹具验证，A12实现并在A13接线；这只是接口依赖，不能跳过真实上下文验收。
 - RAG R00～R07独立实现；A15消费R07已完成HTTP服务/真实检索。RAG R10消费A15一次联合报告；A16在R10后归档，避免环形依赖。
-- 用户已要求Docker部署并授权准备依赖；2026-11-07补全DockerDesktop安装，WSL引擎、六个基础容器及PG/Redis/Kafka基础协议与Milvus健康探针已通过。业务角色/迁移与真实模型尚未验收，A00预检仍是门槛。真实服务可来自显式隔离远端配置。无服务的单元任务可开展；依赖真实服务的任务必须停在未完成，不能SKIP后打勾。
+- 用户已要求Docker部署并授权准备依赖；2026-11-07补全DockerDesktop安装，WSL引擎、六个基础容器及PG/Redis/Kafka基础协议与Milvus健康探针已通过。业务角色/迁移已于A02验收，授权/预算/Redis丢许可已于A03验收；真实模型与完整拓扑尚未验收，A00预检仍是门槛。真实服务可来自显式隔离远端配置。无服务的单元任务可开展；依赖真实服务的任务必须停在未完成，不能SKIP后打勾。
 - 第一次执行先按using-git-worktrees检查native隔离/当前分支；两个仓库分别盘点已跟踪/未跟踪WIP，只迁入任务必需且有清单的基线，保留原工作区。若分支复现必须纳入既有改动，先展示具体清单再确认，不能把无关WIP提交成当前任务。
 - 新运行模型位于internal/model/runtimev1，协议严格解码在runtimeprotocol；platformpg/travelpg只持所属schema连接；control/permit只管授权/调用账/预准入；service/travelplan管正式业务；toolquery管无计划事实；旧service/trip和repository/postgres仅为尚未清理旧代码的回归基线，新部署不装配它们。
 - A02 fixture使用独立临时数据库＋真实登录角色，因为session_user不能用SET ROLE假造；REQUIRE_RUNTIME_TESTS=1时缺管理员/服务必须FAIL。清理只针对本次记录的xdb_v1_测试资源，不指向开发库。
@@ -174,35 +174,44 @@ go test ./tests/runtimeintegration -run 'Test(RuntimeMigration|SchemaRoles)' -co
 
 **Files:**
 - Create: backend/migrations/control/002_capability_functions.up.sql
+- Create: backend/migrations/control/003_control_rpc_accounting.up.sql（002已在本地应用，保留摘要，以增量补齐control_rpc零供应方预算计账）
 - Create: backend/internal/control/client.go
 - Create: backend/internal/control/types.go
 - Create: backend/internal/permit/redis.go
 - Create: backend/internal/permit/scripts/acquire.lua
 - Create: backend/internal/permit/scripts/release.lua
 - Create: backend/tests/runtimeintegration/authorization_budget_test.go
-- Modify: backend/internal/service/auth/service.go
+- Reuse (unchanged): backend/internal/service/auth/service.go（沿用Store接口；授权guard不回调到事务外）
 - Create: backend/internal/repository/platformpg/auth.go
+- Create: backend/migrations/platform/002_atomic_sessions.up.sql（本地Session包装调用control，运行角色无Session DML）
+- Modify: backend/internal/migration/runner.go（显式白名单EXECUTE授权，私有helper不授权）
+- Modify: backend/internal/migration/roles.go（owner全局默认函数权限）
+- Create: backend/tests/runtimeintegration/control_client_auth_test.go、permit_test.go
+- Modify: backend/tests/runtimeintegration/migration_test.go（增量版本与前序能力依赖）
+- Modify: scripts/verify-runtime.ps1、.github/workflows/ci.yml（A03入口与隔离Redis）
 
 **Interfaces:**
 - Consumes: A01 ExecRef；A02私有control表与真实登录角色。
 - Produces: control.Client.IssueScope(ctx context.Context, tx pgx.Tx, in ScopeInput) (AuthorizedScope,error)；AssertScope(ctx context.Context,tx pgx.Tx,ref runtimev1.ExecRef,capability,target,purpose string) (AuthorizedScope,error)；ReserveAttempt(ctx context.Context,tx pgx.Tx,in AttemptInput) (Attempt,error)；SettleAttempt(ctx context.Context,tx pgx.Tx,in Settlement) error。ScopeInput/AuthorizedScope字段逐一采用公共协议2.1；AttemptInput包含logical_key/attempt_no/owner_epoch/resource_keys及有限Reservation；Settlement包含原attempt_id/真实usage/status/response_ref。permit.Acquire(ctx,resourceKey,attemptID string,until time.Time) error与Release(ctx,resourceKey,attemptID string) error。 control.Reservation定义ModelAttempts/ToolAttempts/TokenUpperBound/CostUpperMicros，均非负有限整数且依原能力上界校验；permit.Service为Acquire(context.Context,string,string,time.Time) error和Release(context.Context,string,string) error接口。
 
-- [ ] **Step 1 — 先写有意义的失败测试：** TestAuthorizationCommitRevocationRace；TestServiceRoleScopeIsolation；TestBudgetReservationSurvivesUnknownUsage；TestRedisFailoverCannotMultiplyPermits。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
+- [x] **Step 1 — 先写有意义的失败测试：** TestAuthorizationCommitRevocationRace；TestServiceRoleScopeIsolation；TestBudgetReservationSurvivesUnknownUsage；TestRedisFailoverCannotMultiplyPermits。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
 ```go
 if committedAfterRevocation { t.Fatal("revoked scope committed") }
 if got.ActiveCalls > 2 { t.Fatal("cluster model account limit exceeded") }
 if unknown.ReservedTokens != before.ReservedTokens { t.Fatal("unknown usage refunded") }
 if secondSettlement.Changed { t.Fatal("usage settled twice") }
 ```
-- [ ] **Step 2 — 运行并确认红灯根因：**
+- [x] **Step 2 — 运行并确认红灯根因：**
 ```powershell
 go test ./tests/runtimeintegration -run 'Test(AuthorizationCommit|ServiceRoleScope|BudgetReservation|RedisFailover)' -count=1 -v
 ```
 预期：FAIL，白名单函数不存在、service角色可伪造scope，或旧进程内配额不能通过跨连接竞争；用屏障精确控制撤回/提交先后，不用sleep猜时序。
-- [ ] **Step 3 — 最小实现：** 按公共协议2.1实现SECURITY DEFINER函数，专用无登录owner、限定search_path/表名、撤销PUBLIC EXECUTE，session_user绑定service。Session/Run/context与guard同事务；提交先取得SHARE guard锁，撤回用排他锁；准入一开始取预算guard UPDATE锁，排序resource行后登记预占，不锁升级。共享预算只有一账，未配置有限预算拒绝新执行；后台scope独立。Redis Lua以原attempt ID操作，MaxRetries=-1、等待最多2秒且不超剩余期限；不可用停止新外呼但允许原结果结算。占用按hold_until保守保留，未知不退款，重建以PG generation互斥。 CreateSession/RevokeSession由platformpg实现既有auth.Store签名，Session与guard在仓储一次事务提交；AuthService不在事务外单独更新guard。
-- [ ] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
+- [x] **Step 3 — 最小实现：** 按公共协议2.1实现SECURITY DEFINER函数，专用无登录owner、限定search_path/表名、撤销PUBLIC EXECUTE，session_user绑定service。Session/Run/context与guard同事务；提交先取得SHARE guard锁，撤回用排他锁；准入一开始取预算guard UPDATE锁，排序resource行后登记预占，不锁升级。共享预算只有一账，未配置有限预算拒绝新执行；后台scope独立。Redis Lua以原attempt ID操作，MaxRetries=-1、等待最多2秒且不超剩余期限；不可用停止新外呼但允许原结果结算。占用按hold_until保守保留，未知不退款，重建以PG generation互斥。 CreateSession/RevokeSession由platformpg实现既有auth.Store签名，Session与guard在仓储一次事务提交；AuthService不在事务外单独更新guard。
+- [x] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
 完成条件：两种撤回竞争顺序、跨scope拒绝、多资源锁序、重复结算及Redis重建/丢许可均有真实PG/Redis证据；额度不随副本数增加。
-- [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A03 原子授权撤回、共享预算与Redis准入`）。
+- [x] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A03 原子授权撤回、共享预算与Redis准入`）。
+
+A03验收（2026-11-08）：专项25项通过；全后端576 passed/8 live skipped/0 failed；脚本6项通过；vet/mod verify/build及两change严格validate通过。Docker库control001～003/platform001～002/travel001应用与重放、权限/摘要审计通过，临时测试库/角色0。证据见[报告](../../reports/runtime-v1/A03.md)。Redis丢写验证不代替A15真实Sentinel提升；完整本地租约围栏与业务装配仍由后续任务承担。
 
 ### A04：固定期限的Run接纳、入口Job认领与终态
 
@@ -218,7 +227,7 @@ go test ./tests/runtimeintegration -run 'Test(AuthorizationCommit|ServiceRoleSco
 - Modify: backend/internal/model/run.go
 
 **Interfaces:**
-- Consumes: A03 control客户端，A02 platform连接与legacy reader；仍由服务端model.Scope认证身份。
+- Consumes: A03 control客户端、A02全新platform连接；仍由服务端model.Scope认证身份。
 - Produces: platformrun.Service.Admit(ctx context.Context, scope model.Scope, in SubmitInput) (runtimev1.RunView,error)；platformpg.ClaimEntry(ctx,workerID string) (runtimev1.JobLease,bool,error)；RenewEntry(ctx context.Context,lease runtimev1.JobLease) (runtimev1.JobLease,error)；FinishRun(ctx context.Context,ref runtimev1.ExecRef,in FinishInput) error。SubmitInput为conversation_id/idempotency_key/content/request_hash；FinishInput为真实status/code/最终消息/partial refs。RunView/JobLease/状态事件DTO由A01 run.go定义，JobLease.Ref为ExecRef、checkpoint版本、固定deadline。
 
 - [ ] **Step 1 — 先写有意义的失败测试：** TestAdmitIdempotencyAndConflict；TestDeadlineStartsAtAdmission；TestExpiredEpochCannotRenewOrCommit；TestTerminalMessageEventAtomicity。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。

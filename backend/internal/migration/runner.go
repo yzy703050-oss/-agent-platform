@@ -60,9 +60,13 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, component string) error {
 		prior = "platform"
 	}
 	if prior != "" {
+		version := "001"
+		if component == "platform" {
+			version = "002" // Atomic Session wrappers call control capabilities.
+		}
 		var ready bool
-		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+prior+".schema_migrations WHERE version='001')").Scan(&ready); err != nil || !ready {
-			return fmt.Errorf("apply %s before %s", prior, component)
+		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+prior+".schema_migrations WHERE version=$1)", version).Scan(&ready); err != nil || !ready {
+			return fmt.Errorf("apply %s/%s before %s", prior, version, component)
 		}
 	}
 	if _, err = tx.Exec(ctx, "SET LOCAL ROLE "+identifier(p.Owner(component))); err != nil {
@@ -129,6 +133,11 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, component string) error {
 	if rows.Err() != nil {
 		return rows.Err()
 	}
+	// Also secure schemas provisioned by older bootstrap versions. Never rely
+	// only on default privileges for already-created SECURITY DEFINER helpers.
+	if _, err = tx.Exec(ctx, "REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA "+identifier(component)+" FROM PUBLIC"); err != nil {
+		return err
+	}
 	if component == "control" {
 		for _, service := range []string{"platform", "travel", "maintenance"} {
 			if _, err = tx.Exec(ctx, "INSERT INTO control.service_principals(login_role,service_id) VALUES($1,$2) ON CONFLICT DO NOTHING", p.Runtime(service), service); err != nil {
@@ -138,8 +147,31 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, component string) error {
 		if _, err = tx.Exec(ctx, "GRANT SELECT ON control.schema_migrations TO "+identifier(p.Migrator("platform"))+","+identifier(p.Migrator("travel"))); err != nil {
 			return err
 		}
+		for _, service := range []string{"platform", "travel", "maintenance"} {
+			if _, err = tx.Exec(ctx, "GRANT USAGE ON SCHEMA control TO "+identifier(p.Runtime(service))); err != nil {
+				return err
+			}
+			for _, signature := range []string{"control.issue_scope(jsonb)", "control.assert_scope(text,text,text,text,text)", "control.reserve_attempt(jsonb)", "control.settle_attempt(jsonb)", "control.resource_snapshot(text,bigint)"} {
+				if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+signature+" TO "+identifier(p.Runtime(service))); err != nil {
+					return err
+				}
+			}
+		}
+		if _, err = tx.Exec(ctx, "GRANT USAGE ON SCHEMA control TO "+identifier(p.Owner("platform"))); err != nil {
+			return err
+		}
+		for _, signature := range []string{"control.register_session_guard(text,text,timestamptz)", "control.revoke_session_guard(text)", "control.register_run_guard(text,text,text,text,timestamptz,jsonb)", "control.close_run_guard(text)", "control.set_context_guard(text,text,bigint,bigint,boolean)"} {
+			if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+signature+" TO "+identifier(p.Runtime("platform"))+","+identifier(p.Owner("platform"))); err != nil {
+				return err
+			}
+		}
 	}
 	if component == "platform" {
+		for _, signature := range []string{"platform.create_session(text,text,text,text,timestamptz)", "platform.revoke_session(text)"} {
+			if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+signature+" TO "+identifier(p.Runtime("platform"))); err != nil {
+				return err
+			}
+		}
 		if _, err = tx.Exec(ctx, "REVOKE ALL ON platform.schema_migrations FROM "+identifier(p.Runtime("platform"))+","+identifier(p.Runtime("maintenance"))+"; REVOKE INSERT,UPDATE ON platform.sessions FROM "+identifier(p.Runtime("platform"))+","+identifier(p.Runtime("maintenance"))+"; GRANT SELECT ON platform.schema_migrations TO "+identifier(p.Migrator("travel"))); err != nil {
 			return err
 		}
