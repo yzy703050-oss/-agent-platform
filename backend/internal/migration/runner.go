@@ -183,11 +183,17 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, component string) error {
 		if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION control.peer_evidence_context(text,text,text,text,bigint,text) TO "+identifier(p.Runtime("platform"))+","+identifier(p.Runtime("travel"))); err != nil {
 			return err
 		}
+		if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION control.read_related_memory(text,text,text) TO "+identifier(p.Runtime("platform"))+","+identifier(p.Runtime("travel"))+","+identifier(p.Runtime("maintenance"))); err != nil {
+			return err
+		}
 		if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION control.attach_run_execution(text,text,jsonb,text) TO "+identifier(p.Runtime("platform"))); err != nil {
 			return err
 		}
 	}
 	if component == "platform" {
+		if _, err = tx.Exec(ctx, "GRANT USAGE ON SCHEMA platform TO "+identifier(p.Owner("control"))+"; GRANT EXECUTE ON FUNCTION platform.private_memory_projection(jsonb,text) TO "+identifier(p.Owner("control"))); err != nil {
+			return err
+		}
 		for _, signature := range []string{"platform.create_session(text,text,text,text,timestamptz)", "platform.revoke_session(text)"} {
 			if _, err = tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION "+signature+" TO "+identifier(p.Runtime("platform"))); err != nil {
 				return err

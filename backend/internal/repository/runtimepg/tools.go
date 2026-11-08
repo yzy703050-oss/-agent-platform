@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"agent-platform/backend/internal/control"
+	"agent-platform/backend/internal/evidence"
 	"agent-platform/backend/internal/model"
 	"agent-platform/backend/internal/model/runtimev1"
 	"agent-platform/backend/internal/runtimeports"
@@ -209,7 +210,22 @@ func (s *Store) SaveQuery(ctx context.Context, ref runtimev1.ExecRef, callID, at
 		return result, toolquery.ErrExpired
 	}
 	expireText := expires.UTC().Format(time.RFC3339Nano)
-	result = runtimev1.SharedToolEvidenceRecord{ID: id, UserID: info.UserID, ConversationID: info.ConversationID, ToolCallRecordID: callID, Domain: domain, Provider: state.Record.Provider, SchemaVersion: 1, ResultRevision: 1, Mode: state.Record.Mode, Snapshot: in.Snapshot, SourceRefs: state.Record.SourceRefs, FetchedAt: in.FetchedAt.UTC().Format(time.RFC3339Nano), ExpiresAt: &expireText}
+	// Bind the immutable evidence to the actual accepted query, including for
+	// remote readers that cannot join this service's private tool_calls table.
+	inputArgs, err := json.Marshal(state.Record.Arguments)
+	if err != nil {
+		return result, err
+	}
+	queryContext, err := json.Marshal(evidence.QueryContext{Domain: domain, Mode: state.Record.Mode, Provider: state.Record.Provider, Arguments: inputArgs, InputHash: state.Record.InputHash, Coverage: in.Coverage})
+	if err != nil {
+		return result, err
+	}
+	snapshotCopy := map[string]json.RawMessage{}
+	for key, value := range in.Snapshot {
+		snapshotCopy[key] = value
+	}
+	snapshotCopy["query_context"] = queryContext
+	result = runtimev1.SharedToolEvidenceRecord{ID: id, UserID: info.UserID, ConversationID: info.ConversationID, ToolCallRecordID: callID, Domain: domain, Provider: state.Record.Provider, SchemaVersion: 1, ResultRevision: 1, Mode: state.Record.Mode, Snapshot: snapshotCopy, SourceRefs: state.Record.SourceRefs, FetchedAt: in.FetchedAt.UTC().Format(time.RFC3339Nano), ExpiresAt: &expireText}
 	body, err := json.Marshal(result)
 	if err != nil {
 		return result, err

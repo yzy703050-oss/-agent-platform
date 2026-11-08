@@ -25,6 +25,7 @@ import (
 	"agent-platform/backend/internal/permit"
 	"agent-platform/backend/internal/repository/platformpg"
 	"agent-platform/backend/internal/runtimeports"
+	"agent-platform/backend/internal/runtimeprotocol"
 	"agent-platform/backend/internal/toolquery"
 	"github.com/cloudwego/eino/schema"
 )
@@ -180,6 +181,17 @@ func TestDirectQueryHasNoPlan(t *testing.T) {
 	if evidence.ID == "" || evidence.ToolCallRecordID == "" || evidence.ResultRevision != 1 || requests.Load() != 1 {
 		t.Fatalf("query not backed by an actual attempt: %+v requests=%d", evidence, requests.Load())
 	}
+	var queryContext struct {
+		Domain    string          `json:"domain"`
+		Arguments json.RawMessage `json:"arguments"`
+		Coverage  string          `json:"coverage"`
+	}
+	err = json.Unmarshal(evidence.Snapshot["query_context"], &queryContext)
+	actual, _ := runtimeprotocol.CanonicalJSON(queryContext.Arguments)
+	requested, _ := runtimeprotocol.CanonicalJSON(queryInput().Arguments)
+	if err != nil || queryContext.Domain != "weather" || queryContext.Coverage != "complete" || string(actual) != string(requested) {
+		t.Fatalf("evidence lacks authoritative input proof: %+v %v", queryContext, err)
+	}
 	for _, table := range []string{"travel.plans", "platform.agent_delegations"} {
 		var n int
 		if err = q.f.Admin.QueryRow(ctx, "SELECT count(*) FROM "+table).Scan(&n); err != nil || n != 0 {
@@ -318,6 +330,18 @@ func TestRetryFourAttemptsAcrossRestart(t *testing.T) {
 	var logical, physical, retries int
 	if err = q.f.Admin.QueryRow(ctx, "SELECT (SELECT count(*) FROM platform.tool_calls),(SELECT count(*) FROM control.outbound_calls),(SELECT retry_count FROM platform.tool_calls LIMIT 1)").Scan(&logical, &physical, &retries); err != nil || logical != 1 || physical != 4 || retries != 3 {
 		t.Fatalf("retry facts: logical=%d physical=%d retries=%d err=%v", logical, physical, retries, err)
+	}
+	failed, err := q.repo.BeginQuery(ctx, q.ref, queryInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(failed.Record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var checked runtimev1.SharedToolCallRecord
+	if err = runtimeprotocol.DecodeStrict(raw, "SharedToolCallRecord", &checked); err != nil {
+		t.Fatalf("persisted failure violates formal protocol: %v", err)
 	}
 }
 

@@ -40,9 +40,22 @@ func (s *Store) LocalOrImport(ctx context.Context, ref runtimev1.ExecRef, id str
 	if err != nil {
 		return evidence.View{}, nil, err
 	}
+	view, locator, err := s.EvidenceInTransaction(ctx, tx, info, id, revision)
+	if err != nil {
+		return evidence.View{}, nil, err
+	}
+	return view, locator, tx.Commit(ctx)
+}
+
+// EvidenceInTransaction is for an already-authorized owner transaction. It
+// performs only local fact/import reads; remote liveness checks precede it.
+func (s *Store) EvidenceInTransaction(ctx context.Context, tx pgx.Tx, info runtimeports.Execution, id string, revision int64) (evidence.View, *evidence.Locator, error) {
+	if !contains(info.Scope.Capabilities, "evidence") {
+		return evidence.View{}, nil, model.ErrConflict
+	}
 	var locator evidence.Locator
 	var raw []byte
-	err = tx.QueryRow(ctx, "SELECT origin_service,origin_id,origin_revision,content_hash,payload FROM "+s.schema()+".evidence_imports WHERE evidence_id=$1 AND origin_revision=$2 AND user_id=$3 AND conversation_id=$4", id, revision, info.UserID, info.ConversationID).Scan(&locator.OriginService, &locator.OriginID, &locator.OriginRevision, &locator.ContentHash, &raw)
+	err := tx.QueryRow(ctx, "SELECT origin_service,origin_id,origin_revision,content_hash,payload FROM "+s.schema()+".evidence_imports WHERE evidence_id=$1 AND origin_revision=$2 AND user_id=$3 AND conversation_id=$4", id, revision, info.UserID, info.ConversationID).Scan(&locator.OriginService, &locator.OriginID, &locator.OriginRevision, &locator.ContentHash, &raw)
 	if err == nil {
 		if !evidence.ManifestAllows(info.Scope.SourceScope, locator) {
 			return evidence.View{}, nil, model.ErrConflict
@@ -54,7 +67,7 @@ func (s *Store) LocalOrImport(ctx context.Context, ref runtimev1.ExecRef, id str
 		if err = freshRecord(record, info); err != nil {
 			return evidence.View{}, nil, err
 		}
-		return evidence.View{ReferenceID: id, ResultRevision: revision, Record: record}, &locator, tx.Commit(ctx)
+		return evidence.View{ReferenceID: id, ResultRevision: revision, Record: record}, &locator, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return evidence.View{}, nil, err
@@ -66,7 +79,7 @@ func (s *Store) LocalOrImport(ctx context.Context, ref runtimev1.ExecRef, id str
 	if !contains(info.Scope.Targets, record.Domain) {
 		return evidence.View{}, nil, model.ErrConflict
 	}
-	return evidence.View{ReferenceID: id, ResultRevision: revision, Record: record}, nil, tx.Commit(ctx)
+	return evidence.View{ReferenceID: id, ResultRevision: revision, Record: record}, nil, nil
 }
 
 func freshRecord(record runtimev1.SharedToolEvidenceRecord, info runtimeports.Execution) error {

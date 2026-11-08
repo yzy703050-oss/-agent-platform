@@ -35,7 +35,7 @@
 - [x] 3.1.3 A03 原子授权撤回、共享预算与Redis准入已实施；专项25项、后端576 passed/8 live skipped/0 failed，Docker增量应用/重放及权限/摘要审计通过，证据见docs/reports/runtime-v1/A03.md；真实Sentinel提升仍为A15。
 - [x] 3.1.4 A04 固定期限的Run接纳、入口Job认领/续租与原子终态已实施；专项23项、后端599 passed/8 live skipped/0 failed，Docker增量应用/重放及权限/摘要审计通过，证据见docs/reports/runtime-v1/A04.md；完整Eino恢复与应用接线仍为A08/A13。
 - [x] 3.1.5 A05 无计划共享查询、模型计量、HTTP MCP与证据导入已实施；专项42项、后端635 passed/8 live skipped/0 failed，Docker11迁移应用/重放及权限/摘要审计通过，证据见docs/reports/runtime-v1/A05.md；API/Worker装配与真实模型仍在A13/A15。
-- [ ] 3.1.6 A06 正式计划、原子Patch及Task局部失效；完成依据见详细计划对应任务。
+- [x] 3.1.6 A06 正式计划、原子Patch、来源验证和Task局部失效已实施；专项26项、后端661 passed/8 live skipped/0 failed，Docker14迁移应用/重放及权限/摘要审计通过，证据见docs/reports/runtime-v1/A06.md；专业受理、循环及装配仍在A07/A10/A13。
 - [ ] 3.1.7 A07 Travel持久Task受理与四工具HTTP MCP；完成依据见详细计划对应任务。
 - [ ] 3.1.8 A08 Eino桥接、完整父断点与waiting联合提交；完成依据见详细计划对应任务。
 - [ ] 3.1.9 A09 Outbox轮询、Kafka接手与持久延迟Dispatch；完成依据见详细计划对应任务。

@@ -195,7 +195,14 @@ func (s *Service) Execute(ctx context.Context, ref runtimev1.ExecRef, in QueryIn
 }
 
 func (s *Service) fail(ctx context.Context, ref runtimev1.ExecRef, id, code string, cause error) error {
-	problem := &runtimev1.ErrorDetail{Code: code, Category: "provider", Message: "查询未能完成", RetryExhausted: code == "retry_exhausted", ModelAction: "report_failure"}
+	category := "unsupported"
+	if errors.Is(cause, model.ErrProviderTransient) || errors.Is(cause, runtimeports.ErrRetryExhausted) {
+		category = "transient"
+	}
+	if errors.Is(cause, context.DeadlineExceeded) {
+		category = "deadline"
+	}
+	problem := &runtimev1.ErrorDetail{Code: code, Category: category, Message: "查询未能完成", RetryExhausted: code == "retry_exhausted", ModelAction: "report_partial"}
 	if err := s.store.FailQuery(ctx, ref, id, problem); err != nil {
 		return err
 	}
@@ -208,6 +215,36 @@ func TravelProvider(domain, name, mode string, resources []string, search func(c
 	decode := func(raw json.RawMessage) (model.TravelQuery, error) {
 		var q model.TravelQuery
 		if err := ValidateObject(raw); err != nil {
+			return q, err
+		}
+		// Executor's formal Task parameters use departure_date and keyword
+		// arrays. Translate those representations into the retained client DTO;
+		// query_context still records the original accepted arguments.
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			return q, err
+		}
+		if departure, exists := fields["departure_date"]; exists {
+			if domain != "train" {
+				return q, model.ErrInvalidInput
+			}
+			if _, duplicate := fields["date"]; duplicate {
+				return q, model.ErrInvalidInput
+			}
+			fields["date"] = departure
+			delete(fields, "departure_date")
+		}
+		if keywords, exists := fields["keywords"]; exists && strings.HasPrefix(strings.TrimSpace(string(keywords)), "[") {
+			var values []string
+			if err := json.Unmarshal(keywords, &values); err != nil || values == nil {
+				return q, model.ErrInvalidInput
+			}
+			encoded, _ := json.Marshal(strings.Join(values, " "))
+			fields["keywords"] = encoded
+		}
+		var err error
+		raw, err = json.Marshal(fields)
+		if err != nil {
 			return q, err
 		}
 		dec := json.NewDecoder(strings.NewReader(string(raw)))

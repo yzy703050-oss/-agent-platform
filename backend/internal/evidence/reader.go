@@ -28,6 +28,17 @@ type Locator struct {
 	OriginRevision int64  `json:"origin_revision"`
 	ContentHash    string `json:"content_hash"`
 }
+
+// QueryContext is written by the call repository, never trusted from provider
+// output. It permits input/coverage checks after crossing the fact boundary.
+type QueryContext struct {
+	Domain    string          `json:"domain"`
+	Mode      string          `json:"mode"`
+	Provider  string          `json:"provider"`
+	Arguments json.RawMessage `json:"arguments"`
+	InputHash string          `json:"input_hash"`
+	Coverage  string          `json:"coverage"`
+}
 type View struct {
 	ReferenceID    string
 	ResultRevision int64

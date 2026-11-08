@@ -325,28 +325,35 @@ go test ./tests/runtimeintegration -run 'Test(DirectQuery|RetryFour|SavedEvidenc
 - Create: backend/internal/repository/travelpg/actions.go
 - Create: backend/internal/service/travelplan/patch_test.go
 - Create: backend/tests/runtimeintegration/plan_commit_test.go
+- Create: backend/internal/service/travelplan/inputs.go、results.go；backend/internal/repository/travelpg/plan_results.go、plan_sources.go
+- Create: backend/internal/repository/runtimepg/transaction.go（短事务前后执行权校验）
+- Create: backend/migrations/control/006_memory_projection.up.sql、platform/005_memory_projection.up.sql、travel/003_execution_results.up.sql
+- Modify: backend/internal/migration/runner.go、internal/evidence/reader.go、repository/runtimepg/evidence.go、tools.go；internal/toolquery/service.go；scripts/verify-runtime.ps1
+- Modify: backend/tests/runtimeintegration/shared_query_test.go、migration_test.go（实际查询输入证明、正式失败枚举与新增迁移版本）
 
 **Interfaces:**
 - Consumes: A01 PlanDefinition/PlanPatch/PlanSnapshot/CommitResult/EvidenceRef；A03授权；A05证据及受控跨服务来源。
 - Produces: travelplan.Service.Create(ctx context.Context,ref runtimev1.ExecRef,operationID string,definition runtimev1.PlanDefinition) (runtimev1.CommitResult,error)；ApplyPatch(ctx context.Context,ref runtimev1.ExecRef,operationID string,patch runtimev1.PlanPatch) (runtimev1.CommitResult,error)；View(ctx context.Context,ref runtimev1.ExecRef,planID string) (runtimev1.PlanView,error)；AcceptQueryResult(ctx context.Context,ref runtimev1.ExecRef,request runtimev1.ExecutionRequest,view evidence.View) (runtimev1.ExecutionResult,error)。
 
-- [ ] **Step 1 — 先写有意义的失败测试：** TestPatchAtomicGraphAndCAS；TestTaskDefinitionInvalidatesAllItsItems；TestSelectionAndRefreshVersions；TestUnknownPriceAndProvenance；TestCommittedActionReplay。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
+- [x] **Step 1 — 先写有意义的失败测试：** TestPatchAtomicGraphAndCAS；TestTaskDefinitionInvalidatesAllItsItems；TestSelectionAndRefreshVersions；TestUnknownPriceAndProvenance；TestCommittedActionReplay。下列断言写入该任务测试；场景准备、屏障和故障点使用列出的fixture/消费接口，不访问真实用户数据。
 ```go
 if changedTaskRevision != oldTaskRevision+1 || unchangedTaskQueriedAgain { t.Fatal("wrong invalidation") }
 if selectionTaskRevision != oldTaskRevision || refreshedGeneration != oldGeneration+1 { t.Fatal("version conflation") }
 if failedPatchChangedPlan || repeatedOperationAddedRevision { t.Fatal("non-atomic replay") }
 ```
-- [ ] **Step 2 — 运行并确认红灯根因：**
+- [x] **Step 2 — 运行并确认红灯根因：**
 ```powershell
 go test ./internal/service/travelplan -count=1
 if ($LASTEXITCODE -ne 0) { throw '上一项验证失败' }
 go test ./tests/runtimeintegration -run 'Test(PatchAtomic|TaskDefinition|SelectionAndRefresh|UnknownPrice|CommittedAction)' -count=1 -v
 ```
 预期：FAIL，新定义/Patch边界不存在，或旧hard/soft/整份计划升版规则不符合新Task/Item语义。
-- [ ] **Step 3 — 最小实现：** 稳定Stop/Leg/Task/Item ID、金额整数/未知null、来源优先与结构合法性分离。首版完整定义、后续允许字段set/unset与稳定ID业务操作；私有副本顺序应用后整图校验，删除必须同Patch处理引用，拒绝任意JSON Pointer/数组下标。本地事务提交snapshot/current pointer/actions结果/选择失效/执行安排；同operation同hash返回原回执。有效Task定义含路线/要求，变化全Task重查，无关Task保留；selection不升查询版本，refresh只增generation，同值Patch不造修订。程序不做hard/soft候选资格过滤。
-- [ ] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
+- [x] **Step 3 — 最小实现：** 稳定Stop/Leg/Task/Item ID、金额整数/未知null、来源优先与结构合法性分离。首版完整定义、后续允许字段set/unset与稳定ID业务操作；私有副本顺序应用后整图校验，删除必须同Patch处理引用，拒绝任意JSON Pointer/数组下标。本地事务提交snapshot/current pointer/actions结果/选择失效/执行安排；同operation同hash返回原回执。有效Task定义含路线/要求，变化全Task重查，无关Task保留；selection不升查询版本，refresh只增generation，同值Patch不造修订。程序不做hard/soft候选资格过滤。
+- [x] **Step 4 — 使用Step 2同一命令复测并整理：** 目标测试PASS、无意外SKIP；仅在新变化/失败表明有必要时扩大回归范围。
 完成条件：原多城fixture、往返关联、最小单项安排、缺参最小计划及所有Patch冲突/回放/迟到证据测试通过；未知与部分结果不伪成功。
-- [ ] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A06 正式计划、原子Patch及Task局部失效`）。
+- [x] **Step 5 — 审查与记录：** 核对Spec/接口/差异及实际输出，更新原tasks映射项和本计划步骤；按所选执行方式复审后，仅提交本任务增量（建议提交消息：`feat(runtime): A06 正式计划、原子Patch及Task局部失效`）。
+
+验收记录：2026-11-08专项26项通过；后端661 passed/8 live skipped/0 failed；静态检查、模块/构建、脚本6项、Docker14迁移应用/重放及权限/摘要审计通过。并行专项一次fixture TCP绑定失败已留档，串行复核通过。单代理自审与人工规格映射见[报告](../../reports/runtime-v1/A06.md)。
 
 ### A07：Travel持久Task受理与四工具HTTP MCP
 
